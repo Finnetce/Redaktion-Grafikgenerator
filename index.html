@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Infografik-Generator — finanzen.net / TraderFox</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --red: #E3000F;
+  --red-dark: #b8000c;
+  --red-light: #fff0f0;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+  --white: #ffffff;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.08), 0 2px 6px rgba(0,0,0,.05);
+  --shadow-lg: 0 10px 40px rgba(0,0,0,.10), 0 4px 12px rgba(0,0,0,.06);
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-lg: 14px;
+}
+
+html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+body { font-family: 'Inter', system-ui, sans-serif; background: var(--gray-50); color: var(--gray-800); min-height: 100vh; }
+
+/* ── TOP BAR ── */
+.topbar {
+  background: var(--white);
+  border-bottom: 1px solid var(--gray-200);
+  padding: 0 24px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.topbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+.topbar-logo-mark {
+  width: 32px;
+  height: 32px;
+  background: var(--red);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.topbar-logo-mark svg { display: block; }
+.topbar-brand-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gray-900);
+  letter-spacing: -0.2px;
+}
+.topbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--gray-200);
+  margin: 0 4px;
+}
+.topbar-app-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-500);
+}
+
+/* ── LAYOUT ── */
+.page { max-width: 720px; margin: 0 auto; padding: 40px 20px 80px; }
+
+/* ── HEADER ── */
+.page-header { margin-bottom: 32px; }
+.page-header-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--red);
+  margin-bottom: 10px;
+}
+.page-header-eyebrow::before {
+  content: '';
+  display: block;
+  width: 16px;
+  height: 2px;
+  background: var(--red);
+  border-radius: 1px;
+}
+.page-header h1 {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--gray-900);
+  letter-spacing: -0.6px;
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+.page-header p {
+  font-size: 14px;
+  color: var(--gray-500);
+  line-height: 1.6;
+  max-width: 520px;
+}
+
+/* ── CARD ── */
+.card {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.card + .card { margin-top: 16px; }
+
+.card-section {
+  padding: 24px;
+}
+.card-section + .card-section {
+  border-top: 1px solid var(--gray-100);
+}
+
+/* ── LABELS ── */
+.field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-600);
+  letter-spacing: 0.3px;
+  margin-bottom: 8px;
+}
+.field-label-hint {
+  font-weight: 400;
+  color: var(--gray-400);
+  margin-left: 6px;
+}
+
+/* ── INPUTS ── */
+textarea, input[type="email"], input[type="text"], input[type="date"], select {
+  width: 100%;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  color: var(--gray-800);
+  background: var(--white);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius);
+  transition: border-color .15s, box-shadow .15s;
+  appearance: none;
+  -webkit-appearance: none;
+}
+textarea { min-height: 160px; padding: 14px 16px; line-height: 1.6; resize: vertical; }
+input[type="email"], input[type="text"], input[type="date"] { padding: 10px 14px; height: 42px; }
+select { padding: 10px 36px 10px 14px; height: 42px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 13px center;
+}
+textarea:focus, input:focus, select:focus {
+  outline: none;
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(227,0,15,.08);
+}
+textarea::placeholder, input::placeholder { color: var(--gray-400); }
+select option { background: var(--white); color: var(--gray-800); }
+
+/* ── PATH BADGE ── */
+.path-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+.path-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.path-A { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+.path-A::before { background: #22c55e; }
+.path-C { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.path-C::before { background: #3b82f6; }
+.path-B { background: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff; }
+.path-B::before { background: #a855f7; }
+
+.hint-text { font-size: 12px; color: var(--gray-400); line-height: 1.5; margin-top: 6px; }
+
+/* ── GRID ── */
+.input-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+/* ── SUBMIT BUTTON ── */
+.btn-submit {
+  width: 100%;
+  padding: 14px 24px;
+  background: var(--red);
+  color: var(--white);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background .15s, transform .1s, box-shadow .15s;
+  letter-spacing: -0.1px;
+  box-shadow: 0 2px 8px rgba(227,0,15,.25);
+}
+.btn-submit:hover:not(:disabled) {
+  background: var(--red-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(227,0,15,.30);
+}
+.btn-submit:active:not(:disabled) { transform: translateY(0); }
+.btn-submit:disabled {
+  background: var(--gray-200);
+  color: var(--gray-400);
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* ── PROGRESS ── */
+.progress {
+  display: none;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 24px;
+  margin-top: 16px;
+}
+.progress.visible { display: block; }
+
+.progress-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--gray-100);
+}
+.progress-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--gray-200);
+  border-top-color: var(--red);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  flex-shrink: 0;
+}
+.progress-header-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-800);
+}
+.progress-header-sub {
+  font-size: 12px;
+  color: var(--gray-400);
+  margin-top: 1px;
+}
+
+.progress-steps { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.pstep {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-400);
+  transition: all .25s;
+}
+.pstep.active {
+  color: var(--gray-800);
+  background: var(--gray-50);
+}
+.pstep.done {
+  color: var(--gray-500);
+}
+.pstep-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--gray-200);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  transition: all .25s;
+}
+.pstep.active .pstep-icon {
+  border-color: var(--red);
+  border-top-color: transparent;
+  animation: spin .7s linear infinite;
+}
+.pstep.done .pstep-icon {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #16a34a;
+}
+.dots-anim::after { content: ''; animation: dots 1.4s steps(4,end) infinite; }
+@keyframes dots { 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── ERROR ── */
+.status-error {
+  display: none;
+  margin-top: 16px;
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 500;
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+}
+.status-error.visible { display: flex; align-items: flex-start; gap: 10px; }
+.status-error::before { content: '⚠'; flex-shrink: 0; margin-top: 1px; }
+
+/* ── RESULT ── */
+.result-area { display: none; margin-top: 16px; }
+.result-area.visible { display: block; }
+
+.result-card {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.result-image-wrap {
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-100);
+  padding: 20px;
+}
+.result-image-wrap img { width: 100%; border-radius: var(--radius-sm); display: block; box-shadow: var(--shadow-md); }
+
+.result-actions {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 0;
+}
+.result-actions .btn-action {
+  padding: 14px 20px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  text-align: center;
+  color: var(--gray-600);
+}
+.result-actions .btn-action + .btn-action { border-left: 1px solid var(--gray-100); }
+.result-actions .btn-action:hover { background: var(--gray-50); color: var(--gray-900); }
+.result-actions .btn-action.primary {
+  color: var(--red);
+  font-weight: 700;
+}
+.result-actions .btn-action.primary:hover { background: var(--red-light); }
+
+/* ── FOOTER NOTE ── */
+.footer-note {
+  margin-top: 40px;
+  padding: 16px 20px;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--gray-400);
+  line-height: 1.6;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.footer-note::before { content: 'ℹ'; flex-shrink: 0; color: var(--gray-400); }
+.footer-note code {
+  font-family: ui-monospace, 'SF Mono', monospace;
+  background: var(--gray-100);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: var(--gray-600);
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 600px) {
+  .page { padding: 24px 16px 60px; }
+  .page-header h1 { font-size: 22px; }
+  .input-grid-2 { grid-template-columns: 1fr; }
+  .result-actions { grid-template-columns: 1fr; }
+  .result-actions .btn-action + .btn-action { border-left: none; border-top: 1px solid var(--gray-100); }
+  .topbar-app-name { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <a href="#" class="topbar-logo">
+    <div class="topbar-logo-mark">
+      <!-- finanzen.net Würfel-Logo stylized -->
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="1" width="7" height="7" rx="1.5" fill="white"/>
+        <rect x="10" y="1" width="7" height="7" rx="1.5" fill="white" fill-opacity=".6"/>
+        <rect x="1" y="10" width="7" height="7" rx="1.5" fill="white" fill-opacity=".6"/>
+        <rect x="10" y="10" width="7" height="7" rx="1.5" fill="white" fill-opacity=".3"/>
+      </svg>
+    </div>
+    <span class="topbar-brand-name">finanzen.net</span>
+  </a>
+  <div class="topbar-divider"></div>
+  <span class="topbar-app-name">Infografik-Generator</span>
+</header>
+
+<!-- MAIN -->
+<main class="page">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="page-header-eyebrow">KI-Infografik-Pipeline</div>
+    <h1>Infografik-Generator</h1>
+    <p>Typ wählen, Quelltext einfügen, Größe festlegen — fertig. Format, Layout und Modell sind je Typ automatisch hinterlegt.</p>
+  </div>
+
+  <!-- Form -->
+  <form id="generator-form" onsubmit="handleSubmit(event)">
+
+    <!-- Typ & Pfad -->
+    <div class="card">
+      <div class="card-section">
+        <label class="field-label" for="usecase">Was möchtest du erstellen?</label>
+        <select id="usecase" onchange="onUseCaseChange()">
+          <optgroup label="Daten · exakt &amp; reproduzierbar">
+            <option value="earnings_radar">Earnings-Radar — Quartalstermine der Woche</option>
+            <option value="quadranten_analyse">4-Quadranten-Analyse — Aktien-Matrix</option>
+            <option value="musterdepot_tabelle">Musterdepot-Tabelle — Depot-Übersicht</option>
+          </optgroup>
+          <optgroup label="KI-Hintergrund + exakte Daten">
+            <option value="top5_scoreboard" selected>Top-5 Scoreboard — Wochengewinner je Megatrend</option>
+            <option value="gwl_dashboard">Großwetterlage-Dashboard — GD20/50/200</option>
+            <option value="kpi_steckbrief">Unternehmens-Steckbrief — Kernzahlen</option>
+            <option value="tenbagger_magazinseite">Tenbagger-Magazinseite — Portrait 535×725</option>
+            <option value="blog_title_card">Blog Title-Card — Featured Image</option>
+            <option value="screening_funnel">Screening-Funnel — Filterlogik als Trichter</option>
+          </optgroup>
+          <optgroup label="Voll-KI-Bild">
+            <option value="konzept_illustration">Konzept-Illustration — Story zur Einleitung</option>
+            <option value="meinung_3_gruende">Meinungs-Grafik — 3 Gründe</option>
+            <option value="header_teaser">Header- / Teaser-Bild — Klick-Anreiz</option>
+            <option value="saisonalitaeten">Saisonalitäten (TraderZeitung)</option>
+            <option value="ranglisten">Ranglisten / Pivotal Points (TraderZeitung)</option>
+          </optgroup>
+        </select>
+        <div>
+          <span class="path-badge" id="path-badge"></span>
+          <div class="hint-text" id="usecase-hint"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quelltext -->
+    <div class="card" style="margin-top:16px;">
+      <div class="card-section">
+        <label class="field-label" for="article-text">
+          Quelltext / Daten
+          <span class="field-label-hint">alle Zahlen und Namen müssen wörtlich enthalten sein</span>
+        </label>
+        <textarea id="article-text" placeholder="Artikeltext oder Datenliste hier einfügen …" required></textarea>
+      </div>
+    </div>
+
+    <!-- Optionen -->
+    <div class="card" style="margin-top:16px;">
+      <div class="card-section">
+        <div class="input-grid-2">
+          <div>
+            <label class="field-label" for="branding">Branding</label>
+            <select id="branding">
+              <option value="kein_branding" selected>Kein Branding</option>
+              <option value="finanzen_net">finanzen.net</option>
+              <option value="megatrend">MEGATREND</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="format">Bildgröße</label>
+            <select id="format" onchange="onFormatChange()"></select>
+            <div class="hint-text" id="format-hint"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Typ-Options (Megatrend, Sektor, etc.) -->
+      <div class="card-section" id="type-options-section" style="display:none;">
+        <div class="input-grid-2" id="type-options"></div>
+      </div>
+
+      <!-- E-Mail & Ausgabe -->
+      <div class="card-section">
+        <div class="input-grid-2">
+          <div>
+            <label class="field-label" for="email">
+              E-Mail
+              <span class="field-label-hint">optional</span>
+            </label>
+            <input type="email" id="email" placeholder="name@traderfox.com">
+          </div>
+          <div>
+            <label class="field-label" for="ausgabe">
+              Ausgabe
+              <span class="field-label-hint">optional</span>
+            </label>
+            <input type="text" id="ausgabe" placeholder="z. B. KW25 / Juni 2026">
+          </div>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <div class="card-section" style="background: var(--gray-50); padding-top:20px; padding-bottom:20px;">
+        <button type="submit" class="btn-submit" id="btn-submit">Infografik erstellen</button>
+      </div>
+    </div>
+
+  </form>
+
+  <!-- Progress -->
+  <div class="progress" id="progress">
+    <div class="progress-header">
+      <div class="progress-spinner" id="progress-spinner"></div>
+      <div>
+        <div class="progress-header-text">Deine Infografik wird erstellt</div>
+        <div class="progress-header-sub">Status wird automatisch aktualisiert …</div>
+      </div>
+    </div>
+    <ul class="progress-steps" id="progress-steps"></ul>
+  </div>
+
+  <!-- Error -->
+  <div class="status-error" id="status-error"></div>
+
+  <!-- Result -->
+  <div class="result-area" id="result-area">
+    <div class="result-card">
+      <div class="result-image-wrap">
+        <img id="result-image" src="" alt="Generierte Infografik">
+      </div>
+      <div class="result-actions">
+        <button class="btn-action primary" onclick="downloadImg()">↓ Herunterladen</button>
+        <button class="btn-action" onclick="copyUrl()">URL kopieren</button>
+        <button class="btn-action" onclick="resetForm()">Neue Grafik</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer Note -->
+  <div class="footer-note">
+    Format, Modell und Layout sind je Typ automatisch aus Airtable geladen. Prompts pflegst du in <code>use_case_config.template_spec</code> — ohne Änderung an dieser Seite.
+  </div>
+
+</main>
+
+<script>
+// ======================= KONFIGURATION =======================
+const SUBMIT_WEBHOOK_URL = 'https://hook.eu1.make.com/43zhjc4fuuaehhbkpkkns2zfvtplf83s';
+const STATUS_WEBHOOK_URL  = 'https://hook.eu1.make.com/64q15jo54389ibuayvu7o9pfrwqnut26';
+const POLL_INTERVAL_MS   = 2500;
+const POLL_TIMEOUT_MS    = 180000;
+
+// ======================= USE-CASE MAP =======================
+const USECASES = {
+  earnings_radar:         {path:'A', hint:'Exakt gerendert, font-identisch, voll reproduzierbar.'},
+  quadranten_analyse:     {path:'A', hint:'Exakt gerendert, font-identisch, voll reproduzierbar.'},
+  musterdepot_tabelle:    {path:'A', hint:'Exakt aus strukturierten Daten. EUR/USD gleich groß, Grün/Rot-Logik.'},
+  top5_scoreboard:        {path:'C', hint:'KI-Themenhintergrund, exakter Datenlayer. Nur positive Werte, absteigend, Top 5.'},
+  gwl_dashboard:          {path:'C', hint:'KI-Themenhintergrund, Heatmap-Datenlayer GD20/50/200.'},
+  kpi_steckbrief:         {path:'C', hint:'KI-Themenhintergrund, 3-Karten-Datenlayer.'},
+  tenbagger_magazinseite: {path:'C', hint:'KI-Hintergrund + Datenlayer im Hochformat 535 × 725.'},
+  blog_title_card:        {path:'C', hint:'KI-Hintergrund + Titel-Datenlayer.'},
+  screening_funnel:       {path:'C', hint:'KI-Hintergrund + Trichter-Datenlayer.'},
+  konzept_illustration:   {path:'B', hint:'Voll-KI-Bild. Atmosphärisch, kein Serien-Versprechen.'},
+  meinung_3_gruende:      {path:'B', hint:'Voll-KI-Bild mit 3 Gründen.'},
+  header_teaser:          {path:'B', hint:'Voll-KI-Bild, atmosphärisch, wenig Text.'},
+  saisonalitaeten:        {path:'B', hint:'Voll-KI-Bild (Thorsten-Stil), Sektor-Akzentfarbe.'},
+  ranglisten:             {path:'B', hint:'Voll-KI-Bild (Thorsten-Stil), Sektor-Akzentfarbe.'}
+};
+
+const PATH_LABELS = {A:'Exakt & reproduzierbar', C:'KI-Hintergrund + Daten', B:'Voll-KI-Bild'};
+
+// ======================= FORMATE =======================
+const FORMATS = {
+  earnings_radar:         [{l:'1376 × 768',w:1376,h:768,s:2}],
+  quadranten_analyse:     [{l:'1920 × 1080 (16:9)',w:1920,h:1080,s:1}],
+  musterdepot_tabelle:    [{l:'1045 × 622',w:1045,h:622,s:2}],
+  top5_scoreboard:        [{l:'1376 × 768 (Standard)',w:1376,h:768,s:2},{l:'2752 × 1536 (Retina)',w:2752,h:1536,s:1}],
+  gwl_dashboard:          [{l:'1366 × 700',w:1366,h:700,s:2}],
+  kpi_steckbrief:         [{l:'1920 × 1080 (16:9)',w:1920,h:1080,s:1},{l:'510 × 278 (aktien ETF)',w:510.236,h:278.374,s:2},{l:'510 × 364 (Magazin)',w:510.236,h:364,s:2},{l:'561 × 406 (aktienmag alt)',w:561,h:406,s:2}],
+  tenbagger_magazinseite: [{l:'535 × 725 (Portrait)',w:535,h:725,s:2}],
+  blog_title_card:        [{l:'1200 × 628',w:1200,h:628,s:1}],
+  screening_funnel:       [{l:'510 × 278',w:510.236,h:278.374,s:2},{l:'1536 × 2048 (Portrait 3:4)',w:1536,h:2048,s:1}],
+  konzept_illustration:   [{l:'510 × 278',w:510.236,h:278.374,s:2},{l:'1920 × 1080',w:1920,h:1080,s:1}],
+  meinung_3_gruende:      [{l:'1920 × 1080 (16:9)',w:1920,h:1080,s:1}],
+  header_teaser:          [{l:'1920 × 1080 (16:9)',w:1920,h:1080,s:1}],
+  saisonalitaeten:        [{l:'1283 × 722',w:1283,h:722,s:2}],
+  ranglisten:             [{l:'856 × 467',w:856,h:467,s:2}]
+};
+
+// ======================= TYP-OPTIONEN =======================
+const TYPE_OPTIONS = {
+  top5_scoreboard:  [{key:'megatrend',label:'Megatrend',type:'select',values:['KI','Defense & Space','Weltraum','Rohstoffsicherung']},{key:'stichtag',label:'Stichtag',type:'date'}],
+  gwl_dashboard:    [{key:'megatrend',label:'Megatrend',type:'select',values:['KI','Defense & Space','Rohstoffsicherung']},{key:'stichtag',label:'Stichtag',type:'date'}],
+  earnings_radar:   [{key:'megatrend',label:'Megatrend',type:'select',values:['KI','Defense & Space','Rohstoffsicherung','Alle']}],
+  saisonalitaeten:  [{key:'sektor',label:'Sektor (Akzentfarbe)',type:'select',values:['Auto','Halbleiter/KI','Fintech/Banken','Energie','Industrie','Gesundheit','Verteidigung','Konsum']}],
+  ranglisten:       [{key:'sektor',label:'Sektor (Akzentfarbe)',type:'select',values:['Auto','Halbleiter/KI','Fintech/Banken','Energie','Industrie','Gesundheit','Verteidigung','Konsum']}]
+};
+
+// ======================= SCHRITTE je Pfad =======================
+const STEPS = {
+  A:[['queued','In Warteschlange'],['extracting','Daten werden analysiert'],['rendering','Layout wird gerendert'],['done','Fertig']],
+  C:[['queued','In Warteschlange'],['extracting','Daten werden analysiert'],['bg','KI-Hintergrund wird erstellt'],['rendering','Datenlayer wird gerendert'],['done','Fertig']],
+  B:[['queued','In Warteschlange'],['extracting','Daten werden analysiert'],['image','KI-Bild wird generiert'],['rendering','Finalisierung'],['done','Fertig']]
+};
+
+let pollTimer = null, pollStart = 0;
+
+// ── HELPERS ──
+function ratioStr(w,h){
+  const snap = [[1,1],[4,5],[5,4],[2,3],[3,2],[3,4],[4,3],[16,9],[9,16],[21,9]];
+  const t = w/h; let best = snap[0], bd = 1e9;
+  snap.forEach(r => { const d = Math.abs(r[0]/r[1]-t); if(d<bd){bd=d;best=r;} });
+  return best[0]+':'+best[1];
+}
+
+// ── USE CASE CHANGE ──
+function onUseCaseChange(){
+  const uc = document.getElementById('usecase').value;
+  const cfg = USECASES[uc];
+  const badge = document.getElementById('path-badge');
+  badge.textContent = PATH_LABELS[cfg.path];
+  badge.className = 'path-badge path-' + cfg.path;
+  document.getElementById('usecase-hint').textContent = cfg.hint;
+  buildFormatOptions(uc);
+  buildTypeOptions(uc);
+}
+
+function buildFormatOptions(uc){
+  const sel = document.getElementById('format');
+  sel.innerHTML = '';
+  (FORMATS[uc]||[]).forEach((f,i) => {
+    const o = document.createElement('option');
+    o.value = i; o.textContent = f.l;
+    o.dataset.w = f.w; o.dataset.h = f.h; o.dataset.s = f.s||1;
+    sel.appendChild(o);
+  });
+  onFormatChange();
+}
+
+function onFormatChange(){
+  const o = document.getElementById('format').selectedOptions[0];
+  if(!o) return;
+  const w = parseFloat(o.dataset.w), h = parseFloat(o.dataset.h);
+  document.getElementById('format-hint').textContent = ratioStr(w,h) + ' · ' + w + ' × ' + h + ' px';
+}
+
+function buildTypeOptions(uc){
+  const section = document.getElementById('type-options-section');
+  const wrap = document.getElementById('type-options');
+  wrap.innerHTML = '';
+  const opts = TYPE_OPTIONS[uc];
+  if(!opts){ section.style.display='none'; return; }
+  section.style.display = 'block';
+  opts.forEach(opt => {
+    const div = document.createElement('div');
+    const lbl = '<label class="field-label">' + opt.label + '</label>';
+    if(opt.type === 'select'){
+      div.innerHTML = lbl + '<select data-optkey="'+opt.key+'">' + opt.values.map(v=>'<option value="'+v+'">'+v+'</option>').join('') + '</select>';
+    } else if(opt.type === 'date'){
+      div.innerHTML = lbl + '<input type="date" data-optkey="'+opt.key+'">';
+    }
+    wrap.appendChild(div);
+  });
+}
+
+function collectTypeOptions(){
+  const out = {};
+  document.querySelectorAll('#type-options [data-optkey]').forEach(el => out[el.dataset.optkey] = el.value);
+  return out;
+}
+
+// ── PROGRESS RENDERING ──
+function renderSteps(path, statusKey){
+  const steps = STEPS[path] || STEPS.C;
+  const idx = steps.findIndex(s => s[0] === statusKey);
+  const ul = document.getElementById('progress-steps');
+  ul.innerHTML = '';
+
+  // Hide spinner when done
+  const spinner = document.getElementById('progress-spinner');
+  if(statusKey === 'done'){
+    spinner.style.borderTopColor = '#22c55e';
+    spinner.style.animation = 'none';
+    spinner.style.border = '2px solid #22c55e';
+  }
+
+  steps.forEach((s, i) => {
+    const li = document.createElement('li');
+    li.className = 'pstep';
+    let state = '';
+    if(idx < 0){ if(i===0) state='active'; }
+    else if(i < idx) state = 'done';
+    else if(i === idx) state = (s[0]==='done') ? 'done' : 'active';
+    if(state) li.classList.add(state);
+
+    const iconContent = state==='done' ? '✓' : '';
+    const label = state==='active' && s[0]!=='done'
+      ? '<span>'+s[1]+'</span><span class="dots-anim"></span>'
+      : '<span>'+s[1]+'</span>';
+
+    li.innerHTML = '<span class="pstep-icon">'+iconContent+'</span>' + label;
+    ul.appendChild(li);
+  });
+}
+
+function showError(msg){
+  const e = document.getElementById('status-error');
+  e.textContent = msg;
+  e.classList.add('visible');
+  document.getElementById('progress').classList.remove('visible');
+  const b = document.getElementById('btn-submit');
+  b.disabled = false;
+  b.textContent = 'Erneut versuchen';
+}
+
+function showResult(url){
+  document.getElementById('progress').classList.remove('visible');
+  document.getElementById('result-image').src = url;
+  const area = document.getElementById('result-area');
+  area.classList.add('visible');
+  area.scrollIntoView({behavior:'smooth', block:'start'});
+  window._lastImageUrl = url;
+}
+
+function copyUrl(){
+  if(!window._lastImageUrl) return;
+  navigator.clipboard.writeText(window._lastImageUrl).then(() => {
+    const b = document.querySelector('.btn-action[onclick="copyUrl()"]');
+    b.textContent = 'Kopiert!';
+    setTimeout(() => b.textContent = 'URL kopieren', 2000);
+  });
+}
+
+function downloadImg(){
+  const url = window._lastImageUrl;
+  if(!url) return;
+  fetch(url, {mode:'cors'})
+    .then(r => { if(!r.ok) throw 0; return r.blob(); })
+    .then(b => {
+      const u = URL.createObjectURL(b);
+      const a = document.createElement('a');
+      a.href = u; a.download = 'infografik-' + new Date().toISOString().slice(0,10) + '.png';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(u);
+    })
+    .catch(() => window.open(url, '_blank'));
+}
+
+function resetForm(){
+  if(pollTimer) clearInterval(pollTimer);
+  document.getElementById('result-area').classList.remove('visible');
+  document.getElementById('progress').classList.remove('visible');
+  document.getElementById('status-error').classList.remove('visible');
+  // Reset spinner
+  const spinner = document.getElementById('progress-spinner');
+  spinner.style.border = '';
+  spinner.style.borderTopColor = '';
+  spinner.style.animation = '';
+  const b = document.getElementById('btn-submit');
+  b.disabled = false; b.textContent = 'Infografik erstellen';
+  document.getElementById('article-text').value = '';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+// ── SUBMIT ──
+async function handleSubmit(e){
+  e.preventDefault();
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true; btn.textContent = 'Wird gestartet …';
+  document.getElementById('status-error').classList.remove('visible');
+  document.getElementById('result-area').classList.remove('visible');
+
+  const articleText = document.getElementById('article-text').value.trim();
+  const uc = document.getElementById('usecase').value;
+  const cfg = USECASES[uc];
+  const fo = document.getElementById('format').selectedOptions[0];
+  const w = parseFloat(fo.dataset.w), h = parseFloat(fo.dataset.h), scale = parseFloat(fo.dataset.s)||1;
+  const brandId = document.getElementById('branding').value;
+
+  if(!articleText || articleText.length < 30){
+    showError('Bitte einen vollständigen Quelltext einfügen (mindestens 30 Zeichen).');
+    return;
+  }
+
+  const payload = {
+    use_case: uc,
+    article_text: articleText,
+    brand_id: brandId,
+    viewport_width: w,
+    viewport_height: h,
+    device_scale: scale,
+    format_label: fo.textContent,
+    options: collectTypeOptions(),
+    email: document.getElementById('email').value.trim() || null,
+    ausgabe: document.getElementById('ausgabe').value.trim() || null,
+    submitted_at: new Date().toISOString()
+  };
+
+  // Progress sofort zeigen
+  renderSteps(cfg.path, 'queued');
+  const progressEl = document.getElementById('progress');
+  // Reset spinner state
+  const spinner = document.getElementById('progress-spinner');
+  spinner.style.border = '2px solid var(--gray-200)';
+  spinner.style.borderTopColor = 'var(--red)';
+  spinner.style.animation = 'spin .7s linear infinite';
+  progressEl.classList.add('visible');
+  progressEl.scrollIntoView({behavior:'smooth', block:'center'});
+
+  try {
+    const res = await fetch(SUBMIT_WEBHOOK_URL, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if(!res.ok) throw new Error('Start fehlgeschlagen (' + res.status + ')');
+    const data = await res.json();
+    const jobId = data.job_id || data.jobId || data.id;
+    if(!jobId) throw new Error('Keine job_id erhalten.');
+    btn.textContent = 'Läuft …';
+    startPolling(jobId, cfg.path);
+  } catch(err){
+    showError(err.message);
+  }
+}
+
+// ── POLLING ──
+function startPolling(jobId, path){
+  pollStart = Date.now();
+  pollTimer = setInterval(async () => {
+    if(Date.now() - pollStart > POLL_TIMEOUT_MS){
+      clearInterval(pollTimer);
+      showError('Zeitüberschreitung nach 3 Minuten. Bitte erneut versuchen.');
+      return;
+    }
+    try {
+      const res = await fetch(STATUS_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({job_id: jobId})
+      });
+      if(!res.ok) return;
+      const d = await res.json();
+      const status = (d.status||'').toLowerCase();
+      if(status==='rejected'||status==='error'){
+        clearInterval(pollTimer);
+        showError(d.message || d.errors || 'Generierung fehlgeschlagen.');
+        return;
+      }
+      renderSteps(path, status || 'extracting');
+      if(status === 'done'){
+        clearInterval(pollTimer);
+        const url = d.image_url || d.url;
+        if(url) showResult(url);
+        else showError('Fertig, aber keine Bild-URL zurückgegeben.');
+      }
+    } catch(e){ /* Netzwerkfehler ignorieren, weiter pollen */ }
+  }, POLL_INTERVAL_MS);
+}
+
+// Init
+onUseCaseChange();
+</script>
+</body>
+</html>
