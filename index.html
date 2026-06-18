@@ -583,7 +583,7 @@ select option { background: var(--white); color: var(--gray-800); }
 
   <!-- Footer Note -->
   <div class="footer-note">
-    Format, Modell und Layout sind je Typ automatisch aus Airtable geladen. Prompts pflegst du in <code>use_case_config.template_spec</code> — ohne Änderung an dieser Seite.
+    Wähle einen Infografik-Typ, füge deinen Quelltext ein und lege die Größe fest. Format und Layout sind je Typ optimiert. Alle Zahlen und Namen werden direkt aus deinem Quelltext übernommen.
   </div>
 
 </main>
@@ -766,6 +766,10 @@ function showResult(url){
   area.classList.add('visible');
   area.scrollIntoView({behavior:'smooth', block:'start'});
   window._lastImageUrl = url;
+  // Submit-Button zurücksetzen (sonst bleibt "Läuft …" stehen)
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = false;
+  btn.textContent = 'Infografik erstellen';
 }
 
 function copyUrl(){
