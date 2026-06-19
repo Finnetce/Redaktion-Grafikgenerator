@@ -1,919 +1,1900 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Infografik-Generator — finanzen.net / TraderFox</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Creative Studio · finanzen.net</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700;800;900&display=swap" rel="stylesheet" />
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+  :root{
+    --bg:#f3f5f8;
+    --panel:#ffffff;
+    --ink:#0f1722;
+    --ink-2:#283341;
+    --muted:#667085;
+    --faint:#98a2b3;
+    --line:#e7eaf0;
+    --line-2:#f1f3f7;
+    --navy:#0a1f44;
+    --navy-2:#142a55;
+    --accent:#00935d;
+    --accent-2:#00794d;
+    --tint:#eef2fb;
+    --tint-line:#cdd9f4;
+    --tint-ink:#1f3a8a;
+    --danger:#d0312d;
+    --shadow-sm:0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.05);
+    --shadow-md:0 4px 12px rgba(16,24,40,.07), 0 2px 4px rgba(16,24,40,.04);
+    --shadow-lg:0 18px 50px rgba(10,31,68,.16), 0 4px 14px rgba(10,31,68,.08);
+    --r-sm:8px; --r:11px; --r-lg:16px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased;font-feature-settings:"cv05","ss01"}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  input,select,textarea{font-family:inherit;color:inherit}
+  svg{display:block}
+  .ic{width:17px;height:17px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+  .ic-sm{width:15px;height:15px}
 
-*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  /* ---------- App bar ---------- */
+  .appbar{display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 20px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:11px}
+  .brand .mark{width:30px;height:30px;border-radius:9px;background:#093967;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.14), var(--shadow-sm);position:relative}
+  .brand .mark::after{content:"";position:absolute;width:7px;height:7px;border-radius:50%;background:#d70413;right:6px;bottom:6px}
+  .brand .mark::before{content:"f";position:absolute;left:7px;top:50%;transform:translateY(-52%);color:#fff;font-weight:800;font-size:17px;font-family:Inter}
+  .brand .nm{font-weight:800;letter-spacing:-0.02em;font-size:16px}
+  .brand .sub{display:block;font-size:11px;color:var(--faint);font-weight:600;letter-spacing:.02em;margin-top:-2px}
+  .appbar-right{display:flex;align-items:center;gap:12px}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--tint-ink);background:var(--tint);border:1px solid var(--tint-line);padding:5px 11px;border-radius:30px}
+  .badge .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .appbar-right .meta{font-size:12.5px;color:var(--muted);font-weight:500}
 
-:root {
-  --red: #E3000F;
-  --red-dark: #b8000c;
-  --red-light: #fff0f0;
-  --gray-50: #f9fafb;
-  --gray-100: #f3f4f6;
-  --gray-200: #e5e7eb;
-  --gray-300: #d1d5db;
-  --gray-400: #9ca3af;
-  --gray-500: #6b7280;
-  --gray-600: #4b5563;
-  --gray-700: #374151;
-  --gray-800: #1f2937;
-  --gray-900: #111827;
-  --white: #ffffff;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
-  --shadow-md: 0 4px 12px rgba(0,0,0,.08), 0 2px 6px rgba(0,0,0,.05);
-  --shadow-lg: 0 10px 40px rgba(0,0,0,.10), 0 4px 12px rgba(0,0,0,.06);
-  --radius: 10px;
-  --radius-sm: 6px;
-  --radius-lg: 14px;
-}
+  .view{display:none}
+  .view.active{display:block}
 
-html { font-size: 16px; -webkit-font-smoothing: antialiased; }
-body { font-family: 'Inter', system-ui, sans-serif; background: var(--gray-50); color: var(--gray-800); min-height: 100vh; }
+  /* ---------- Generator ---------- */
+  .gen-wrap{max-width:780px;margin:0 auto;padding:40px 24px 100px}
+  .gen-head{margin-bottom:8px}
+  .gen-eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  .gen-head h1{font-size:30px;font-weight:800;letter-spacing:-0.03em;margin-top:8px;line-height:1.1}
+  .gen-head p{color:var(--muted);font-size:14.5px;margin-top:8px;max-width:54ch;line-height:1.5}
 
-/* ── TOP BAR ── */
-.topbar {
-  background: var(--white);
-  border-bottom: 1px solid var(--gray-200);
-  padding: 0 24px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-.topbar-logo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  text-decoration: none;
-}
-.topbar-logo-mark {
-  width: 32px;
-  height: 32px;
-  background: var(--red);
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.topbar-logo-mark svg { display: block; }
-.topbar-brand-name {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--gray-900);
-  letter-spacing: -0.2px;
-}
-.topbar-divider {
-  width: 1px;
-  height: 20px;
-  background: var(--gray-200);
-  margin: 0 4px;
-}
-.topbar-app-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--gray-500);
-}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:22px;margin-top:18px;box-shadow:var(--shadow-sm)}
+  .card-h{display:flex;align-items:center;gap:9px;margin-bottom:16px}
+  .card-h .n{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--tint);color:var(--tint-ink)}
+  .card-h h3{font-size:14px;font-weight:700;letter-spacing:-0.01em}
+  .lab{display:block;font-size:12px;color:var(--muted);font-weight:600;margin:15px 0 7px}
+  .lab:first-of-type{margin-top:0}
+  .inp,.ta,.sel{width:100%;background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:11px 13px;font-size:13.5px;outline:none;transition:border-color .15s, box-shadow .15s}
+  .sel{appearance:none;-webkit-appearance:none;cursor:pointer}
+  .inp::placeholder,.ta::placeholder{color:var(--faint)}
+  .inp:focus,.ta:focus,.sel:focus{border-color:var(--tint-ink);box-shadow:0 0 0 3px rgba(42,76,173,.12)}
+  .ta{resize:vertical;min-height:92px;line-height:1.55}
+  .bul{display:flex;gap:9px;align-items:flex-start;margin-bottom:9px}
+  .bul .num{flex-shrink:0;width:22px;height:22px;border-radius:7px;background:var(--navy);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;margin-top:10px}
+  .bul .inp{flex:1}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 
-/* ── LAYOUT ── */
-.page { max-width: 720px; margin: 0 auto; padding: 40px 20px 80px; }
+  .seg{display:inline-flex;background:#f1f3f7;border:1px solid var(--line);border-radius:11px;padding:4px;gap:3px}
+  .seg button{font-size:13px;font-weight:600;padding:8px 15px;border-radius:8px;color:var(--muted);transition:.14s;white-space:nowrap}
+  .seg button.on{background:#fff;color:var(--navy);box-shadow:var(--shadow-sm)}
 
-/* ── HEADER ── */
-.page-header { margin-bottom: 32px; }
-.page-header-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: var(--red);
-  margin-bottom: 10px;
-}
-.page-header-eyebrow::before {
-  content: '';
-  display: block;
-  width: 16px;
-  height: 2px;
-  background: var(--red);
-  border-radius: 1px;
-}
-.page-header h1 {
-  font-size: 28px;
-  font-weight: 800;
-  color: var(--gray-900);
-  letter-spacing: -0.6px;
-  line-height: 1.2;
-  margin-bottom: 8px;
-}
-.page-header p {
-  font-size: 14px;
-  color: var(--gray-500);
-  line-height: 1.6;
-  max-width: 520px;
-}
+  .fmt-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}
+  .fmt{border:1.5px solid var(--line);border-radius:13px;padding:16px 8px 11px;text-align:center;transition:.14s;background:#fff;cursor:pointer}
+  .fmt:hover{border-color:var(--tint-line)}
+  .fmt.on{border-color:var(--tint-ink);background:var(--tint)}
+  .fmt .box{margin:0 auto 11px;background:#cfd8e6;border-radius:3px;transition:.14s}
+  .fmt.on .box{background:var(--tint-ink)}
+  .fmt .nm{font-size:12.5px;font-weight:700;color:var(--navy)}
+  .fmt .dm{font-size:10.5px;color:var(--faint);margin-top:1px}
 
-/* ── CARD ── */
-.card {
-  background: var(--white);
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-}
-.card + .card { margin-top: 16px; }
+  .gen-actions{display:flex;align-items:center;gap:16px;margin-top:26px}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:14px;padding:12px 22px;border-radius:12px;transition:.15s}
+  .btn-primary{background:var(--navy);color:#fff;box-shadow:var(--shadow-md)}
+  .btn-primary:hover{background:var(--navy-2);transform:translateY(-1px)}
+  .hint{font-size:12.5px;color:var(--faint);line-height:1.5}
 
-.card-section {
-  padding: 24px;
-}
-.card-section + .card-section {
-  border-top: 1px solid var(--gray-100);
-}
+  /* ---------- Editor ---------- */
+  .editor{display:none;grid-template-rows:auto 1fr;height:calc(100vh - 56px)}
+  .editor.active{display:grid}
+  .toolbar{display:flex;align-items:center;gap:3px;padding:9px 16px;background:var(--panel);border-bottom:1px solid var(--line);box-shadow:var(--shadow-sm);z-index:5}
+  .tool{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:550;color:var(--ink-2);padding:8px 12px;border-radius:9px;transition:.12s}
+  .tool:hover{background:#f1f3f7}
+  .tool.danger{color:var(--muted)} .tool.danger:hover{background:#fdeceb;color:var(--danger)}
+  .tool .ic{color:var(--muted)} .tool:hover .ic{color:var(--ink-2)}
+  .tsep{width:1px;height:24px;background:var(--line);margin:0 7px}
+  .spacer{flex:1}
+  .tool-solid{background:var(--navy);color:#fff;padding:9px 15px;border-radius:10px;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:7px}
+  .tool-solid:hover{background:var(--navy-2)}
+  .tool-solid .ic{color:#fff}
+  .tool-pub{background:var(--accent);color:#fff;padding:9px 15px;border-radius:10px;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:7px}
+  .tool-pub:hover{background:var(--accent-2)}
+  .tool-pub .ic{color:#fff}
 
-/* ── LABELS ── */
-.field-label {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--gray-600);
-  letter-spacing: 0.3px;
-  margin-bottom: 8px;
-}
-.field-label-hint {
-  font-weight: 400;
-  color: var(--gray-400);
-  margin-left: 6px;
-}
+  .work{display:grid;grid-template-columns:210px 1fr 280px;overflow:hidden}
 
-/* ── INPUTS ── */
-textarea, input[type="email"], input[type="text"], input[type="date"], select {
-  width: 100%;
-  font-family: 'Inter', system-ui, sans-serif;
-  font-size: 14px;
-  color: var(--gray-800);
-  background: var(--white);
-  border: 1px solid var(--gray-300);
-  border-radius: var(--radius);
-  transition: border-color .15s, box-shadow .15s;
-  appearance: none;
-  -webkit-appearance: none;
-}
-textarea { min-height: 160px; padding: 14px 16px; line-height: 1.6; resize: vertical; }
-input[type="email"], input[type="text"], input[type="date"] { padding: 10px 14px; height: 42px; }
-select { padding: 10px 36px 10px 14px; height: 42px; cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 13px center;
-}
-textarea:focus, input:focus, select:focus {
-  outline: none;
-  border-color: var(--red);
-  box-shadow: 0 0 0 3px rgba(227,0,15,.08);
-}
-textarea::placeholder, input::placeholder { color: var(--gray-400); }
-input:disabled, select:disabled { background: var(--gray-100); color: var(--gray-400); cursor: not-allowed; border-color: var(--gray-200); }
-select option { background: var(--white); color: var(--gray-800); }
+  /* slides */
+  .slides{background:var(--panel);border-right:1px solid var(--line);padding:16px 13px;overflow-y:auto}
+  .slides .h{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);font-weight:700;margin-bottom:13px;padding-left:3px}
+  .stab{display:flex;align-items:center;gap:11px;padding:8px;border-radius:11px;margin-bottom:7px;border:1.5px solid transparent;transition:.13s;cursor:pointer;position:relative}
+  .stab:hover{background:#f5f7fa}
+  .stab.on{background:var(--tint);border-color:var(--tint-line)}
+  .stab .thumb{width:42px;border-radius:6px;flex-shrink:0;box-shadow:var(--shadow-sm);object-fit:cover;background:#dde3ec}
+  .stab .thumb.ph{display:grid;place-items:center;color:var(--faint);font-weight:700;font-size:13px;aspect-ratio:4/5}
+  .stab .st-meta{flex:1;min-width:0}
+  .stab .st-name{font-size:13px;font-weight:650;color:var(--ink);line-height:1.2}
+  .stab .st-i{font-size:11px;color:var(--faint);margin-top:1px}
+  .stab .sx{position:absolute;top:5px;right:5px;width:18px;height:18px;border-radius:6px;display:grid;place-items:center;color:var(--faint);opacity:0;transition:.12s}
+  .stab:hover .sx{opacity:1}
+  .stab .sx:hover{background:#fff;color:var(--danger)}
+  .add-slide{width:100%;display:flex;align-items:center;justify-content:center;gap:7px;font-size:13px;font-weight:600;color:var(--tint-ink);padding:11px;border-radius:11px;border:1.5px dashed var(--tint-line);margin-top:4px;transition:.13s}
+  .add-slide:hover{background:var(--tint)}
 
-/* ── PATH BADGE ── */
-.path-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 10px;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
-}
-.path-badge::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.path-A { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
-.path-A::before { background: #22c55e; }
-.path-C { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
-.path-C::before { background: #3b82f6; }
-.path-B { background: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff; }
-.path-B::before { background: #a855f7; }
+  /* stage */
+  .stage{display:flex;align-items:center;justify-content:center;overflow:auto;padding:30px;
+    background:#eef0f3;
+    background-image:radial-gradient(circle, rgba(10,31,68,.07) 1px, transparent 1px);background-size:20px 20px}
+  .canvas-shell{border-radius:4px;background:#fff;box-shadow:var(--shadow-lg);overflow:hidden;line-height:0}
 
-.hint-text { font-size: 12px; color: var(--gray-400); line-height: 1.5; margin-top: 6px; }
+  /* props */
+  .props{background:var(--panel);border-left:1px solid var(--line);overflow-y:auto}
+  .props-h{padding:16px 16px 14px;border-bottom:1px solid var(--line-2)}
+  .props-h .t{font-size:13px;font-weight:700}
+  .props-h .s{font-size:12px;color:var(--faint);margin-top:3px;line-height:1.45}
+  .props-body{padding:6px 16px 24px}
+  .sel-tag{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:650;color:var(--tint-ink);background:var(--tint);padding:6px 11px;border-radius:8px;margin:16px 0 6px}
+  .sel-tag .ic{color:var(--tint-ink)}
+  .pgroup{border-top:1px solid var(--line-2);padding:15px 0}
+  .pgroup:first-of-type{border-top:none}
+  .pgt{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:700;margin-bottom:11px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .fld{display:flex;align-items:center;gap:8px;background:#f6f7fa;border:1px solid var(--line);border-radius:9px;padding:5px 9px;transition:.13s}
+  .fld:focus-within{border-color:var(--tint-ink);background:#fff;box-shadow:0 0 0 3px rgba(42,76,173,.1)}
+  .fld span{font-size:11px;color:var(--faint);font-weight:600;width:14px;flex-shrink:0}
+  .fld input{width:100%;border:none;background:transparent;outline:none;font-size:12.5px;font-weight:550;padding:3px 0}
+  .fld.full{grid-column:1 / -1}
+  .row-lab{font-size:11.5px;color:var(--muted);font-weight:600;margin-bottom:7px}
+  .selwrap{position:relative}
+  .psel{width:100%;background:#f6f7fa;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:12.5px;font-weight:550;outline:none;cursor:pointer;appearance:none}
+  .psel:focus{border-color:var(--tint-ink);background:#fff}
+  .selwrap .ic{position:absolute;right:9px;top:50%;transform:translateY(-50%);color:var(--faint);pointer-events:none;width:15px;height:15px}
+  .color-row{display:flex;align-items:center;gap:9px;margin-top:10px}
+  .color-row input[type=color]{width:38px;height:34px;padding:3px;border:1px solid var(--line);border-radius:9px;background:#fff;cursor:pointer}
+  .color-row .hex{flex:1;background:#f6f7fa;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:12.5px;font-weight:550;outline:none;text-transform:uppercase}
+  .seg-mini{display:flex;gap:6px;margin-top:11px}
+  .toggle{flex:1;display:grid;place-items:center;border:1px solid var(--line);border-radius:9px;padding:8px;color:var(--muted);transition:.12s;background:#fff;font-weight:700;font-size:13px}
+  .toggle:hover{background:#f6f7fa}
+  .toggle.on{background:var(--navy);border-color:var(--navy);color:#fff}
+  .arrange{display:flex;gap:8px}
+  .arrange button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);border-radius:9px;padding:9px;font-size:12px;font-weight:600;color:var(--ink-2);transition:.12s}
+  .arrange button:hover{background:#f6f7fa}
+  .slider{display:flex;align-items:center;gap:10px}
+  .slider input[type=range]{flex:1;accent-color:var(--navy)}
+  .slider .v{font-size:11.5px;color:var(--muted);font-weight:600;width:30px;text-align:right}
+  .empty{color:var(--faint);font-size:13px;line-height:1.6;padding:24px 4px}
+  .empty .icwrap{width:42px;height:42px;border-radius:12px;background:var(--tint);display:grid;place-items:center;color:var(--tint-ink);margin-bottom:13px}
+  .empty .icwrap .ic{width:21px;height:21px}
 
-/* ── GRID ── */
-.input-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  /* loading */
+  .loading{position:fixed;inset:0;background:rgba(243,245,248,.94);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;flex-direction:column;z-index:60}
+  .loading.show{display:flex}
+  .loading .orb{width:64px;height:64px;border-radius:18px;background:radial-gradient(120% 120% at 30% 25%, #6f93ff, #2a4cad 50%, #0a1f44);display:grid;place-items:center;box-shadow:var(--shadow-lg);animation:float 2.2s ease-in-out infinite}
+  .loading .orb .ic{width:30px;height:30px;color:#fff;stroke-width:1.6;animation:spin 3s linear infinite}
+  .loading .t{font-weight:700;font-size:16.5px;margin-top:22px}
+  .loading .s{color:var(--muted);font-size:13px;margin-top:5px}
+  .loading .bar{width:200px;height:4px;border-radius:4px;background:#e2e6ec;margin-top:20px;overflow:hidden}
+  .loading .bar i{display:block;height:100%;width:40%;border-radius:4px;background:linear-gradient(90deg,#2a4cad,#6f93ff);animation:slide 1.3s ease-in-out infinite}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes slide{0%{transform:translateX(-110%)}100%{transform:translateX(360%)}}
+  @media(prefers-reduced-motion:reduce){.orb,.orb .ic,.bar i{animation:none}}
 
-/* ── SUBMIT BUTTON ── */
-.btn-submit {
-  width: 100%;
-  padding: 14px 24px;
-  background: var(--red);
-  color: var(--white);
-  font-family: 'Inter', system-ui, sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-  border: none;
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: background .15s, transform .1s, box-shadow .15s;
-  letter-spacing: -0.1px;
-  box-shadow: 0 2px 8px rgba(227,0,15,.25);
-}
-.btn-submit:hover:not(:disabled) {
-  background: var(--red-dark);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(227,0,15,.30);
-}
-.btn-submit:active:not(:disabled) { transform: translateY(0); }
-.btn-submit:disabled {
-  background: var(--gray-200);
-  color: var(--gray-400);
-  cursor: not-allowed;
-  box-shadow: none;
-  transform: none;
-}
+  .hidden-file{display:none}
 
-/* ── PROGRESS ── */
-.progress {
-  display: none;
-  background: var(--white);
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  padding: 24px;
-  margin-top: 16px;
-}
-.progress.visible { display: block; }
+  /* connect button + modal */
+  .conn-btn{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--tint-ink);background:var(--tint);border:1px solid var(--tint-line);padding:7px 13px;border-radius:9px;transition:.14s}
+  .conn-btn:hover{background:#e3eafc}
+  .conn-btn.live{background:#e8f7f0;border-color:#bfe6d4;color:var(--accent-2)}
+  .conn-btn.live .ic{color:var(--accent)}
+  .modal-bg{position:fixed;inset:0;background:rgba(15,23,34,.45);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:90;padding:24px}
+  .modal-bg.show{display:flex}
+  .modal{width:100%;max-width:440px;background:var(--panel);border-radius:18px;box-shadow:var(--shadow-lg);padding:24px}
+  .modal-h{display:flex;align-items:center;gap:13px}
+  .modal-orb{width:42px;height:42px;border-radius:12px;background:radial-gradient(120% 120% at 30% 25%, #6f93ff, #2a4cad 55%, #0a1f44);display:grid;place-items:center;flex-shrink:0;box-shadow:var(--shadow-sm)}
+  .modal-t{font-size:16px;font-weight:800;letter-spacing:-0.01em}
+  .modal-s{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .modal-note{font-size:12px;color:var(--muted);line-height:1.5;background:#f6f7fa;border:1px solid var(--line);border-radius:11px;padding:11px 13px;margin-top:12px}
+  .modal-tip{font-size:12.5px;line-height:1.5;border-radius:11px;padding:10px 13px;margin-top:12px}
+  .modal-tip.err{background:#fdeceb;border:1px solid #f6c9c6;color:#a32019}
+  .modal-tip.ok{background:#e8f7f0;border:1px solid #bfe6d4;color:var(--accent-2)}
+  .modal-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end}
+  .btn-ghost2{font-size:13.5px;font-weight:600;color:var(--ink-2);padding:11px 18px;border-radius:11px;border:1px solid var(--line)}
+  .btn-ghost2:hover{background:#f6f7fa}
+  .btn-primary2{font-size:13.5px;font-weight:600;color:#fff;background:var(--navy);padding:11px 18px;border-radius:11px}
+  .btn-primary2:hover{background:var(--navy-2)}
+  .btn-primary2:disabled{opacity:.6;cursor:default}
 
-.progress-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--gray-100);
-}
-.progress-spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--gray-200);
-  border-top-color: var(--red);
-  border-radius: 50%;
-  animation: spin .7s linear infinite;
-  flex-shrink: 0;
-}
-.progress-header-text {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--gray-800);
-}
-.progress-header-sub {
-  font-size: 12px;
-  color: var(--gray-400);
-  margin-top: 1px;
-}
+  /* ---------- Header-Navigation ---------- */
+  .brand{cursor:pointer}
+  .nav{display:flex;align-items:center;gap:4px;margin-left:22px}
+  .nav a{font-size:13px;font-weight:600;color:var(--muted);padding:7px 13px;border-radius:9px;transition:.13s;cursor:pointer}
+  .nav a:hover{background:#f1f3f7;color:var(--ink)}
+  .nav a.on{background:var(--tint);color:var(--tint-ink)}
 
-.progress-steps { list-style: none; display: flex; flex-direction: column; gap: 4px; }
-.pstep {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 9px 12px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--gray-400);
-  transition: all .25s;
-}
-.pstep.active {
-  color: var(--gray-800);
-  background: var(--gray-50);
-}
-.pstep.done {
-  color: var(--gray-500);
-}
-.pstep-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1.5px solid var(--gray-200);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  font-size: 10px;
-  font-weight: 700;
-  transition: all .25s;
-}
-.pstep.active .pstep-icon {
-  border-color: var(--red);
-  border-top-color: transparent;
-  animation: spin .7s linear infinite;
-}
-.pstep.done .pstep-icon {
-  background: #dcfce7;
-  border-color: #86efac;
-  color: #16a34a;
-}
-.dots-anim::after { content: ''; animation: dots 1.4s steps(4,end) infinite; }
-@keyframes dots { 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
-@keyframes spin { to { transform: rotate(360deg); } }
+  /* ---------- Home ---------- */
+  .home-wrap{max-width:1140px;margin:0 auto;padding:48px 24px 100px}
+  .home-head{text-align:center;margin-bottom:8px}
+  .home-head .gen-eyebrow{display:block}
+  .home-head h1{font-size:32px;font-weight:800;letter-spacing:-0.03em;margin-top:8px}
+  .home-head p{color:var(--muted);font-size:15px;margin:10px auto 0;max-width:56ch;line-height:1.5}
+  .tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:34px}
+  @media(min-width:920px){ .tiles{grid-template-columns:repeat(4,1fr)} }
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:24px;text-align:left;transition:.16s;cursor:pointer;box-shadow:var(--shadow-sm);display:flex;flex-direction:column}
+  .tile:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color:var(--tint-line)}
+  .tile .tic{width:50px;height:50px;border-radius:14px;display:grid;place-items:center;margin-bottom:16px}
+  .tile .tic svg{width:25px;height:25px;stroke-width:1.7}
+  .tic-a{background:linear-gradient(135deg,#6f93ff,#2a4cad);color:#fff}
+  .tic-b{background:linear-gradient(135deg,#16c98d,#008f5a);color:#fff}
+  .tic-c{background:linear-gradient(135deg,#0a1f44,#27406e);color:#fff}
+  .tile h3{font-size:16.5px;font-weight:800;letter-spacing:-0.01em}
+  .tile p{font-size:13px;color:var(--muted);line-height:1.5;margin-top:7px;flex:1}
+  .tile .tag{display:inline-block;font-size:11px;font-weight:700;color:var(--muted);background:#f1f3f7;padding:4px 9px;border-radius:20px;margin-top:14px;align-self:flex-start}
 
-/* ── ERROR ── */
-.status-error {
-  display: none;
-  margin-top: 16px;
-  padding: 14px 18px;
-  border-radius: var(--radius);
-  font-size: 13px;
-  font-weight: 500;
-  background: #fff5f5;
-  border: 1px solid #fecaca;
-  color: #dc2626;
-}
-.status-error.visible { display: flex; align-items: flex-start; gap: 10px; }
-.status-error::before { content: '⚠'; flex-shrink: 0; margin-top: 1px; }
+  /* ---------- Modul-Layout (Chart/Sankey) ---------- */
+  .mod{display:none;grid-template-columns:380px 1fr;height:calc(100vh - 56px)}
+  .mod.active{display:grid}
+  .mod-form{background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding:24px}
+  .mod-form h2{font-size:18px;font-weight:800;letter-spacing:-0.02em}
+  .mod-form .lead{font-size:13px;color:var(--muted);line-height:1.5;margin:7px 0 18px}
+  .hint{font-size:11.5px;color:var(--faint);line-height:1.45;margin:4px 0 0}
+  .field{margin-bottom:16px}
+  .row-add{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .row-add .inp{flex:1}
+  .row-add .lblw{width:130px;flex:none}
+  .icon-btn{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);display:grid;place-items:center;color:var(--muted);flex:none;transition:.12s;background:#fff}
+  .icon-btn:hover{background:#f6f7fa;color:var(--ink)}
+  .icon-btn.del:hover{background:#fdeceb;color:var(--danger)}
+  .add-row{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--tint-ink);padding:8px 12px;border-radius:9px;border:1px dashed var(--tint-line);transition:.12s}
+  .add-row:hover{background:var(--tint)}
+  .seg-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .seg-row .nm{flex:1}
+  .seg-row .vl{width:96px;flex:none}
+  .mod-stage{display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:auto;padding:30px;background:#eef0f3;background-image:radial-gradient(circle, rgba(10,31,68,.07) 1px, transparent 1px);background-size:20px 20px}
+  .mod-canvas{background:#fff;box-shadow:var(--shadow-lg);border-radius:4px;overflow:hidden}
+  #chartCanvas{display:block;width:min(620px, calc(100vw - 460px));height:auto;aspect-ratio:1/1}
+  #sankeyCanvas{width:min(980px, calc(100vw - 440px))}
+  #sankeyCanvas svg{display:block;width:100%;height:auto}
+  .mod-actions{display:flex;gap:10px;margin-top:20px}
+  .grp-h{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700;margin:22px 0 10px;padding-top:18px;border-top:1px solid var(--line-2)}
+  .grp-h:first-of-type{border-top:none;padding-top:0;margin-top:0}
+  .toolbar-lite{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .seg-pick{display:inline-flex;background:#f1f3f7;border:1px solid var(--line);border-radius:10px;padding:3px}
+  .seg-pick button{font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:8px;color:var(--muted)}
+  .seg-pick button.on{background:#fff;color:var(--navy);box-shadow:var(--shadow-sm)}
 
-/* ── RESULT ── */
-.result-area { display: none; margin-top: 16px; }
-.result-area.visible { display: block; }
-
-.result-card {
-  background: var(--white);
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  overflow: hidden;
-}
-.result-image-wrap {
-  background: var(--gray-50);
-  border-bottom: 1px solid var(--gray-100);
-  padding: 20px;
-}
-.result-image-wrap img { width: 100%; border-radius: var(--radius-sm); display: block; box-shadow: var(--shadow-md); }
-
-.result-actions {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
-  gap: 0;
-}
-.result-actions .btn-action {
-  padding: 14px 20px;
-  font-family: 'Inter', system-ui, sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  transition: background .15s, color .15s;
-  text-align: center;
-  color: var(--gray-600);
-}
-.result-actions .btn-action + .btn-action { border-left: 1px solid var(--gray-100); }
-.result-actions .btn-action:hover { background: var(--gray-50); color: var(--gray-900); }
-.result-actions .btn-action.primary {
-  color: var(--red);
-  font-weight: 700;
-}
-.result-actions .btn-action.primary:hover { background: var(--red-light); }
-
-/* ── FOOTER NOTE ── */
-.footer-note {
-  margin-top: 40px;
-  padding: 16px 20px;
-  background: var(--white);
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius);
-  font-size: 12px;
-  color: var(--gray-400);
-  line-height: 1.6;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-.footer-note::before { content: 'ℹ'; flex-shrink: 0; color: var(--gray-400); }
-.footer-note code {
-  font-family: ui-monospace, 'SF Mono', monospace;
-  background: var(--gray-100);
-  padding: 1px 5px;
-  border-radius: 3px;
-  font-size: 11px;
-  color: var(--gray-600);
-}
-
-/* ── RESPONSIVE ── */
-@media (max-width: 600px) {
-  .page { padding: 24px 16px 60px; }
-  .page-header h1 { font-size: 22px; }
-  .input-grid-2 { grid-template-columns: 1fr; }
-  .result-actions { grid-template-columns: 1fr; }
-  .result-actions .btn-action + .btn-action { border-left: none; border-top: 1px solid var(--gray-100); }
-  .topbar-app-name { display: none; }
-}
+  /* ---------- Fill-Umschalter / Auto-Box ---------- */
+  .fillbar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  .fillbar .seg-pick{flex:none}
+  .autobox{background:linear-gradient(180deg,#f3f7ff,#eef2fb);border:1px solid #d6e2f7;border-radius:14px;padding:16px;margin-bottom:18px}
+  .autobox .lab{margin-top:0}
+  .autobox .row{display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap}
+  .lockable{transition:opacity .15s}
+  .lockable.locked{opacity:.4;pointer-events:none;filter:grayscale(.3)}
+  input:disabled,select:disabled,textarea:disabled{background:#f1f3f7;color:var(--faint);cursor:not-allowed}
+  @media(max-width:900px){ .work{grid-template-columns:170px 1fr 240px} }
 </style>
 </head>
 <body>
 
-<!-- TOP BAR -->
-<header class="topbar">
-  <a href="#" class="topbar-logo">
-    <div class="topbar-logo-mark">
-      <!-- finanzen.net Würfel-Logo stylized -->
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="1" y="1" width="7" height="7" rx="1.5" fill="white"/>
-        <rect x="10" y="1" width="7" height="7" rx="1.5" fill="white" fill-opacity=".6"/>
-        <rect x="1" y="10" width="7" height="7" rx="1.5" fill="white" fill-opacity=".6"/>
-        <rect x="10" y="10" width="7" height="7" rx="1.5" fill="white" fill-opacity=".3"/>
-      </svg>
-    </div>
-    <span class="topbar-brand-name">finanzen.net</span>
-  </a>
-  <div class="topbar-divider"></div>
-  <span class="topbar-app-name">Infografik-Generator</span>
-</header>
-
-<!-- MAIN -->
-<main class="page">
-
-  <!-- Header -->
-  <div class="page-header">
-    <div class="page-header-eyebrow">KI-Infografik-Pipeline</div>
-    <h1>Infografik-Generator</h1>
-    <p>Typ wählen, Quelltext einfügen, Größe festlegen — fertig. Format, Layout und Modell sind je Typ automatisch hinterlegt.</p>
+<div class="appbar">
+  <div class="brand" id="brandHome" title="Zur Übersicht">
+    <div class="mark"></div>
+    <div><span class="nm">Creative Studio</span><span class="sub">finanzen<span style="color:#d70413;font-weight:800">.</span>net</span></div>
   </div>
+  <nav class="nav" id="topnav">
+    <a data-go="home" class="on">Übersicht</a>
+    <a data-go="graphic">Grafiken Redaktion</a>
+    <a data-go="social">Social Karussell</a>
+    <a data-go="chart">Chart</a>
+    <a data-go="sankey">Sankey</a>
+  </nav>
+  <div class="appbar-right">
+    <button class="conn-btn" id="connBtn"><svg class="ic ic-sm" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M9 12l2 2 4-4"/><path d="M7.5 7.5a5 5 0 0 0 0 9M16.5 7.5a5 5 0 0 1 0 9"/></svg> <span id="connLabel">GPT Image 2 verbinden</span></button>
+    <span class="badge"><span class="dot"></span> <span id="modeBadge">Demo</span></span>
+  </div>
+</div>
 
-  <!-- Form -->
-  <form id="generator-form" onsubmit="handleSubmit(event)">
-
-    <!-- Typ & Pfad -->
-    <div class="card">
-      <div class="card-section">
-        <label class="field-label" for="usecase">Was möchtest du erstellen?</label>
-        <select id="usecase" onchange="onUseCaseChange()">
-          <optgroup label="Daten · exakt &amp; reproduzierbar">
-            <option value="earnings_radar">Earnings-Radar — Quartalstermine der Woche</option>
-            <option value="quadranten_analyse">4-Quadranten-Analyse — Aktien-Matrix</option>
-            <option value="musterdepot_tabelle">Musterdepot-Tabelle — Depot-Übersicht</option>
-          </optgroup>
-          <optgroup label="KI-Hintergrund + exakte Daten">
-            <option value="top5_scoreboard" selected>Top-5 Scoreboard — Wochengewinner je Megatrend</option>
-            <option value="gwl_dashboard">Großwetterlage-Dashboard — GD20/50/200</option>
-            <option value="kpi_steckbrief">Unternehmens-Steckbrief — Kernzahlen</option>
-            <option value="tenbagger_magazinseite">Tenbagger-Magazinseite — Portrait 535×725</option>
-            <option value="blog_title_card">Blog Title-Card — Featured Image</option>
-            <option value="screening_funnel">Screening-Funnel — Filterlogik als Trichter</option>
-          </optgroup>
-          <optgroup label="Voll-KI-Bild">
-            <option value="konzept_illustration">Konzept-Illustration — Story zur Einleitung</option>
-            <option value="meinung_3_gruende">Meinungs-Grafik — 3 Gründe</option>
-            <option value="header_teaser">Header- / Teaser-Bild — Klick-Anreiz</option>
-            <option value="saisonalitaeten">Saisonalitäten (TraderZeitung)</option>
-            <option value="ranglisten">Ranglisten / Pivotal Points (TraderZeitung)</option>
-          </optgroup>
-        </select>
-        <div>
-          <span class="path-badge" id="path-badge"></span>
-          <div class="hint-text" id="usecase-hint"></div>
-        </div>
-      </div>
+<!-- ============ HOME ============ -->
+<div class="view active" id="homeView">
+  <div class="home-wrap">
+    <div class="home-head">
+      <div class="gen-eyebrow">Creative Studio</div>
+      <h1>Was möchtest du erstellen?</h1>
+      <p>Vier Ausgabetypen, eine Oberfläche. Grafiken Redaktion erzeugt fertige KI-Infografiken (Bild inkl. Text), Social-Bilder entstehen aus KI-Bild plus editierbarer Textebene, Charts und Sankey werden deterministisch aus deinen Zahlen gerendert.</p>
     </div>
-
-    <!-- Quelltext -->
-    <div class="card" style="margin-top:16px;">
-      <div class="card-section">
-        <label class="field-label" for="article-text">
-          Quelltext / Daten
-          <span class="field-label-hint">alle Zahlen und Namen müssen wörtlich enthalten sein</span>
-        </label>
-        <textarea id="article-text" placeholder="Artikeltext oder Datenliste hier einfügen …" required></textarea>
-      </div>
+    <div class="tiles">
+      <button class="tile" data-go="graphic">
+        <div class="tic" style="background:linear-gradient(135deg,#d70413,#8a0a0d);color:#fff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 9h18"/><path d="M7 13h6M7 16h9"/><circle cx="17" cy="6.5" r="1"/></svg></div>
+        <h3>Grafiken Redaktion</h3>
+        <p>Fertige KI-Infografik aus Artikeltext: ein Voll-Bild inklusive Text und Kennzahlen, im Stil der Redakteurs-Vorlagen. Kein Editor nötig.</p>
+        <span class="tag">Voll-KI-Bild</span>
+      </button>
+      <button class="tile" data-go="social">
+        <div class="tic tic-a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="9" r="1.7"/><path d="m21 16-4.5-4.5a2 2 0 0 0-2.8 0L5 20"/></svg></div>
+        <h3>Social Karussell</h3>
+        <p>Cover, Content und Closing als editierbare Slides. KI-Bild als Hintergrund, Text und Logo deterministisch drüber.</p>
+        <span class="tag">KI-Bild + Text</span>
+      </button>
+      <button class="tile" data-go="chart">
+        <div class="tic tic-b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l4-5 3 3 5-7"/></svg></div>
+        <h3>Chart</h3>
+        <p>Liniendiagramm im finanzen.net-Stil, dunkler Hintergrund, ein oder zwei Vergleichsreihen. Wie "Blase oder Boom".</p>
+        <span class="tag">deterministisch</span>
+      </button>
+      <button class="tile" data-go="sankey">
+        <div class="tic tic-c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h5c2 0 2 4 5 4s3-4 6-4"/><path d="M4 13h4c3 0 2 5 6 5s3-5 6-5"/><path d="M4 6v12"/></svg></div>
+        <h3>Sankey</h3>
+        <p>Income-Statement-Flow von Umsatz zu Gewinn, App-Economy-Stil. Aus deinen Segment- und Kostenzahlen.</p>
+        <span class="tag">deterministisch</span>
+      </button>
     </div>
+  </div>
+</div>
 
-    <!-- Optionen -->
-    <div class="card" style="margin-top:16px;">
-      <div class="card-section">
-        <div class="input-grid-2">
-          <div>
-            <label class="field-label" for="branding">Branding</label>
-            <select id="branding">
-              <option value="kein_branding" selected>Kein Branding</option>
-              <option value="finanzen_net">finanzen.net</option>
-              <option value="megatrend">MEGATREND</option>
-            </select>
-          </div>
-          <div>
-            <label class="field-label" for="format">Bildgröße</label>
-            <select id="format" onchange="onFormatChange()"></select>
-            <div class="hint-text" id="format-hint"></div>
-          </div>
-        </div>
-      </div>
+<!-- ============ GRAFIKEN REDAKTION (Voll-KI-Bild) ============ -->
+<div class="mod" id="graphicView">
+  <div class="mod-form">
+    <h2>Grafiken Redaktion</h2>
+    <p class="lead">Fertige KI-Infografik aus deinem Artikeltext — ein Voll-Bild inklusive Text und Kennzahlen, im Stil der Redakteurs-Vorlagen. Das Modell erzeugt die ganze Grafik; du lädst sie direkt herunter oder öffnest sie zum Feinschliff im Editor.</p>
 
-      <!-- Typ-Options (Megatrend, Sektor, etc.) -->
-      <div class="card-section" id="type-options-section" style="display:none;">
-        <div class="input-grid-2" id="type-options"></div>
-      </div>
+    <div class="grp-h">Vorlage</div>
+    <label class="lab">Use Case (Redakteur)</label>
+    <div class="selwrap"><select class="sel" id="grUseCase"></select><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+    <p class="hint" id="grUcHint" style="margin-top:7px"></p>
 
-      <!-- E-Mail & Ausgabe (aktuell deaktiviert) -->
-      <div class="card-section">
-        <div class="input-grid-2">
-          <div>
-            <label class="field-label" for="email">
-              E-Mail
-              <span class="field-label-hint">bald verfügbar</span>
-            </label>
-            <input type="email" id="email" placeholder="name@traderfox.com" disabled>
-          </div>
-          <div>
-            <label class="field-label" for="ausgabe">
-              Ausgabe
-              <span class="field-label-hint">bald verfügbar</span>
-            </label>
-            <input type="text" id="ausgabe" placeholder="z. B. KW25 / Juni 2026" disabled>
-          </div>
-        </div>
-      </div>
+    <div class="grp-h">Inhalt</div>
+    <label class="lab">Artikeltext / Rohdaten</label>
+    <textarea class="ta" id="grArticle" style="min-height:150px" placeholder="Ganzen Artikel oder die Rohdaten einfügen. Das Modell verdichtet daraus die Grafik. Zahlen und Namen werden exakt übernommen."></textarea>
+    <label class="lab">Aktien-/Firmenname (optional, für Titel)</label>
+    <input class="inp" id="grTitle" placeholder="z.B. Oracle (ORCL) — leer lassen, wenn aus Text" />
 
-      <!-- Submit -->
-      <div class="card-section" style="background: var(--gray-50); padding-top:20px; padding-bottom:20px;">
-        <button type="submit" class="btn-submit" id="btn-submit">Infografik erstellen</button>
-      </div>
-    </div>
-
-  </form>
-
-  <!-- Progress -->
-  <div class="progress" id="progress">
-    <div class="progress-header">
-      <div class="progress-spinner" id="progress-spinner"></div>
+    <div class="grp-h">Modell & Format</div>
+    <div class="two">
       <div>
-        <div class="progress-header-text">Deine Infografik wird erstellt</div>
-        <div class="progress-header-sub">Status wird automatisch aktualisiert …</div>
+        <label class="lab">Bild-Modell</label>
+        <div class="selwrap">
+          <select class="sel" id="grModel">
+            <option value="openai/gpt-5.4-image-2">GPT Image 2 · OpenAI (beste Textqualität)</option>
+            <option value="google/gemini-3-pro-image">Nano Banana Pro · Google</option>
+            <option value="black-forest-labs/flux.2-pro">FLUX.2 Pro · Black Forest Labs</option>
+          </select>
+          <svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </div>
+      <div>
+        <label class="lab">Format (vom Use Case)</label>
+        <input class="inp" id="grFormat" value="16:9" readonly style="background:#f1f3f7;color:var(--muted)" />
       </div>
     </div>
-    <ul class="progress-steps" id="progress-steps"></ul>
+    <p class="hint" style="margin-top:9px">GPT Image 2 rendert Text in Grafiken am saubersten. Nano Banana Pro und FLUX.2 Pro sind Alternativen für mehr fotografischen bzw. illustrativen Look. (GPT Image Mini erzeugt keine vollwertigen Grafiken und ist daher nicht wählbar.)</p>
+
+    <div class="mod-actions">
+      <button class="btn-primary2" id="grRender">Grafik erstellen</button>
+      <button class="btn-ghost2" id="grExport" disabled>Download PNG</button>
+      <button class="btn-ghost2" id="grToEditor" disabled>Im Editor öffnen</button>
+    </div>
+    <p class="hint" id="grStatus" style="margin-top:12px"></p>
   </div>
-
-  <!-- Error -->
-  <div class="status-error" id="status-error"></div>
-
-  <!-- Result -->
-  <div class="result-area" id="result-area">
-    <div class="result-card">
-      <div class="result-image-wrap">
-        <img id="result-image" src="" alt="Generierte Infografik">
-      </div>
-      <div class="result-actions">
-        <button class="btn-action primary" onclick="downloadImg()">↓ Herunterladen</button>
-        <button class="btn-action" onclick="copyUrl()">URL kopieren</button>
-        <button class="btn-action" onclick="resetForm()">Neue Grafik</button>
+  <div class="mod-stage">
+    <div class="mod-canvas" id="grCanvasWrap" style="display:grid;place-items:center;min-width:420px;min-height:300px;background:#fff">
+      <div class="empty" style="text-align:center;max-width:300px">
+        <div class="icwrap" style="margin:0 auto 13px"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 9h18"/></svg></div>
+        Use Case wählen, Artikeltext einfügen und „Grafik erstellen" klicken. Das fertige Bild erscheint hier.
       </div>
     </div>
   </div>
+</div>
 
-  <!-- Footer Note -->
-  <div class="footer-note">
-    Wähle einen Infografik-Typ, füge deinen Quelltext ein und lege die Größe fest. Format und Layout sind je Typ optimiert. Alle Zahlen und Namen werden direkt aus deinem Quelltext übernommen.
+<!-- ============ GENERATOR (Social) ============ -->
+<div class="view" id="genView">
+  <div class="gen-wrap">
+    <div class="gen-head">
+      <div class="gen-eyebrow">Post erstellen</div>
+      <h1>Vom Inhalt zum fertigen Visual.</h1>
+      <p>Inhalt und Bildidee eingeben, Modell und Format wählen. Das Studio legt die Text-Ebene auf Template-Basis über das KI-Bild, alles frei editierbar.</p>
+    </div>
+
+    <div class="fillbar">
+      <div class="seg-pick fillmode" data-view="social">
+        <button class="on" data-m="manual">Manuell ausfüllen</button>
+        <button data-m="auto">Aus Text befüllen</button>
+      </div>
+      <span class="hint">Selbst eintragen oder einen Artikel einwerfen und alle Felder von Claude Sonnet füllen lassen.</span>
+    </div>
+
+    <div class="autobox" id="auto-social" hidden>
+      <label class="lab">Artikel oder Rohtext einfügen</label>
+      <textarea class="ta" id="src-social" data-nolock style="min-height:120px" placeholder="Ganzen Artikel oder Notizen einfügen. Claude Sonnet zieht daraus Schlagzeile, Unterzeile, drei Kernpunkte, Schluss, die Firma und einen Bild-Prompt und füllt die Felder unten."></textarea>
+      <div class="row">
+        <button class="btn btn-primary" data-fill="social" data-nolock>
+          <svg class="ic" viewBox="0 0 24 24" style="color:#fff"><path d="M12 3l1.6 4.8a2 2 0 0 0 1.3 1.3L19.5 11l-4.6 1.6a2 2 0 0 0-1.3 1.3L12 19l-1.6-4.8a2 2 0 0 0-1.3-1.3L4.5 11l4.6-1.6a2 2 0 0 0 1.3-1.3z"/></svg>
+          Felder füllen
+        </button>
+        <span class="hint" data-nolock>Braucht eine OpenRouter-Verbindung oben rechts. Danach kannst du alles anpassen.</span>
+      </div>
+    </div>
+
+    <div class="lockable" id="lock-social">
+
+    <div class="card">
+      <div class="card-h"><span class="n">0</span><h3>Use Case</h3></div>
+      <label class="lab">Vorlage wählen (Redakteur)</label>
+      <div class="selwrap">
+        <select class="sel" id="ucSelect"></select>
+        <svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <span class="hint" id="ucHint" style="display:block;margin-top:8px">Setzt Bild-Prompt, Format und Stil passend zum Redakteurs-Use-Case. Danach alles frei editierbar.</span>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><span class="n">1</span><h3>Inhalt</h3></div>
+      <label class="lab">Schlagzeile</label>
+      <input class="inp" id="fHead" value="Puma: China-Boost und WM-Schwung" />
+      <label class="lab">Unterzeile (Cover)</label>
+      <input class="inp" id="fSub" value="Vor WM-Start kletterte die Aktie um 3,5 Prozent." />
+      <label class="lab">Kernpunkte (Content-Slide)</label>
+      <div class="bul"><span class="num">1</span><input class="inp" id="fB1" value="Die Partnerschaft mit Anta öffnet Türen zum chinesischen Markt und bringt operatives Know-how." /></div>
+      <div class="bul"><span class="num">2</span><input class="inp" id="fB2" value="Analysten sehen erhebliches Kurspotenzial mit Zielen von bis zu 40 Euro." /></div>
+      <div class="bul"><span class="num">3</span><input class="inp" id="fB3" value="Puma übertrifft Konkurrenten wie Adidas und Nike deutlich in der Jahresperformance." /></div>
+      <label class="lab">Schluss-Statement (letzte Slide)</label>
+      <input class="inp" id="fClose" value="Trotz Risiken in China sieht Puma dank starkem Ankeraktionär eine vielversprechende Zukunft." />
+    </div>
+
+    <div class="card">
+      <div class="card-h"><span class="n">2</span><h3>KI-Bild</h3></div>
+      <label class="lab">Firma / Marke im Bild</label>
+      <input class="inp" id="fBrand" value="Puma" placeholder="z.B. Puma. Leer lassen = kein Markenbezug" />
+      <label class="lab">Bild-Prompt (wird zum Hintergrund)</label>
+      <textarea class="ta" id="fPrompt">Moderner Puma Flagship Store in einer belebten chinesischen Einkaufsstraße bei Dämmerung, großflächige Leuchtwerbung, urbane Energie, cineastisches Licht</textarea>
+      <div class="two" style="margin-top:15px">
+        <div>
+          <label class="lab">Modell</label>
+          <div class="selwrap">
+            <select class="sel" id="fModel">
+              <option value="openai/gpt-5.4-image-2">GPT Image 2 · OpenAI</option>
+              <option value="openai/gpt-5-image-mini">GPT Image Mini · schnell</option>
+              <option value="google/gemini-2.5-flash-image">Nano Banana · Google</option>
+              <option value="google/gemini-3-pro-image">Nano Banana Pro · Google</option>
+            </select>
+            <svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </div>
+        <div>
+          <label class="lab">Stil</label>
+          <div class="seg" id="themeSeg" style="display:flex">
+            <button class="on" data-theme="clean">Clean</button>
+            <button data-theme="cinematic">Cinematic</button>
+            <button data-theme="metaphor">Metaphor</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><span class="n">3</span><h3>Format</h3></div>
+      <div class="fmt-grid" id="fmtGrid"></div>
+    </div>
+
+    </div><!-- /lock-social -->
+
+    <div class="gen-actions">
+      <button class="btn btn-primary" id="goStudio">
+        <svg class="ic" viewBox="0 0 24 24" style="color:#fff"><path d="M12 3l1.6 4.8a2 2 0 0 0 1.3 1.3L19.5 11l-4.6 1.6a2 2 0 0 0-1.3 1.3L12 19l-1.6-4.8a2 2 0 0 0-1.3-1.3L4.5 11l4.6-1.6a2 2 0 0 0 1.3-1.3z"/></svg>
+        Studio öffnen
+      </button>
+      <span class="hint" id="genHint">Im Demo-Modus erzeugt GPT Image 2 einen realistischen Platzhalter-Hintergrund. Live kommt das echte Bild aus OpenRouter.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ EDITOR ============ -->
+<div class="editor" id="editorView">
+  <div class="toolbar">
+    <button class="tool" id="tAddText"><svg class="ic" viewBox="0 0 24 24"><path d="M5 6V4h14v2"/><path d="M12 4v16"/><path d="M9 20h6"/></svg> Text</button>
+    <button class="tool" id="tAddImage"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2.5"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="m21 15-4.5-4.5a2 2 0 0 0-2.8 0L5 19"/></svg> Bild</button>
+    <button class="tool" id="tLogo"><svg class="ic" viewBox="0 0 24 24"><path d="M12 2.5l8 4v5.5c0 5-3.4 7.6-8 9.5-4.6-1.9-8-4.5-8-9.5V6.5z"/></svg> Logo</button>
+    <div class="tsep"></div>
+    <button class="tool" id="tGenImg"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l1.6 4.8a2 2 0 0 0 1.3 1.3L19.5 11l-4.6 1.6a2 2 0 0 0-1.3 1.3L12 19l-1.6-4.8a2 2 0 0 0-1.3-1.3L4.5 11l4.6-1.6a2 2 0 0 0 1.3-1.3z"/></svg> KI-Bild neu</button>
+    <button class="tool" id="tBgColor"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3c3.2 4 6 7 6 10a6 6 0 0 1-12 0c0-3 2.8-6 6-10z"/></svg> Hintergrund</button>
+    <button class="tool" id="tBackdrop"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="M3 14h18"/><circle cx="8" cy="8" r="1.4"/></svg> Lesbarkeit</button>
+    <button class="tool danger" id="tDelete"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6M14 11v6"/></svg> Löschen</button>
+    <div class="spacer"></div>
+    <button class="tool" id="tBack"><svg class="ic" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Zurück</button>
+    <button class="tool-solid" id="tExport"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/></svg> Export PNG</button>
+    <button class="tool-pub" id="tPublish"><svg class="ic" viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1-1-7.9A5 5 0 0 1 16 9a3.5 3.5 0 0 1 1 6.9"/><path d="M12 12v7"/><path d="M9 15l3-3 3 3"/></svg> Veröffentlichen</button>
   </div>
 
-</main>
+  <div class="work">
+    <div class="slides">
+      <div class="h">Slides</div>
+      <div id="slideList"></div>
+      <button class="add-slide" id="addSlide"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Slide hinzufügen</button>
+    </div>
 
+    <div class="stage" id="stage">
+      <div class="canvas-shell"><canvas id="c"></canvas></div>
+    </div>
+
+    <div class="props">
+      <div class="props-h">
+        <div class="t">Eigenschaften</div>
+        <div class="s">Element anklicken zum Bearbeiten. Doppelklick auf Text zum Tippen.</div>
+      </div>
+      <div class="props-body" id="propBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CHART ============ -->
+<div class="mod" id="chartView">
+  <div class="mod-form">
+    <h2>Chart</h2>
+    <p class="lead">Liniendiagramm im finanzen.net-Stil. Ein Panel für eine Zeitreihe, zwei Panels für einen Vergleich wie "Blase oder Boom".</p>
+
+    <div class="fillbar">
+      <div class="seg-pick fillmode" data-view="chart">
+        <button class="on" data-m="manual">Manuell</button>
+        <button data-m="auto">Aus Text</button>
+      </div>
+    </div>
+    <div class="autobox" id="auto-chart" hidden>
+      <label class="lab">Text mit den Zahlen einfügen</label>
+      <textarea class="ta" id="src-chart" data-nolock style="min-height:110px" placeholder="Text einfügen, der die Werte enthält (z.B. Kurs- und Gewinnreihen ueber mehrere Jahre). Claude Sonnet baut daraus Titel, Achsen und Datenreihen."></textarea>
+      <div class="row">
+        <button class="btn btn-primary" data-fill="chart" data-nolock>
+          <svg class="ic" viewBox="0 0 24 24" style="color:#fff"><path d="M12 3l1.6 4.8a2 2 0 0 0 1.3 1.3L19.5 11l-4.6 1.6a2 2 0 0 0-1.3 1.3L12 19l-1.6-4.8a2 2 0 0 0-1.3-1.3L4.5 11l4.6-1.6a2 2 0 0 0 1.3-1.3z"/></svg>
+          Felder füllen
+        </button>
+        <span class="hint" data-nolock>Nur sinnvoll, wenn der Text die Zahlen enthält.</span>
+      </div>
+    </div>
+
+    <div class="lockable" id="lock-chart">
+    <div class="grp-h">Kopf</div>
+    <div class="field">
+      <label class="lab">Titel</label>
+      <input class="inp" id="cTitle" value="Blase oder Boom?" />
+    </div>
+    <div class="field">
+      <label class="lab">Untertitel</label>
+      <input class="inp" id="cSub" value="Kurs gegen Gewinn je Aktie, indexiert" />
+      <p class="hint">Erklärt, was die Linien zeigen.</p>
+    </div>
+    <div class="field">
+      <label class="lab">Quelle</label>
+      <input class="inp" id="cSource" value="Quelle: Unternehmens-Filings, Yahoo Finance" />
+    </div>
+
+    <div class="grp-h">Layout</div>
+    <div class="seg-pick" id="cPanels">
+      <button data-p="1">Ein Panel</button>
+      <button class="on" data-p="2">Zwei Panels (Vergleich)</button>
+    </div>
+
+    <div class="grp-h">Daten</div>
+    <p class="hint" style="margin-bottom:12px">X-Achse als Komma-Liste (z.B. Jahre oder Uhrzeiten). Jede Reihe braucht gleich viele Werte, ebenfalls als Komma-Liste. Bei zwei Panels gilt das pro Panel.</p>
+
+    <div id="cPanelA">
+      <label class="lab">Panel 1 Titel</label>
+      <input class="inp" id="cAName" value="Cisco" />
+      <label class="lab">X-Achse (Labels)</label>
+      <input class="inp" id="cAX" value="'97,'98,'99,'00,'01,'02" />
+      <div class="field" id="cASeries"></div>
+      <button class="add-row" id="cAAdd"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Reihe hinzufügen</button>
+    </div>
+
+    <div id="cPanelB" style="margin-top:18px">
+      <label class="lab">Panel 2 Titel</label>
+      <input class="inp" id="cBName" value="NVIDIA" />
+      <label class="lab">X-Achse (Labels)</label>
+      <input class="inp" id="cBX" value="'20,'22,'24,'26" />
+      <div class="field" id="cBSeries"></div>
+      <button class="add-row" id="cBAdd"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Reihe hinzufügen</button>
+    </div>
+
+    <div class="mod-actions">
+      <button class="btn-primary2" id="cRender">Chart bauen</button>
+      <button class="btn-ghost2" id="cExport">Export PNG</button>
+    </div>
+    </div><!-- /lock-chart -->
+  </div>
+  <div class="mod-stage">
+    <div class="mod-canvas"><canvas id="chartCanvas" width="1080" height="1080"></canvas></div>
+  </div>
+</div>
+
+<!-- ============ SANKEY ============ -->
+<div class="mod" id="sankeyView">
+  <div class="mod-form">
+    <h2>Sankey</h2>
+    <p class="lead">Income-Statement-Flow von Umsatz zu Nettogewinn, App-Economy-Stil. Aus deinen Zahlen, deterministisch gerendert.</p>
+
+    <div class="fillbar">
+      <div class="seg-pick fillmode" data-view="sankey">
+        <button class="on" data-m="manual">Manuell</button>
+        <button data-m="auto">Aus Text</button>
+      </div>
+    </div>
+    <div class="autobox" id="auto-sankey" hidden>
+      <label class="lab">Quartalsbericht oder Zahlen einfügen</label>
+      <textarea class="ta" id="src-sankey" data-nolock style="min-height:110px" placeholder="Text mit den GuV-Zahlen einfügen (Umsatzsegmente, Kosten, Betriebsausgaben, Steuern). Claude Sonnet ordnet die Zahlen den Feldern zu."></textarea>
+      <div class="row">
+        <button class="btn btn-primary" data-fill="sankey" data-nolock>
+          <svg class="ic" viewBox="0 0 24 24" style="color:#fff"><path d="M12 3l1.6 4.8a2 2 0 0 0 1.3 1.3L19.5 11l-4.6 1.6a2 2 0 0 0-1.3 1.3L12 19l-1.6-4.8a2 2 0 0 0-1.3-1.3L4.5 11l4.6-1.6a2 2 0 0 0 1.3-1.3z"/></svg>
+          Felder füllen
+        </button>
+        <span class="hint" data-nolock>Nur sinnvoll, wenn der Text die GuV-Zahlen enthält.</span>
+      </div>
+    </div>
+
+    <div class="lockable" id="lock-sankey">
+    <div class="grp-h">Kopf</div>
+    <div class="field">
+      <label class="lab">Firma</label>
+      <input class="inp" id="sCompany" value="Oracle" />
+    </div>
+    <div class="field">
+      <label class="lab">Periode</label>
+      <input class="inp" id="sPeriod" value="Q4 FY26" />
+      <p class="hint">Erscheint oben links, z.B. "Q4 FY26 - Ending May 2026".</p>
+    </div>
+    <div class="field">
+      <label class="lab">Einheit</label>
+      <input class="inp" id="sUnit" value="$" />
+      <p class="hint">Währungszeichen vor den Werten. Werte unten in der gleichen Einheit, z.B. Milliarden.</p>
+    </div>
+
+    <div class="grp-h">Umsatz-Segmente</div>
+    <p class="hint" style="margin-bottom:12px">Die Bausteine des Umsatzes. Summe ergibt den Gesamtumsatz. Name und Wert.</p>
+    <div id="sSegments"></div>
+    <button class="add-row" id="sSegAdd"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Segment hinzufügen</button>
+
+    <div class="grp-h">Kosten der Umsatzerlöse</div>
+    <div class="seg-row">
+      <input class="inp nm" id="sCogsLabel" value="Cost of revenue" readonly />
+      <input class="inp vl" id="sCogs" value="6.7" />
+    </div>
+    <p class="hint">Rest aus Umsatz minus Kosten wird automatisch zum Bruttogewinn.</p>
+
+    <div class="grp-h">Betriebsausgaben</div>
+    <p class="hint" style="margin-bottom:12px">Posten unterhalb des Bruttogewinns. Rest wird zum operativen Gewinn.</p>
+    <div id="sOpex"></div>
+    <button class="add-row" id="sOpexAdd"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Posten hinzufügen</button>
+
+    <div class="grp-h">Unter dem operativen Gewinn</div>
+    <p class="hint" style="margin-bottom:12px">Posten wie Steuern und Zinsen. Rest wird zum Nettogewinn.</p>
+    <div id="sBelow"></div>
+    <button class="add-row" id="sBelowAdd"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Posten hinzufügen</button>
+
+    <div class="mod-actions">
+      <button class="btn-primary2" id="sRender">Sankey bauen</button>
+      <button class="btn-ghost2" id="sExport">Export PNG</button>
+    </div>
+    </div><!-- /lock-sankey -->
+  </div>
+  <div class="mod-stage">
+    <div class="mod-canvas" id="sankeyCanvas" style="background:#f4f5f7"></div>
+  </div>
+</div>
+
+<input type="file" id="fileInput" class="hidden-file" accept="image/*" />
+
+<div class="modal-bg" id="connModal">
+  <div class="modal">
+    <div class="modal-h">
+      <div class="modal-orb"><svg class="ic" viewBox="0 0 24 24" style="color:#fff;width:18px;height:18px"><path d="M9 12l2 2 4-4"/><path d="M7.5 7.5a5 5 0 0 0 0 9M16.5 7.5a5 5 0 0 1 0 9"/></svg></div>
+      <div><div class="modal-t">OpenRouter verbinden</div><div class="modal-s">Echte KI-Bilder direkt im Studio testen</div></div>
+    </div>
+    <label class="lab" style="margin-top:18px">OpenRouter API-Key</label>
+    <input class="inp" id="orKeyInput" type="password" placeholder="sk-or-v1-..." autocomplete="off" />
+    <div class="modal-note">
+      Nur für den lokalen Test gedacht. Der Key bleibt in diesem Browser-Tab und wird nirgends gespeichert oder hochgeladen. Niemals in eine veröffentlichte Version eintragen, dafür ist der Make-Weg da.
+    </div>
+    <div class="modal-tip" id="connTip" style="display:none"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost2" id="connCancel">Abbrechen</button>
+      <button class="btn-primary2" id="connSave">Verbinden &amp; testen</button>
+    </div>
+  </div>
+</div>
+
+<div class="loading" id="loading">
+  <div class="orb"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l1.6 4.8a2 2 0 0 0 1.3 1.3L19.5 11l-4.6 1.6a2 2 0 0 0-1.3 1.3L12 19l-1.6-4.8a2 2 0 0 0-1.3-1.3L4.5 11l4.6-1.6a2 2 0 0 0 1.3-1.3z"/></svg></div>
+  <div class="t" id="loadTitle">Dein Post wird erstellt</div>
+  <div class="s" id="loadSub">Bild wird generiert</div>
+  <div class="bar"><i></i></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3-sankey/0.12.3/d3-sankey.min.js"></script>
 <script>
-// ======================= KONFIGURATION =======================
-const SUBMIT_WEBHOOK_URL = 'https://hook.eu1.make.com/43zhjc4fuuaehhbkpkkns2zfvtplf83s';
-const STATUS_WEBHOOK_URL  = 'https://hook.eu1.make.com/64q15jo54389ibuayvu7o9pfrwqnut26';
-const POLL_INTERVAL_MS   = 2500;
-const POLL_TIMEOUT_MS    = 180000;
-
-// ======================= USE-CASE MAP =======================
-const USECASES = {
-  earnings_radar:         {path:'A', hint:'Exakt gerendert, font-identisch, voll reproduzierbar.'},
-  quadranten_analyse:     {path:'A', hint:'Exakt gerendert, font-identisch, voll reproduzierbar.'},
-  musterdepot_tabelle:    {path:'A', hint:'Exakt aus strukturierten Daten. EUR/USD gleich groß, Grün/Rot-Logik.'},
-  top5_scoreboard:        {path:'C', hint:'KI-Themenhintergrund, exakter Datenlayer. Nur positive Werte, absteigend, Top 5.'},
-  gwl_dashboard:          {path:'C', hint:'KI-Themenhintergrund, Heatmap-Datenlayer GD20/50/200.'},
-  kpi_steckbrief:         {path:'C', hint:'KI-Themenhintergrund, 3-Karten-Datenlayer.'},
-  tenbagger_magazinseite: {path:'C', hint:'KI-Hintergrund + Datenlayer im Hochformat 535 × 725.'},
-  blog_title_card:        {path:'C', hint:'KI-Hintergrund + Titel-Datenlayer.'},
-  screening_funnel:       {path:'C', hint:'KI-Hintergrund + Trichter-Datenlayer.'},
-  konzept_illustration:   {path:'B', hint:'Voll-KI-Bild. Atmosphärisch, kein Serien-Versprechen.'},
-  meinung_3_gruende:      {path:'B', hint:'Voll-KI-Bild mit 3 Gründen.'},
-  header_teaser:          {path:'B', hint:'Voll-KI-Bild, atmosphärisch, wenig Text.'},
-  saisonalitaeten:        {path:'B', hint:'Voll-KI-Bild (Thorsten-Stil), Sektor-Akzentfarbe.'},
-  ranglisten:             {path:'B', hint:'Voll-KI-Bild (Thorsten-Stil), Sektor-Akzentfarbe.'}
+/* ============================================================
+   CONFIG  ->  Make-Webhook-URL für LIVE-Bildgenerierung
+   ============================================================ */
+const CONFIG = {
+  API_BASE: "",        // deine Make Custom-Webhook-URL, z.B. https://hook.eu2.make.com/abc
+  DEMO_MODE: true,     // true = realistischer Platzhalter, false = echtes KI-Bild via Make->OpenRouter
 };
+let _orKey = "";
+function genMode(){
+  if(_orKey) return "direct";
+  if(!CONFIG.DEMO_MODE && CONFIG.API_BASE.trim().length>0) return "make";
+  return "demo";
+}
+function isLive(){ return genMode()!=="demo"; }
 
-const PATH_LABELS = {A:'Exakt & reproduzierbar', C:'KI-Hintergrund + Daten', B:'Voll-KI-Bild'};
+/* ---------- Brand tokens (aus finanzen_net.json) ---------- */
+const BRAND = { navy:"#0a1f44", accent:"#00935d", text:"#1a1a1a", muted:"#5f6b78", font:"Inter" };
 
-// ======================= FORMATE =======================
+/* ---------- Formate (echte Pixel) ---------- */
 const FORMATS = {
-  earnings_radar:         [{l:'1376 × 768',w:1376,h:768,s:2}],
-  quadranten_analyse:     [{l:'1920 × 1080 (16:9)',w:1920,h:1080,s:1}],
-  musterdepot_tabelle:    [{l:'1045 × 622',w:1045,h:622,s:2}],
-  top5_scoreboard:        [{l:'1376 × 768 (Standard)',w:1376,h:768,s:2},{l:'2752 × 1536 (Retina)',w:2752,h:1536,s:1}],
-  gwl_dashboard:          [{l:'1366 × 700',w:1366,h:700,s:2}],
-  kpi_steckbrief:         [{l:'1920 × 1080 (16:9)',w:1920,h:1080,s:1},{l:'510 × 278 (aktien ETF)',w:510.236,h:278.374,s:2},{l:'510 × 364 (Magazin)',w:510.236,h:364,s:2},{l:'561 × 406 (aktienmag alt)',w:561,h:406,s:2}],
-  tenbagger_magazinseite: [{l:'535 × 725 (Portrait)',w:535,h:725,s:2}],
-  blog_title_card:        [{l:'1200 × 628',w:1200,h:628,s:1}],
-  screening_funnel:       [{l:'510 × 278',w:510.236,h:278.374,s:2},{l:'1536 × 2048 (Portrait 3:4)',w:1536,h:2048,s:1}],
-  konzept_illustration:   [{l:'510 × 278',w:510.236,h:278.374,s:2},{l:'1920 × 1080',w:1920,h:1080,s:1}],
-  meinung_3_gruende:      [{l:'1920 × 1080 (16:9)',w:1920,h:1080,s:1}],
-  header_teaser:          [{l:'1920 × 1080 (16:9)',w:1920,h:1080,s:1}],
-  saisonalitaeten:        [{l:'1283 × 722',w:1283,h:722,s:2}],
-  ranglisten:             [{l:'856 × 467',w:856,h:467,s:2}]
+  "4:5":  { w:1080, h:1350, nm:"Instagram", bw:26, bh:32 },
+  "9:16": { w:1080, h:1920, nm:"Story",     bw:20, bh:36 },
+  "1:1":  { w:1080, h:1080, nm:"Square",    bw:30, bh:30 },
+  "16:9": { w:1920, h:1080, nm:"Landscape", bw:40, bh:23 },
+  "2:3":  { w:1080, h:1620, nm:"Hochformat",bw:22, bh:33 },  // Tenbagger 535x725
+};
+let curFmt = "4:5", curTheme = "clean", curModel = "openai/gpt-5.4-image-2", curBrand = "Puma";
+
+/* ============================================================
+   USE CASES (Redakteurs-Presets, finanzen.net / TraderFox)
+   Quelle: Use-Case-Sammlung Bank/Haslinger/Duenn/Reich.
+   Jeder Eintrag fuellt Prompt, Format und Stil im Social-Generator.
+   %%DATUM%% wird beim Anwenden ersetzt.
+   ============================================================ */
+const NEG_PROMPT = "Keine hellen Standard-PowerPoint-Folien, keine pastellige Start-up-Optik, keine fotorealistischen Personen, keine echten Markenlogos, keine Produktfotos, keine urheberrechtlich geschuetzten Logos, keine ueberladene Dekoration, keine unlesbaren Mini-Texte, keine langen Fliesstextbloecke, keine falschen Fantasiezahlen, keine chaotische Typografie, keine englischen Texte in der Grafik, keine Wasserzeichen, keine Stockfoto-Optik, keine Comic-Optik, keine bunten Zufallsfarben.";
+const USECASES = {
+  "frei": { label:"Frei / Social (Standard)", redakteur:"–", fmt:"4:5", theme:"cinematic", dataHeavy:false, prompt:"" },
+
+  "top5_scoreboard": { label:"Top-5 Scoreboard", redakteur:"Bank", fmt:"16:9", theme:"clean", dataHeavy:true,
+    prompt:"Moderne, professionell gestaltete Finanzinfografik im Format 16:9, Thema 'Top 5 Gewinner der Woche' im jeweiligen Megatrend, Stand %%DATUM%%. Zeige eine klare Tabelle mit zwei Spalten: Aktienname und Performance 1 Woche in Prozent. Dunkler Finanz-/Tech-Hintergrund (Navy/Schwarz), gruene Akzente fuer positive Performance, jede Zeile mit Pfeil nach oben, klare gut lesbare serifenlose Typografie, dezente Tech-Linien, Ueberschrift prominent oben. Daten exakt aus dem Text, keine Zahlen erfinden. " + NEG_PROMPT },
+
+  "gwl_dashboard": { label:"Grosswetterlage-Dashboard", redakteur:"Bank", fmt:"16:9", theme:"clean", dataHeavy:true,
+    prompt:"Uebersichtliche, modern designte Dashboard-Finanzinfografik 16:9, Titel 'Grosswetterlage im MEGATREND ...', Untertitel 'Marktbreite (GD20 / GD50 / GD200)'. Heatmap-aehnliche Tabelle mit klarer Farbskala (Dunkelgruen sehr positiv, Hellgruen positiv, Gelb neutral, Rot negativ), Prozentwerte gross, Pfeile, abgerundete Kacheln, dezente Trennlinien kein Gitter, kleine Trend-Ampel rechts. Dunkler Finanz-/Tech-Hintergrund, institutionell und ruhig. Daten exakt aus dem Text. " + NEG_PROMPT },
+
+  "earnings_radar": { label:"Earnings-Radar", redakteur:"Bank", fmt:"16:9", theme:"clean", dataHeavy:true,
+    prompt:"Finanzinfografik 16:9 als Tabelle fuer ein Boersenmagazin, Ueberschrift 'MEGATREND-EARNINGS-RADAR' mit Zeitraum. Mehrere Zeilen je Megatrend (z.B. KI, Defense&Space, Rohstoffsicherung), je Spalte Aktienname und Berichtstermin TT.MM.JJJJ. Dunkler Hintergrund, klare serifenlose Typografie, Termine monospace, gleich breite Spalten, generische Icons (kein echtes Logo). Daten exakt aus dem Text. " + NEG_PROMPT },
+
+  "magazin_artikel": { label:"Magazin-Artikel-Grafik", redakteur:"Bank", fmt:"16:9", theme:"clean", dataHeavy:false,
+    prompt:"Professionelle, minimalistische Finanzinfografik 16:9 zum Artikel. Sehr uebersichtlich, nicht ueberladen, maximal 1-3 Kernbotschaften. Farbwelt an die Branche des Unternehmens angepasst. Millionen=Mio., Milliarden=Mrd., Waehrungen USD/EUR, %-Zeichen. Wenig Text, grosse prominente Zahlen, generische Icons, clean editorial / Barron's style, dunkler Premium-Hintergrund mit dezenten Verlaeufen. Daten exakt aus dem Text. " + NEG_PROMPT },
+
+  "header_grafik": { label:"Header-/Teaser-Grafik", redakteur:"Bank", fmt:"16:9", theme:"cinematic", dataHeavy:false,
+    prompt:"Atmosphaerische Header-Grafik 16:9, ohne Logo, sehr wenig Text, als Klick-Anreiz. Illustrativ, dunkler Premium-Stil, grosser Titel und optional kurze Kennzahl-Subline, branchenpassende Akzentfarben. Thema aus dem Text. " + NEG_PROMPT },
+
+  "tenbagger": { label:"Tenbagger-Magazinseite", redakteur:"Haslinger", fmt:"2:3", theme:"clean", dataHeavy:true,
+    prompt:"Hochwertige Infografik im Hochformat fuer ein deutsches Finanzmagazin (Tenbagger-Magazin). Moderne Business-Optik, klare Informationshierarchie, professioneller Tech-/SaaS-Look, Barron's editorial infographic style, minimal institutional flat design, clean editorial layout. Komplett auf Deutsch, alle Texte klar lesbar. Aufbau wie redaktionelle Magazin-Seite: starke Hauptueberschrift oben, kurzer Teaser, darunter mehrere klar getrennte Infoboxen/Datenkarten mit Mini-Charts und Key-Stats. Abstrakte Tech-Illustrationen, generische Icons, keine echten Logos. Branchenpassende Farbwelt (dunkles Blau/Navy, Tuerkis/Cyan, Weiss, Akzentfarben fuer Zahlen). Inhalt exakt aus dem Text. " + NEG_PROMPT },
+
+  "meinung": { label:"Meinungs-Grafik", redakteur:"Haslinger", fmt:"16:9", theme:"clean", dataHeavy:false,
+    prompt:"Meinungs-Finanzinfografik 16:9 fuer ein Aktien-Magazin/Trading-Desk. Dunkler Premium-Stil, klare Kernaussage prominent, branchenpassende Akzentfarben, generische Icons, kleine Chart-Elemente. Wenig Text, grosse Zahlen, deutsche Sprache. Stelle die zentrale Investment-Meinung und 2-3 Kerngruende klar dar. Inhalt exakt aus dem Text. " + NEG_PROMPT },
+
+  "einleitung": { label:"Einleitung / Veranschaulichung", redakteur:"Duenn", fmt:"16:9", theme:"clean", dataHeavy:false,
+    prompt:"Hochwertiges, institutionelles, magazinartiges Bild 16:9 zum Artikel-Abschnitt mit passender Bild-Ueberschrift (nicht 1:1 die Zwischenueberschrift). Flat Design, saubere Icons und Farbflaechen, moderne Business-Optik, wenig visuelles Chaos, klare Informationshierarchie, Fokus auf Aussage statt Dekoration, maximal 1-3 Kernbotschaften, Barron's editorial infographic style, premium investment research design. Inhalt sinngemaess (nicht wortwoertlich) aus dem Text. " + NEG_PROMPT },
+
+  "unternehmen": { label:"Unternehmensvorstellung", redakteur:"Duenn", fmt:"16:9", theme:"clean", dataHeavy:false,
+    prompt:"Dynamisches, einheitliches Bild 16:9, das die wichtigsten Kernpunkte des vorgestellten Unternehmens bildlich und ohne viel Text darstellt. Unternehmen zentral, links und rechts die je wichtigsten Staerken/Entwicklungen. Hochwertig, institutionell, magazinartig, flat design, klare Hierarchie, branchenpassende Farben. Inhalt aus dem Text. " + NEG_PROMPT },
+
+  "musterdepot": { label:"Musterdepot-Tabelle", redakteur:"Duenn", fmt:"16:9", theme:"clean", dataHeavy:true,
+    prompt:"Hochwertige, hochaufloesende Finanztabelle 16:9 als Uebersichtsseite fuer ein Musterdepot. Kopf-KPI-Streifen (Startkapital, Cashbestand, investiert EUR und USD GLEICH GROSS dargestellt, Gesamtwert, Rendite %). Positionstabelle mit Spalten: Aktie, WKN, Kaufdatum, Stueck, Kaufkurs, Akt. Kurs, Dividende je Aktie, Gesamtrendite %, naechster Zahltag. Untere Zeile Ueberschrift 'Depotzusammenfassung'. Positive Werte gruen, negative rot, Zahlen monospace tabular. Daten exakt aus dem Text. " + NEG_PROMPT },
+
+  "featured": { label:"Featured Image (Blog)", redakteur:"Duenn", fmt:"16:9", theme:"cinematic", dataHeavy:false,
+    prompt:"Simples, uebersichtliches Featured Image 16:9 fuer einen Depot-Blog-Beitrag mit hohem Wiedererkennungswert. Einfach gehalten, eine klare visuelle Kernaussage, dunkler Premium-Stil, branchenpassende Akzentfarben, generische Icons, sehr wenig Text. Thema aus dem Text. " + NEG_PROMPT },
+
+  "thorsten_fokus": { label:"IM FOKUS (Reich: Saisonal/Rangliste)", redakteur:"Reich", fmt:"16:9", theme:"clean", dataHeavy:true,
+    prompt:"Hochwertige Finanzinfografik 16:9 quer fuer ein deutsches Finanzmagazin. Dunkler Premium-Finanzmagazin-Stil, Navy-/Schwarzblau-Verlauf, hochwertige dunkle Kartenflaechen, leuchtende branchenpassende Akzentfarben, abgerundete Karten mit feinen Konturen, institutionelle Research-Optik (Mischung aus Barron's, Wall Street Journal, Fintech-Dashboard). Ueberschrift 'IM FOKUS: AKTIENNAME (TICKER)' (IM FOKUS weiss/hellgrau, Name farblich hervorgehoben). Kurze Unterzeile mit Investmentthese. Darunter drei vertikale Infokarten: links Geschaeftsmodell & Positionierung, Mitte zentrale Investmentstory/Saisonalitaet/Wachstumstreiber, rechts Finanzdaten & Kurstreiber. Jede Karte mit generischen Icons, kurzen Stichpunkten, KPI-Kacheln, Mini-Charts. Positive Finanzdaten gruen, Risiken dezent orange/grau. Alle Texte Deutsch, scharf, gross genug. Zahlen exakt aus dem Text, keine erfundenen Kennzahlen. " + NEG_PROMPT },
+};
+let curUseCase = "frei";
+
+/* ============================================================
+   GRAFIKEN REDAKTION — Voll-KI-Bild MIT Text (kein Editor-Overlay)
+   Padding-/Safe-Zone-Regeln sind in jedem Prompt eingebaut, damit
+   Texte nicht ueberlaufen oder abgeschnitten werden.
+   ============================================================ */
+// Universelle Layout-/Lesbarkeitsregeln, an JEDEN Grafik-Prompt angehaengt:
+const GR_LAYOUT = "WICHTIG zu Layout und Lesbarkeit: Halte rundum einen grosszuegigen, gleichmaessigen Innenabstand (Safe-Margin von mindestens 6 Prozent der Bildkante) frei. Kein Text, keine Zahl, kein Icon und keine Box darf den Bildrand beruehren oder abgeschnitten werden. Alle Texte vollstaendig innerhalb des sichtbaren Bereichs, klar lesbar, ausreichend gross, mit genug Abstand zueinander, nichts ueberlappt. Klare Spalten-/Rasterstruktur mit konsistenten Abstaenden. Lieber weniger Inhalt und groesser, als ueberladen. Titel oben mit Abstand zur oberen Kante, Fusszeile mit Abstand zur unteren Kante. Alle Texte auf Deutsch, korrekt geschrieben.";
+const GR_NEG = " " + "Negativ: " + "abgeschnittener Text, Text am Bildrand, ueberlappende Texte, unlesbare Mini-Schrift, ueberladenes Layout, " + NEG_PROMPT.replace(/^Keine /,"keine ");
+
+const GRAPHIC_USECASES = {
+  "top5_scoreboard": { label:"Top-5 Scoreboard", redakteur:"Bank", fmt:"16:9",
+    prompt:"Erstelle eine fertige, moderne Finanzinfografik (Voll-Bild inkl. Text) im Format 16:9 zum Thema 'Top 5 Gewinner der Woche' im jeweiligen Megatrend, mit dem Stand-Datum %%DATUM%% in der Kopfzeile. Zeige eine saubere Tabelle mit zwei Spalten: 'Aktienname' und 'Performance 1 Woche (%)'. Dunkler Finanz-/Tech-Hintergrund (Navy/Schwarz mit dezentem Verlauf), gruene Akzente und Aufwaerts-Pfeile fuer positive Performance, klare serifenlose Typografie, prominente Ueberschrift oben. Aktiennamen und Prozentwerte EXAKT aus dem Artikeltext uebernehmen, keine Zahlen erfinden." },
+  "gwl_dashboard": { label:"Großwetterlage-Dashboard", redakteur:"Bank", fmt:"16:9",
+    prompt:"Erstelle eine fertige Dashboard-Finanzinfografik (Voll-Bild inkl. Text) 16:9, Titel 'Grosswetterlage im MEGATREND ...', Untertitel 'Marktbreite (GD20 / GD50 / GD200)'. Heatmap-aehnliche Matrix mit klarer Ampel-Farbskala (Dunkelgruen sehr positiv, Hellgruen positiv, Gelb neutral, Rot negativ), grosse Prozentwerte mit Pfeilen, abgerundete Kacheln, dezente Trennlinien ohne Gitter, kleine Trend-Ampel rechts. Dunkler institutioneller Finanz-Look. Werte exakt aus dem Artikeltext." },
+  "earnings_radar": { label:"Earnings-Radar", redakteur:"Bank", fmt:"16:9",
+    prompt:"Erstelle eine fertige Tabellen-Infografik (Voll-Bild inkl. Text) 16:9 fuer ein Boersenmagazin, Ueberschrift 'MEGATREND-EARNINGS-RADAR' mit Zeitraum. Mehrere Bloecke je Megatrend (z.B. KI, Defense&Space, Rohstoffsicherung), pro Eintrag Aktienname und Berichtstermin im Format TT.MM.JJJJ. Dunkler Hintergrund, klare serifenlose Typografie, Termine in Monospace, gleich breite Spalten, generische Icons (keine echten Logos). Daten exakt aus dem Artikeltext." },
+  "magazin_artikel": { label:"Magazin-Artikel-Grafik", redakteur:"Bank", fmt:"16:9",
+    prompt:"Erstelle eine fertige, professionelle und minimalistische Finanzinfografik (Voll-Bild inkl. Text) 16:9 zum Artikel. Sehr uebersichtlich, maximal 1-3 Kernbotschaften, grosse prominente Zahlen, generische Icons, clean editorial / Barron's-Stil, dunkler Premium-Hintergrund mit dezenten Verlaeufen. Farbwelt an die Branche des Unternehmens angepasst. Schreibe Millionen als Mio., Milliarden als Mrd., Waehrungen als USD oder EUR. Kennzahlen exakt aus dem Artikeltext." },
+  "header_grafik": { label:"Header-/Teaser-Grafik", redakteur:"Bank", fmt:"16:9",
+    prompt:"Erstelle ein fertiges, atmosphaerisches Header-/Teaser-Bild 16:9 als Klick-Anreiz, illustrativ, dunkler Premium-Stil, mit grossem Titel und optional einer kurzen Kennzahl-Subline, branchenpassende Akzentfarben. Sehr wenig Text. Thema aus dem Artikeltext." },
+  "tenbagger": { label:"Tenbagger-Magazinseite", redakteur:"Haslinger", fmt:"2:3",
+    prompt:"Erstelle eine fertige, hochwertige Infografik (Voll-Bild inkl. Text) im Hochformat fuer ein deutsches Finanzmagazin (Tenbagger). Aufbau wie redaktionelle Magazin-Seite: starke Hauptueberschrift oben, kurzer Teaser darunter, dann mehrere klar getrennte Infoboxen / Datenkarten mit Mini-Charts und Key-Stats. Moderne Business-Optik, Barron's editorial infographic style, minimal institutional flat design, abstrakte Tech-Illustrationen und generische Icons, branchenpassende dunkle Farbwelt (Navy, Tuerkis/Cyan, Weiss, Akzentfarben fuer Zahlen). Inhalt und Zahlen exakt aus dem Artikeltext." },
+  "meinung": { label:"Meinungs-Grafik", redakteur:"Haslinger", fmt:"16:9",
+    prompt:"Erstelle eine fertige Meinungs-Finanzinfografik (Voll-Bild inkl. Text) 16:9 fuer ein Aktien-Magazin/Trading-Desk. Dunkler Premium-Stil, eine klare Kernaussage prominent, darunter 2-3 Kerngruende als kurze Boxen, branchenpassende Akzentfarben, generische Icons, kleine Chart-Elemente. Wenig Text, grosse Zahlen. Inhalt exakt aus dem Artikeltext." },
+  "einleitung": { label:"Einleitung / Veranschaulichung", redakteur:"Duenn", fmt:"16:9",
+    prompt:"Erstelle ein fertiges, hochwertiges institutionelles Magazin-Bild (Voll-Bild inkl. Text) 16:9 zum Artikel-Abschnitt mit einer passenden Bild-Ueberschrift. Flat Design, saubere Icons und Farbflaechen, moderne Business-Optik, klare Informationshierarchie, maximal 1-3 Kernbotschaften, Barron's editorial infographic / premium investment research design. Inhalt sinngemaess aus dem Artikeltext." },
+  "unternehmen": { label:"Unternehmensvorstellung", redakteur:"Duenn", fmt:"16:9",
+    prompt:"Erstelle ein fertiges, dynamisches und einheitliches Bild (Voll-Bild inkl. Text) 16:9, das die wichtigsten Kernpunkte des vorgestellten Unternehmens darstellt. Unternehmen/Logo-Platzhalter zentral, links und rechts die je wichtigsten Staerken und aktuellen Entwicklungen als Boxen. Hochwertig, institutionell, magazinartig, flat design, klare Hierarchie, branchenpassende Farben. Inhalt aus dem Artikeltext." },
+  "musterdepot": { label:"Musterdepot-Tabelle", redakteur:"Duenn", fmt:"16:9",
+    prompt:"Erstelle eine fertige, hochaufloesende Finanztabelle (Voll-Bild inkl. Text) 16:9 als Musterdepot-Uebersicht. Kopf-KPI-Streifen (Startkapital, Cashbestand, investiert in EUR und USD GLEICH GROSS dargestellt, Gesamtwert, Rendite %). Positionstabelle mit Spalten: Aktie, WKN, Kaufdatum, Stueck, Kaufkurs, Akt. Kurs, Dividende je Aktie, Gesamtrendite %, naechster Zahltag. Untere Zeile mit Ueberschrift 'Depotzusammenfassung'. Positive Werte gruen, negative rot, Zahlen in Monospace tabular. Werte exakt aus dem Artikeltext." },
+  "featured": { label:"Featured Image (Blog)", redakteur:"Duenn", fmt:"16:9",
+    prompt:"Erstelle ein fertiges, simples und uebersichtliches Featured Image 16:9 fuer einen Depot-Blog-Beitrag mit hohem Wiedererkennungswert. Eine klare visuelle Kernaussage, dunkler Premium-Stil, branchenpassende Akzentfarben, generische Icons, sehr wenig Text. Thema aus dem Artikeltext." },
+  "thorsten_fokus": { label:"IM FOKUS (Reich: Saisonal/Rangliste)", redakteur:"Reich", fmt:"16:9",
+    prompt:"Erstelle eine fertige, hochwertige Finanzinfografik (Voll-Bild inkl. Text) 16:9 quer fuer ein deutsches Finanzmagazin im dunklen Premium-Stil (Navy-/Schwarzblau-Verlauf, hochwertige dunkle Kartenflaechen, leuchtende branchenpassende Akzentfarben, abgerundete Karten mit feinen Konturen, Mischung aus Barron's, Wall Street Journal und Fintech-Dashboard). Ueberschrift oben 'IM FOKUS: AKTIENNAME (TICKER)' (IM FOKUS in Weiss/Hellgrau, der Name farblich hervorgehoben), darunter kurze Unterzeile mit der Investmentthese. Dann drei vertikale Infokarten nebeneinander: links 'Geschaeftsmodell & Positionierung', Mitte die zentrale Investmentstory/Saisonalitaet/Wachstumstreiber, rechts 'Finanzdaten & Kurstreiber'. Jede Karte mit generischen Icons, kurzen Stichpunkten, KPI-Kacheln und Mini-Charts. Positive Finanzdaten gruen, Risiken dezent orange/grau. Zahlen exakt aus dem Artikeltext, keine erfundenen Kennzahlen." },
+};
+let grUseCase = "top5_scoreboard", grModel = "openai/gpt-5.4-image-2";
+
+// Baut den vollstaendigen Grafik-Prompt: Use-Case + Daten + Layout-Safe-Zone + Negativ
+function buildGraphicPrompt(ucKey, article, title){
+  const uc = GRAPHIC_USECASES[ucKey]; if(!uc) return "";
+  const heute = new Date().toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"});
+  let p = uc.prompt.replace(/%%DATUM%%/g, heute);
+  if(title && title.trim()) p += " Titel/Fokus-Unternehmen: " + title.trim() + ".";
+  p += "\n\nARTIKELTEXT / DATEN:\n" + (article||"").slice(0,6000);
+  p += "\n\n" + GR_LAYOUT + GR_NEG;
+  return p;
+}
+
+/* ============================================================
+   Realistischer Platzhalter (steht für GPT-Image-2-Output)
+   ============================================================ */
+function mulberry(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function hex2rgb(h){ h=h.replace("#",""); return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
+function mix(a,b,t){ const A=hex2rgb(a),B=hex2rgb(b); return `rgb(${Math.round(A[0]+(B[0]-A[0])*t)},${Math.round(A[1]+(B[1]-A[1])*t)},${Math.round(A[2]+(B[2]-A[2])*t)})`; }
+
+const SCENE = {
+  clean:     { sky:["#16335c","#26507f","#5b86b8"], glow:"rgba(190,218,255,0.55)", b:["#0a1830","#1a3556"], win:"#d6e7ff", bok:"rgba(205,228,255," },
+  cinematic: { sky:["#250d08","#5e2110","#b1471a"], glow:"rgba(255,168,82,0.62)", b:["#080506","#1d1310"], win:"#ffd49a", bok:"rgba(255,182,112," },
+  metaphor:  { sky:["#1f0d44","#3d1f74","#2347a0"], glow:"rgba(222,165,255,0.5)", b:["#120a26","#241452"], win:"#e6cdff", bok:"rgba(224,186,255," },
 };
 
-// ======================= TYP-OPTIONEN =======================
-const MEGATREND_HINT = 'Bestimmt das Thema im Titel und (bei KI-Hintergrund) die Bildwelt. „Kein Megatrend" lässt das Thema neutral.';
-const STICHTAG_HINT = 'Das Datum erscheint als „Stand TT.MM.JJJJ" in der Grafik. Leer = heutiges Datum.';
-const TYPE_OPTIONS = {
-  top5_scoreboard:  [{key:'megatrend',label:'Megatrend',type:'select',values:['Kein Megatrend / Allgemein','KI','Defense & Space','Weltraum','Rohstoffsicherung'],hint:MEGATREND_HINT},{key:'stichtag',label:'Stichtag',type:'date',hint:STICHTAG_HINT}],
-  gwl_dashboard:    [{key:'megatrend',label:'Megatrend',type:'select',values:['Kein Megatrend / Allgemein','KI','Defense & Space','Rohstoffsicherung'],hint:MEGATREND_HINT},{key:'stichtag',label:'Stichtag',type:'date',hint:STICHTAG_HINT}],
-  earnings_radar:   [{key:'megatrend',label:'Megatrend',type:'select',values:['Kein Megatrend / Allgemein','KI','Defense & Space','Rohstoffsicherung','Alle'],hint:MEGATREND_HINT}],
-  saisonalitaeten:  [{key:'sektor',label:'Sektor (Akzentfarbe)',type:'select',values:['Auto','Halbleiter/KI','Fintech/Banken','Energie','Industrie','Gesundheit','Verteidigung','Konsum']}],
-  ranglisten:       [{key:'sektor',label:'Sektor (Akzentfarbe)',type:'select',values:['Auto','Halbleiter/KI','Fintech/Banken','Energie','Industrie','Gesundheit','Verteidigung','Konsum']}]
-};
-
-// ======================= SCHRITTE je Pfad =======================
-const STEPS = {
-  A:[['queued','In Warteschlange'],['extracting','Daten werden analysiert'],['rendering','Layout wird gerendert'],['done','Fertig']],
-  C:[['queued','In Warteschlange'],['extracting','Daten werden analysiert'],['bg','KI-Hintergrund wird erstellt'],['rendering','Datenlayer wird gerendert'],['done','Fertig']],
-  B:[['queued','In Warteschlange'],['extracting','Daten werden analysiert'],['image','KI-Bild wird generiert'],['rendering','Finalisierung'],['done','Fertig']]
-};
-
-let pollTimer = null, pollStart = 0;
-
-// ── HELPERS ──
-function ratioStr(w,h){
-  const snap = [[1,1],[4,5],[5,4],[2,3],[3,2],[3,4],[4,3],[16,9],[9,16],[21,9]];
-  const t = w/h; let best = snap[0], bd = 1e9;
-  snap.forEach(r => { const d = Math.abs(r[0]/r[1]-t); if(d<bd){bd=d;best=r;} });
-  return best[0]+':'+best[1];
-}
-
-// ── USE CASE CHANGE ──
-function onUseCaseChange(){
-  const uc = document.getElementById('usecase').value;
-  const cfg = USECASES[uc];
-  const badge = document.getElementById('path-badge');
-  badge.textContent = PATH_LABELS[cfg.path];
-  badge.className = 'path-badge path-' + cfg.path;
-  document.getElementById('usecase-hint').textContent = cfg.hint;
-  buildFormatOptions(uc);
-  buildTypeOptions(uc);
-}
-
-function buildFormatOptions(uc){
-  const sel = document.getElementById('format');
-  sel.innerHTML = '';
-  (FORMATS[uc]||[]).forEach((f,i) => {
-    const o = document.createElement('option');
-    o.value = i; o.textContent = f.l;
-    o.dataset.w = f.w; o.dataset.h = f.h; o.dataset.s = f.s||1;
-    sel.appendChild(o);
-  });
-  onFormatChange();
-}
-
-function onFormatChange(){
-  const o = document.getElementById('format').selectedOptions[0];
-  if(!o) return;
-  const w = parseFloat(o.dataset.w), h = parseFloat(o.dataset.h);
-  document.getElementById('format-hint').textContent = ratioStr(w,h) + ' · ' + w + ' × ' + h + ' px';
-}
-
-function buildTypeOptions(uc){
-  const section = document.getElementById('type-options-section');
-  const wrap = document.getElementById('type-options');
-  wrap.innerHTML = '';
-  const opts = TYPE_OPTIONS[uc];
-  if(!opts){ section.style.display='none'; return; }
-  section.style.display = 'block';
-  opts.forEach(opt => {
-    const div = document.createElement('div');
-    const lbl = '<label class="field-label">' + opt.label + '</label>';
-    const hint = opt.hint ? '<div class="hint-text">' + opt.hint + '</div>' : '';
-    if(opt.type === 'select'){
-      div.innerHTML = lbl + '<select data-optkey="'+opt.key+'">' + opt.values.map(v=>'<option value="'+v+'">'+v+'</option>').join('') + '</select>' + hint;
-    } else if(opt.type === 'date'){
-      div.innerHTML = lbl + '<input type="date" data-optkey="'+opt.key+'">' + hint;
+function makePlaceholder(themeKey, w, h, seed, slideType){
+  const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+  const x=cv.getContext("2d"); const rnd=mulberry((seed||1)*97+13);
+  const P=SCENE[themeKey]||SCENE.clean;
+  // Himmel
+  const sky=x.createLinearGradient(0,0,0,h);
+  P.sky.forEach((c,i)=>sky.addColorStop(i/(P.sky.length-1), c));
+  x.fillStyle=sky; x.fillRect(0,0,w,h);
+  // Lichtquelle / Glow
+  const gx=w*(0.2+rnd()*0.6), gy=h*(0.16+rnd()*0.22);
+  const glow=x.createRadialGradient(gx,gy,0,gx,gy,h*0.55);
+  glow.addColorStop(0,P.glow); glow.addColorStop(1,"rgba(0,0,0,0)");
+  x.fillStyle=glow; x.fillRect(0,0,w,h);
+  // Gebäude-Reihen (hinten -> vorne für Tiefe)
+  const horizon=h*0.60;
+  for(let layer=2; layer>=0; layer--){
+    const depth=layer/2;
+    const baseY=horizon + (2-layer)*h*0.06;
+    const col=mix(P.b[1],P.b[0],depth);
+    let bx=-30;
+    while(bx<w+30){
+      const bw=w*(0.05+rnd()*0.10);
+      const bh=h*(0.12+rnd()*0.30)*(1-depth*0.25);
+      const by=baseY-bh;
+      x.fillStyle=col; x.fillRect(bx,by,bw,bh+h);
+      if(layer<=1){
+        for(let wy=by+8; wy<baseY-5; wy+=Math.max(8,h*0.012)){
+          for(let wx=bx+5; wx<bx+bw-5; wx+=Math.max(7,w*0.010)){
+            if(rnd()>0.5){ x.globalAlpha=0.35+rnd()*0.55; x.fillStyle=P.win; x.fillRect(wx,wy,Math.max(2,w*0.003),Math.max(3,h*0.004)); }
+          }
+        }
+        x.globalAlpha=1;
+      }
+      bx+=bw+w*0.012;
     }
-    wrap.appendChild(div);
+  }
+  // Strassen-Reflexion unten
+  const refl=x.createLinearGradient(0,horizon,0,h);
+  refl.addColorStop(0,"rgba(0,0,0,0)"); refl.addColorStop(1, P.glow.replace(/0\.\d+\)/,"0.18)"));
+  x.fillStyle=refl; x.fillRect(0,horizon,w,h-horizon);
+  // Bokeh-Lichter
+  for(let i=0;i<16;i++){
+    const r=h*(0.008+rnd()*0.045), bxx=rnd()*w, byy=h*(0.32+rnd()*0.6);
+    const bg=x.createRadialGradient(bxx,byy,0,bxx,byy,r);
+    const a=(0.06+rnd()*0.22).toFixed(2);
+    bg.addColorStop(0,P.bok+a+")"); bg.addColorStop(1,P.bok+"0)");
+    x.fillStyle=bg; x.beginPath(); x.arc(bxx,byy,r,0,7); x.fill();
+  }
+  // Vignette
+  const vg=x.createRadialGradient(w/2,h*0.5,Math.min(w,h)*0.2,w/2,h*0.5,Math.max(w,h)*0.78);
+  vg.addColorStop(0,"rgba(0,0,0,0)"); vg.addColorStop(1,"rgba(0,0,0,0.48)");
+  x.fillStyle=vg; x.fillRect(0,0,w,h);
+  // Negativraum: bei Cover die untere Textzone bewusst ruhiger und dunkler halten
+  if((slideType||"cover")==="cover"){
+    const tz=x.createLinearGradient(0,h*0.45,0,h);
+    tz.addColorStop(0,"rgba(0,0,0,0)"); tz.addColorStop(1,"rgba(4,8,18,0.55)");
+    x.fillStyle=tz; x.fillRect(0,h*0.45,w,h*0.55);
+  }
+  return cv.toDataURL("image/jpeg",0.86);
+}
+
+/* ---------- Bild-Prompt: pro Format, pro Slide-Typ, pro Stil ---------- */
+const FMT_COMP = {
+  "4:5":  "Vertical 4:5 portrait framing.",
+  "9:16": "Tall 9:16 full-bleed vertical framing.",
+  "1:1":  "Balanced 1:1 square framing.",
+  "16:9": "Wide 16:9 cinematic framing.",
+};
+const SLIDE_COMP = {
+  cover:   "Hero shot: place the main subject in the upper two thirds. Keep the lower 40 percent of the frame visually calm, low in detail and a touch darker, so headline text placed there stays perfectly readable. Nothing important in the bottom strip.",
+  closing: "Keep the main subject in the upper half of the frame, clean and uncluttered, the lower area calm.",
+  content: "Calm, uncluttered scene that works as a quiet background.",
+};
+const THEME_LOOK = {
+  clean:     "clean editorial finance photography, blue hour, premium institutional mood, soft natural light",
+  cinematic: "cinematic photography, warm directional sunset light, deep shadows, filmic grade",
+  metaphor:  "modern conceptual visual metaphor, slightly surreal, premium color grading",
+};
+function buildImagePrompt(userPrompt, fmt, slideType, theme, brand){
+  const parts=[
+    userPrompt.trim() + ".",
+    FMT_COMP[fmt] || FMT_COMP["4:5"],
+    SLIDE_COMP[slideType] || SLIDE_COMP.content
+  ];
+  if(brand && brand.trim()){
+    const B=brand.trim();
+    parts.push("Make the connection to "+B+" clearly visible: show authentic, correctly rendered "+B+" branding in the scene, the real "+B+" logo and typical "+B+" products on storefront signage, apparel or packaging, as it would genuinely look in reality. Keep the brand recognizable, but place it in the main upper area so the lower text zone stays calm and uncluttered.");
+  }
+  parts.push("Look: " + (THEME_LOOK[theme] || THEME_LOOK.clean) + ".");
+  parts.push("Do not invent any headline text, prices, percentages, numbers, charts, tickers or fake captions in the image. Do not add the finanzen.net logo or any news-outlet logo. No watermarks, no UI overlays.");
+  parts.push("Realistic high quality photograph, full-bleed, edge to edge.");
+  return parts.join(" ");
+}
+
+function modalitiesFor(model){ return /flux|sourceful|recraft|seedream|riverflow|grok|imagen/i.test(model) ? ["image"] : ["image","text"]; }
+
+async function generateImageDirect(fullPrompt, fmt, model, key){
+  let res;
+  try{
+    res=await fetch("https://openrouter.ai/api/v1/chat/completions",{
+      method:"POST",
+      headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+key, "HTTP-Referer":"https://finanzen.net", "X-Title":"finanzen.net Creative Studio" },
+      body: JSON.stringify({
+        model: model,
+        messages: [{ role:"user", content: fullPrompt }],
+        modalities: modalitiesFor(model),
+        image_config: { aspect_ratio: fmt }
+      })
+    });
+  }catch(netErr){ throw new Error("Netzwerk/CORS blockiert. Öffne die Seite über http://localhost statt per Doppelklick. ("+netErr.message+")"); }
+  let data={}; try{ data=await res.json(); }catch(e){}
+  if(data && data.error){ throw new Error((data.error.message||JSON.stringify(data.error))+(data.error.code?" [Code "+data.error.code+"]":"")); }
+  if(!res.ok){ throw new Error("OpenRouter Status "+res.status); }
+  const msg = data.choices && data.choices[0] && data.choices[0].message;
+  let url = msg && msg.images && msg.images[0] && msg.images[0].image_url && msg.images[0].image_url.url;
+  if(!url && msg && typeof msg.content==="string" && msg.content.indexOf("data:image")===0) url=msg.content;
+  if(!url) throw new Error("Antwort enthielt kein Bild. Modell "+model+" gibt evtl. keine Bilder aus oder braucht Freischaltung. Felder: "+Object.keys(msg||{}).join(", "));
+  return url;
+}
+
+async function generateImage(userPrompt, fmt, seed, slideType){
+  const m=genMode();
+  if(m==="demo") return makePlaceholder(curTheme, FORMATS[fmt].w, FORMATS[fmt].h, seed, slideType);
+  const fullPrompt = buildImagePrompt(userPrompt, fmt, slideType||"cover", curTheme, curBrand);
+  if(m==="direct") return generateImageDirect(fullPrompt, fmt, curModel, _orKey);
+  // make-gateway
+  const params=new URLSearchParams();
+  params.set("action","generate-image"); params.set("prompt",fullPrompt);
+  params.set("format",fmt); params.set("theme",curTheme); params.set("model",curModel);
+  params.set("slide",slideType||"cover");
+  const res=await fetch(CONFIG.API_BASE,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:params.toString()});
+  const data=await res.json();
+  if(!data.ok || !data.image) throw new Error(data.error||"Bildgenerierung fehlgeschlagen");
+  return data.image;
+}
+
+/* ============================================================
+   Generator UI
+   ============================================================ */
+const $=(id)=>document.getElementById(id);
+function updateBadge(){ const m=genMode(); const b=$("modeBadge"); b.textContent = m==="direct"?"OpenRouter live":(m==="make"?"Make live":"Demo"); }
+updateBadge();
+// Im Produktivbetrieb (Make-Webhook konfiguriert) keinen Key-Eingabe-Button zeigen.
+// Der OpenRouter-Key liegt dann serverseitig in Make.
+if(!CONFIG.DEMO_MODE && CONFIG.API_BASE.trim().length>0){
+  const cb=$("connBtn"); if(cb) cb.style.display="none";
+}
+
+function buildFormatGrid(){
+  const g=$("fmtGrid"); g.innerHTML="";
+  Object.entries(FORMATS).forEach(([key,f])=>{
+    const el=document.createElement("button");
+    el.className="fmt"+(key===curFmt?" on":"");
+    el.innerHTML=`<div class="box" style="width:${f.bw}px;height:${f.bh}px"></div><div class="nm">${key}</div><div class="dm">${f.nm}</div>`;
+    el.onclick=()=>{ curFmt=key; buildFormatGrid(); };
+    g.appendChild(el);
+  });
+}
+buildFormatGrid();
+
+/* ---------- Use-Case-Picker ---------- */
+function buildUseCaseSelect(){
+  const s=$("ucSelect"); if(!s) return;
+  s.innerHTML="";
+  Object.entries(USECASES).forEach(([key,uc])=>{
+    const o=document.createElement("option");
+    o.value=key;
+    o.textContent = uc.redakteur && uc.redakteur!=="–" ? uc.label+"  ·  "+uc.redakteur : uc.label;
+    s.appendChild(o);
+  });
+  s.value=curUseCase;
+}
+function applyUseCase(key){
+  const uc=USECASES[key]; if(!uc) return;
+  curUseCase=key;
+  // Format setzen
+  if(uc.fmt && FORMATS[uc.fmt]){ curFmt=uc.fmt; buildFormatGrid(); }
+  // Stil setzen
+  if(uc.theme){ curTheme=uc.theme; const seg=$("themeSeg"); if(seg) [...seg.children].forEach(x=>x.classList.toggle("on",x.dataset.theme===uc.theme)); }
+  // Prompt setzen (mit Datum), nur wenn Template vorhanden
+  if(uc.prompt){
+    const heute=new Date().toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"});
+    $("fPrompt").value = uc.prompt.replace(/%%DATUM%%/g, heute);
+  }
+  // Hinweis aktualisieren
+  const h=$("ucHint");
+  if(h) h.textContent = uc.dataHeavy
+    ? "Datenlastige Grafik: Tabellen/Zahlen vom KI-Bild können ungenau sein — im Editor prüfen oder Text-Ebene drüberlegen. Für exakte Tabellen den Chart/Sankey-Modus nutzen."
+    : "Setzt Bild-Prompt, Format und Stil passend zum Redakteurs-Use-Case. Danach alles frei editierbar.";
+}
+buildUseCaseSelect();
+$("ucSelect").onchange=(e)=>applyUseCase(e.target.value);
+
+$("themeSeg").addEventListener("click",(e)=>{
+  const b=e.target.closest("button"); if(!b) return;
+  curTheme=b.dataset.theme;
+  [...$("themeSeg").children].forEach(x=>x.classList.toggle("on",x===b));
+});
+$("fModel").onchange=(e)=>{ curModel=e.target.value; };
+$("fBrand").oninput=(e)=>{ curBrand=e.target.value.trim(); };
+
+/* ---------- OpenRouter direkt verbinden (lokaler Test) ---------- */
+function openConn(){ $("connTip").style.display="none"; $("orKeyInput").value=_orKey||""; $("connModal").classList.add("show"); setTimeout(()=>$("orKeyInput").focus(),50); }
+function closeConn(){ $("connModal").classList.remove("show"); }
+function setConnected(on){
+  const b=$("connBtn");
+  b.classList.toggle("live",on);
+  $("connLabel").textContent = on ? "OpenRouter verbunden" : "GPT Image 2 verbinden";
+  updateBadge();
+}
+$("connBtn").onclick=openConn;
+$("connCancel").onclick=()=>{ closeConn(); };
+$("connModal").addEventListener("click",(e)=>{ if(e.target.id==="connModal") closeConn(); });
+$("connSave").onclick=async()=>{
+  const k=$("orKeyInput").value.trim();
+  const tip=$("connTip");
+  if(!k){ tip.className="modal-tip err"; tip.style.display="block"; tip.textContent="Bitte deinen OpenRouter-Key eintragen."; return; }
+  tip.className="modal-tip"; tip.style.display="block"; tip.textContent="Prüfe Key bei OpenRouter ...";
+  $("connSave").disabled=true;
+  try{
+    const r=await fetch("https://openrouter.ai/api/v1/key",{ headers:{ "Authorization":"Bearer "+k } });
+    if(r.status===401){ throw new Error("Key ungültig oder abgelaufen (401)."); }
+    if(!r.ok){ throw new Error("OpenRouter antwortete mit Status "+r.status+"."); }
+    let info={}; try{ info=await r.json(); }catch(e){}
+    _orKey=k; setConnected(true);
+    let extra="";
+    if(info && info.data){ const d=info.data; if(d.limit_remaining!=null) extra=" Rest-Limit: $"+d.limit_remaining+"."; else if(d.usage!=null) extra=" Bisher genutzt: $"+d.usage+"."; }
+    tip.className="modal-tip ok";
+    tip.textContent="Key gültig und verbunden."+extra+" Fenster schließen, dann Studio öffnen oder KI-Bild neu. "+modelLabel()+" generiert dann echte Bilder.";
+    setTimeout(closeConn,1800);
+  }catch(e){
+    _orKey=""; setConnected(false);
+    tip.className="modal-tip err";
+    tip.textContent="Verbindung fehlgeschlagen: "+e.message+" Bei Netzwerk/CORS die Seite über http://localhost öffnen, nicht per Doppelklick.";
+  }
+  $("connSave").disabled=false;
+};
+
+/* ============================================================
+   Editor / Fabric
+   ============================================================ */
+let canvas=null, slides=[], current=-1, DISP={w:0,h:0}, exportMult=1;
+
+function dispDims(fmt){
+  const f=FORMATS[fmt]; const maxW=470, maxH=Math.min(640, window.innerHeight-180);
+  const ratio=f.w/f.h; let w=maxW, h=maxW/ratio;
+  if(h>maxH){ h=maxH; w=maxH*ratio; }
+  return { w:Math.round(w), h:Math.round(h) };
+}
+function px(p,dim){ return Math.round(p*dim); }
+
+function makeLogo(dark){
+  const c1=dark?"#ffffff":BRAND.navy, c2=BRAND.accent, fs=px(0.030,DISP.w);
+  const a=new fabric.Text("finanzen",{fontFamily:BRAND.font,fontWeight:800,fontSize:fs,fill:c1,originX:"left"});
+  const b=new fabric.Text(".net",{left:a.width+1,fontFamily:BRAND.font,fontWeight:800,fontSize:fs,fill:c2,originX:"left"});
+  const g=new fabric.Group([a,b],{selectable:true}); g.set({name:"logo"}); return g;
+}
+function tHeadline(txt,opts){
+  return new fabric.Textbox(txt,Object.assign({fontFamily:BRAND.font,fontWeight:800,fill:"#ffffff",textAlign:"left",lineHeight:1.04,name:"headline"},opts));
+}
+
+function buildCover(content){
+  const W=DISP.w,H=DISP.h,objs=[];
+  objs.push({kind:"image",src:content.bg,props:{name:"bg",selectable:true}});
+  objs.push({kind:"backdrop",zone:{top:0.40,height:0.60}});
+  objs.push({kind:"obj",obj:tHeadline(content.head,{left:px(0.06,W),top:px(0.685,H),width:px(0.82,W),fontSize:px(0.068,W)})});
+  objs.push({kind:"obj",obj:new fabric.Textbox(content.sub,{left:px(0.06,W),top:px(0.865,H),width:px(0.66,W),fontFamily:BRAND.font,fontWeight:600,fontSize:px(0.030,W),fill:"#ffffff",name:"subline"})});
+  objs.push({kind:"obj",obj:new fabric.Text("Bildquelle: KI-generiert",{left:px(0.06,W),top:px(0.955,H),fontFamily:BRAND.font,fontSize:px(0.018,W),fill:"rgba(255,255,255,0.72)",name:"credit"})});
+  return {objs,logoDark:true};
+}
+
+/* Lesbarkeits-Backdrop hinter dem Text: scrim | frosted | clear */
+function makeBackdrop(bgSrc, zone, mode){
+  const W=DISP.w,H=DISP.h, top=H*zone.top, height=H*zone.height;
+  if(mode==="clear") return Promise.resolve(null);
+  if(mode==="scrim"){
+    const r=new fabric.Rect({left:0,top:top,width:W,height:height,name:"backdrop",selectable:false,evented:false});
+    r.set("fill",new fabric.Gradient({type:"linear",coords:{x1:0,y1:0,x2:0,y2:height},colorStops:[{offset:0,color:"rgba(0,0,0,0)"},{offset:0.55,color:"rgba(0,0,0,0.45)"},{offset:1,color:"rgba(0,0,0,0.84)"}]}));
+    return Promise.resolve(r);
+  }
+  // frosted: geblurrte Bildkopie, weich in die Textzone eingeblendet
+  return new Promise((resolve)=>{
+    const im=new Image(); im.crossOrigin="anonymous";
+    im.onload=()=>{
+      const oc=document.createElement("canvas"); oc.width=W; oc.height=H; const ox=oc.getContext("2d");
+      const s=Math.max(W/im.width,H/im.height), dw=im.width*s, dh=im.height*s;
+      ox.filter="blur("+Math.max(3,Math.round(H*0.014))+"px) brightness(0.8)";
+      ox.drawImage(im,(W-dw)/2,(H-dh)/2,dw,dh);
+      ox.filter="none";
+      // weiche Oberkante: nur die Textzone behalten, oben sanft auslaufend
+      ox.globalCompositeOperation="destination-in";
+      const m=ox.createLinearGradient(0,top-H*0.10,0,top+H*0.05);
+      m.addColorStop(0,"rgba(0,0,0,0)"); m.addColorStop(1,"rgba(0,0,0,1)");
+      ox.fillStyle=m; ox.fillRect(0,top-H*0.10,W,H-(top-H*0.10));
+      ox.globalCompositeOperation="source-over";
+      // dezenter dunkler Verlauf unten für Kontrast
+      const sc=ox.createLinearGradient(0,top,0,H);
+      sc.addColorStop(0,"rgba(0,0,0,0)"); sc.addColorStop(1,"rgba(4,8,18,0.5)");
+      ox.fillStyle=sc; ox.fillRect(0,top,W,H-top);
+      fabric.Image.fromURL(oc.toDataURL("image/png"),(fimg)=>{ fimg.set({left:0,top:0,name:"backdrop",selectable:false,evented:false}); resolve(fimg); });
+    };
+    im.onerror=()=>resolve(null);
+    im.src=bgSrc;
+  });
+}
+function buildContent(content){
+  const W=DISP.w,H=DISP.h,objs=[];
+  objs.push({kind:"obj",obj:new fabric.Rect({left:0,top:0,width:W,height:H,fill:"#ffffff",name:"bg",selectable:false,evented:false})});
+  objs.push({kind:"obj",obj:new fabric.Rect({left:0,top:0,width:W,height:px(0.255,H),fill:BRAND.navy,name:"headerbar",selectable:false,evented:false})});
+  objs.push({kind:"obj",obj:tHeadline(content.head,{left:px(0.06,W),top:px(0.065,H),width:px(0.86,W),fontSize:px(0.056,W)})});
+  (content.bullets||[]).forEach((bt,i)=>{
+    const y=0.345+i*0.165;
+    objs.push({kind:"obj",obj:new fabric.Triangle({left:px(0.075,W),top:px(y+0.004,H),width:px(0.026,W),height:px(0.026,W),angle:90,fill:"#8fa6c8",name:"marker",selectable:false,evented:false})});
+    objs.push({kind:"obj",obj:new fabric.Textbox(bt,{left:px(0.135,W),top:px(y,H),width:px(0.80,W),fontFamily:BRAND.font,fontWeight:500,fontSize:px(0.036,W),fill:"#333333",lineHeight:1.25,name:"bullet"+(i+1)})});
+  });
+  return {objs,logoDark:false};
+}
+function buildClosing(content){
+  const W=DISP.w,H=DISP.h,objs=[];
+  objs.push({kind:"obj",obj:new fabric.Rect({left:0,top:0,width:W,height:H,fill:"#ffffff",name:"bg2",selectable:false,evented:false})});
+  objs.push({kind:"image",src:content.bg,props:{name:"image",selectable:true,_coverH:px(0.50,H)}});
+  objs.push({kind:"obj",obj:new fabric.Textbox(content.closeHead||"Glaubwürdiger Turnaround",{left:px(0.06,W),top:px(0.585,H),width:px(0.86,W),fontFamily:BRAND.font,fontWeight:800,fontSize:px(0.052,W),fill:BRAND.navy,name:"headline"})});
+  objs.push({kind:"obj",obj:new fabric.Textbox(content.close,{left:px(0.06,W),top:px(0.71,H),width:px(0.86,W),fontFamily:BRAND.font,fontWeight:500,fontSize:px(0.034,W),fill:BRAND.muted,lineHeight:1.35,name:"body"})});
+  objs.push({kind:"obj",obj:new fabric.Text("Quelle: finanzen.net",{left:px(0.06,W),top:px(0.95,H),fontFamily:BRAND.font,fontSize:px(0.020,W),fill:BRAND.muted,name:"source"})});
+  return {objs,logoDark:false};
+}
+const TEMPLATES={cover:buildCover,content:buildContent,closing:buildClosing};
+
+function loadImageObj(src,props){
+  return new Promise((resolve)=>{
+    fabric.Image.fromURL(src,(img)=>{
+      const W=DISP.w,H=DISP.h;
+      if(props._coverH){
+        const t=props._coverH, s=Math.max(W/img.width, t/img.height); img.scale(s);
+        img.set({left:(W-img.getScaledWidth())/2,top:0,name:props.name||"image",selectable:true});
+        img.clipPath=new fabric.Rect({left:0,top:0,width:W,height:t,absolutePositioned:true});
+      } else {
+        const s=Math.max(W/img.width,H/img.height); img.scale(s);
+        img.set({left:(W-img.getScaledWidth())/2,top:(H-img.getScaledHeight())/2,name:props.name||"bg",selectable:props.selectable!==false});
+      }
+      resolve(img);
+    },{crossOrigin:"anonymous"});
   });
 }
 
-function collectTypeOptions(){
-  const out = {};
-  document.querySelectorAll('#type-options [data-optkey]').forEach(el => out[el.dataset.optkey] = el.value);
+async function renderTemplate(type,content){
+  canvas.clear(); canvas.backgroundColor="#ffffff";
+  const spec=TEMPLATES[type](content);
+  const mode = (slides[current] && slides[current].backdrop) || "scrim";
+  for(const o of spec.objs){
+    if(o.kind==="image"){ const img=await loadImageObj(o.src,o.props); canvas.add(img); if((o.props.name||"")==="bg") canvas.sendToBack(img); }
+    else if(o.kind==="backdrop"){ const bd=await makeBackdrop(content.bg,o.zone,mode); if(bd) canvas.add(bd); }
+    else canvas.add(o.obj);
+  }
+  const logo=makeLogo(spec.logoDark);
+  logo.set({left:DISP.w-logo.width-px(0.05,DISP.w), top:DISP.h-logo.height-px(0.035,DISP.h)});
+  canvas.add(logo); canvas.renderAll();
+}
+
+/* slides */
+const EXTRA=["name","selectable","evented","_coverH"];
+function makeThumb(){ try{ return canvas.toDataURL({format:"jpeg",quality:0.5,multiplier:96/DISP.w}); }catch(e){ return null; } }
+function snapshotCurrent(){ if(current<0||!canvas) return; slides[current].json=canvas.toJSON(EXTRA); slides[current].thumb=makeThumb(); }
+
+async function showSlide(i){
+  if(i===current) return;
+  snapshotCurrent(); current=i; clearProps();
+  if(slides[i].json){ canvas.loadFromJSON(slides[i].json,()=>{canvas.renderAll(); slides[i].thumb=makeThumb(); renderSlideTabs();}); }
+  else { await renderTemplate(slides[i].type,slides[i].content); slides[i].json=canvas.toJSON(EXTRA); slides[i].thumb=makeThumb(); }
+  renderSlideTabs();
+}
+
+function renderSlideTabs(){
+  const list=$("slideList"); list.innerHTML="";
+  slides.forEach((s,i)=>{
+    const t=document.createElement("div");
+    t.className="stab"+(i===current?" on":"");
+    const ratio=FORMATS[curFmt].h/FORMATS[curFmt].w;
+    const thumb = s.thumb
+      ? `<img class="thumb" src="${s.thumb}" style="height:${Math.round(42*ratio)}px">`
+      : `<div class="thumb ph" style="aspect-ratio:${FORMATS[curFmt].w}/${FORMATS[curFmt].h}">${i+1}</div>`;
+    t.innerHTML=`${thumb}<div class="st-meta"><div class="st-name">${s.name}</div><div class="st-i">Slide ${i+1}</div></div>`+
+      (slides.length>1?`<button class="sx" title="entfernen"><svg class="ic ic-sm" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`:``);
+    t.onclick=(e)=>{ if(e.target.closest(".sx")) return; showSlide(i); };
+    const x=t.querySelector(".sx"); if(x) x.onclick=(e)=>{ e.stopPropagation(); removeSlide(i); };
+    list.appendChild(t);
+  });
+}
+async function removeSlide(i){
+  if(slides.length<=1) return;
+  if(i===current){ slides.splice(i,1); current=-1; await showSlide(Math.max(0,i-1)); }
+  else { if(i<current) current--; slides.splice(i,1); renderSlideTabs(); }
+}
+async function addSlide(type){
+  snapshotCurrent();
+  const names={cover:"Cover",content:"Content",closing:"Closing"};
+  slides.push({name:names[type]||"Slide",type,content:window._content,json:null,thumb:null,backdrop:type==="cover"?"scrim":"clear"});
+  current=-1; await showSlide(slides.length-1);
+}
+$("addSlide").onclick=()=>{ const types=["content","closing","cover"]; addSlide(types[(slides.length-1)%types.length]||"content"); };
+
+/* ============================================================
+   Properties-Panel
+   ============================================================ */
+const FONTS=["Inter","Helvetica","Arial","Georgia","Times New Roman","Courier New"];
+const EMPTY=`<div class="empty"><div class="icwrap"><svg class="ic" viewBox="0 0 24 24"><path d="M9 3v18M3 9h18"/><rect x="3" y="3" width="18" height="18" rx="2.5"/></svg></div>Kein Element ausgewählt. Klick ein Text- oder Bildelement an, um Position, Größe, Schrift und Farbe zu ändern.</div>`;
+function clearProps(){ $("propBody").innerHTML=EMPTY; }
+clearProps();
+
+function labelFor(o){
+  if(o.type==="group") return "Logo";
+  if(o.type==="image") return "Bild";
+  if(o.type==="rect"||o.type==="triangle") return "Form";
+  const n=(o.name||"").replace(/[0-9]/g,"");
+  return ({headline:"Schlagzeile",subline:"Unterzeile",bullet:"Kernpunkt",body:"Text",source:"Quelle",credit:"Bildquelle"})[n]||"Text";
+}
+function updateProps(){
+  const o=canvas.getActiveObject(); if(!o){ clearProps(); return; }
+  const isText=o.type==="textbox"||o.type==="i-text"||o.type==="text";
+  const w=Math.round(o.getScaledWidth()),h=Math.round(o.getScaledHeight());
+  let html=`<div class="sel-tag"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg> ${labelFor(o)}</div>`;
+  html+=`<div class="pgroup"><div class="pgt">Position & Größe</div>
+    <div class="grid2">
+      <div class="fld"><span>X</span><input type="number" id="pX" value="${Math.round(o.left)}"></div>
+      <div class="fld"><span>Y</span><input type="number" id="pY" value="${Math.round(o.top)}"></div>
+      <div class="fld"><span>B</span><input type="number" id="pW" value="${w}"></div>
+      <div class="fld"><span>H</span><input type="number" id="pH" value="${h}"></div>
+    </div>
+    <div class="row-lab" style="margin-top:13px">Drehung</div>
+    <div class="slider"><input type="range" id="pR" min="-180" max="180" value="${Math.round(o.angle||0)}"><span class="v" id="pRv">${Math.round(o.angle||0)}°</span></div>
+    <div class="row-lab" style="margin-top:11px">Deckkraft</div>
+    <div class="slider"><input type="range" id="pO" min="0" max="100" value="${Math.round((o.opacity??1)*100)}"><span class="v" id="pOv">${Math.round((o.opacity??1)*100)}</span></div>
+  </div>`;
+  if(isText){
+    html+=`<div class="pgroup"><div class="pgt">Text</div>
+      <div class="row-lab">Schriftart</div>
+      <div class="selwrap"><select class="psel" id="pFont">${FONTS.map(f=>`<option ${o.fontFamily===f?"selected":""}>${f}</option>`).join("")}</select>
+        <svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+      <div class="grid2" style="margin-top:10px">
+        <div class="fld"><span>Gr</span><input type="number" id="pFS" value="${Math.round(o.fontSize)}"></div>
+        <div class="fld"><span>Zl</span><input type="number" step="0.05" id="pLH" value="${(o.lineHeight||1.16).toFixed(2)}"></div>
+      </div>
+      <div class="color-row"><input type="color" id="pFill" value="${toHex(o.fill)}"><input type="text" class="hex" id="pFillT" value="${toHex(o.fill)}"></div>
+      <div class="seg-mini">
+        <button class="toggle ${o.fontWeight>=700?'on':''}" id="pBold">B</button>
+        <button class="toggle ${o.fontStyle==='italic'?'on':''}" id="pItalic" style="font-style:italic">I</button>
+        <button class="toggle" id="pAlignL"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13"/></svg></button>
+        <button class="toggle" id="pAlignC"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M5 18h14"/></svg></button>
+        <button class="toggle" id="pAlignR"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M4 6h16M10 12h10M7 18h13"/></svg></button>
+      </div>
+    </div>`;
+  }
+  html+=`<div class="pgroup"><div class="pgt">Anordnung</div><div class="arrange">
+    <button id="pFront"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M12 3l8 5-8 5-8-5z"/><path d="M4 14l8 5 8-5"/></svg> Vorne</button>
+    <button id="pBackBtn"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M12 16l-8-5 8-5 8 5z"/><path d="M20 10l-8 5-8-5"/></svg> Hinten</button>
+  </div></div>`;
+  $("propBody").innerHTML=html; wireProps(o,isText);
+}
+function wireProps(o,isText){
+  const bind=(id,fn)=>{ const el=$(id); if(el) el.oninput=()=>{ fn(el); canvas.renderAll(); }; };
+  bind("pX",el=>o.set("left",parseFloat(el.value)||0));
+  bind("pY",el=>o.set("top",parseFloat(el.value)||0));
+  bind("pW",el=>{ const v=parseFloat(el.value)||1; o.set("scaleX",v/(o.width||1)); });
+  bind("pH",el=>{ const v=parseFloat(el.value)||1; o.set("scaleY",v/(o.height||1)); });
+  const r=$("pR"); if(r) r.oninput=()=>{ o.set("angle",parseFloat(r.value)||0); $("pRv").textContent=Math.round(r.value)+"°"; canvas.renderAll(); };
+  const op=$("pO"); if(op) op.oninput=()=>{ o.set("opacity",(parseFloat(op.value)||0)/100); $("pOv").textContent=Math.round(op.value); canvas.renderAll(); };
+  if(isText){
+    bind("pFS",el=>{ o.set("fontSize",parseFloat(el.value)||10); o.set({scaleX:1,scaleY:1}); });
+    bind("pLH",el=>o.set("lineHeight",parseFloat(el.value)||1.1));
+    const f=$("pFont"); if(f) f.onchange=()=>{ o.set("fontFamily",f.value); canvas.renderAll(); };
+    bind("pFill",el=>{ o.set("fill",el.value); const t=$("pFillT"); if(t) t.value=el.value; });
+    const ft=$("pFillT"); if(ft) ft.oninput=()=>{ o.set("fill",ft.value); const c=$("pFill"); if(c) c.value=normHex(ft.value); canvas.renderAll(); };
+    const bold=$("pBold"); if(bold) bold.onclick=()=>{ const on=o.fontWeight>=700; o.set("fontWeight",on?400:800); bold.classList.toggle("on",!on); canvas.renderAll(); };
+    const it=$("pItalic"); if(it) it.onclick=()=>{ const on=o.fontStyle==='italic'; o.set("fontStyle",on?"normal":"italic"); it.classList.toggle("on",!on); canvas.renderAll(); };
+    const setAlign=(v)=>{ o.set("textAlign",v); canvas.renderAll(); };
+    if($("pAlignL")) $("pAlignL").onclick=()=>setAlign("left");
+    if($("pAlignC")) $("pAlignC").onclick=()=>setAlign("center");
+    if($("pAlignR")) $("pAlignR").onclick=()=>setAlign("right");
+  }
+  if($("pFront")) $("pFront").onclick=()=>{ canvas.bringToFront(o); canvas.renderAll(); };
+  if($("pBackBtn")) $("pBackBtn").onclick=()=>{ canvas.sendToBack(o); canvas.renderAll(); };
+}
+function liveProps(){
+  const o=canvas.getActiveObject(); if(!o) return;
+  const set=(id,v)=>{ const e=$(id); if(e&&document.activeElement!==e) e.value=v; };
+  set("pX",Math.round(o.left)); set("pY",Math.round(o.top));
+  set("pW",Math.round(o.getScaledWidth())); set("pH",Math.round(o.getScaledHeight()));
+  const r=$("pR"); if(r&&document.activeElement!==r){ r.value=Math.round(o.angle||0); $("pRv").textContent=Math.round(o.angle||0)+"°"; }
+}
+
+/* color helpers */
+function toHex(c){
+  if(!c||typeof c!=="string") return "#000000";
+  if(c[0]==="#") return c.length===4?"#"+c[1]+c[1]+c[2]+c[2]+c[3]+c[3]:c.slice(0,7);
+  const m=c.match(/rgba?\(([^)]+)\)/); if(!m) return "#000000";
+  const p=m[1].split(",").map(s=>parseFloat(s));
+  return "#"+p.slice(0,3).map(v=>("0"+Math.round(v).toString(16)).slice(-2)).join("");
+}
+function normHex(v){ v=(v||"").trim(); if(v[0]!=="#") v="#"+v; return /^#[0-9a-fA-F]{6}$/.test(v)?v:"#000000"; }
+
+/* ============================================================
+   Toolbar actions
+   ============================================================ */
+function addTextEl(){
+  const t=new fabric.Textbox("Neuer Text",{left:px(0.1,DISP.w),top:px(0.1,DISP.h),width:px(0.6,DISP.w),fontFamily:BRAND.font,fontWeight:600,fontSize:px(0.04,DISP.w),fill:BRAND.navy,name:"text"});
+  canvas.add(t); canvas.setActiveObject(t); canvas.renderAll(); updateProps();
+}
+let fileTarget="add";
+$("fileInput").addEventListener("change",(e)=>{
+  const file=e.target.files[0]; if(!file) return;
+  const r=new FileReader();
+  r.onload=async()=>{
+    if(fileTarget==="bg"){
+      const old=canvas.getObjects().find(o=>o.name==="bg"); if(old) canvas.remove(old);
+      const img=await loadImageObj(r.result,{name:"bg",selectable:true}); canvas.add(img); canvas.sendToBack(img); canvas.renderAll();
+    } else {
+      fabric.Image.fromURL(r.result,(img)=>{ const s=px(0.5,DISP.w)/img.width; img.scale(s); img.set({left:px(0.22,DISP.w),top:px(0.22,DISP.h),name:"image"}); canvas.add(img); canvas.setActiveObject(img); canvas.renderAll(); updateProps(); });
+    }
+  };
+  r.readAsDataURL(file); e.target.value="";
+});
+$("tAddText").onclick=addTextEl;
+$("tAddImage").onclick=()=>{ fileTarget="add"; $("fileInput").click(); };
+$("tLogo").onclick=()=>{ const l=makeLogo(false); l.set({left:px(0.3,DISP.w),top:px(0.4,DISP.h)}); canvas.add(l); canvas.setActiveObject(l); canvas.renderAll(); };
+$("tBgColor").onclick=()=>{ const col=prompt("Hintergrundfarbe (Hex), z.B. #0a1f44",canvas.backgroundColor||"#ffffff"); if(col){ canvas.backgroundColor=col; canvas.renderAll(); } };
+$("tDelete").onclick=()=>{ const o=canvas.getActiveObject(); if(o){ canvas.remove(o); clearProps(); canvas.renderAll(); } };
+$("tBack").onclick=()=>{ snapshotCurrent(); $("editorView").classList.remove("active"); $("genView").classList.add("active"); };
+function modelLabel(){ const o=[...$("fModel").options].find(x=>x.value===curModel); return o?o.textContent.split(" · ")[0]:"GPT Image 2"; }
+$("tGenImg").onclick=async()=>{
+  const stype = slides[current] ? slides[current].type : "cover";
+  showLoading("KI-Bild wird erzeugt", isLive()?(modelLabel()+" rendert das Bild"):"Platzhalter wird gezeichnet");
+  try{
+    const src=await generateImage(window._content.prompt,curFmt,Math.floor(Math.random()*9999)+1,stype);
+    const old=canvas.getObjects().find(o=>o.name==="bg"||o.name==="image");
+    if(old && old.name==="image"){
+      const c=old.clipPath; const img=await loadImageObj(src,{name:"image",selectable:true,_coverH:c?c.height:px(0.5,DISP.h)}); canvas.remove(old); canvas.insertAt(img,0);
+    } else if(old){
+      canvas.remove(old);
+      const img=await loadImageObj(src,{name:"bg",selectable:true}); canvas.add(img); canvas.sendToBack(img);
+      const mode=(slides[current]&&slides[current].backdrop)||"scrim";
+      const oldBd=canvas.getObjects().find(o=>o.name==="backdrop"); if(oldBd) canvas.remove(oldBd);
+      const bd=await makeBackdrop(src,{top:0.40,height:0.60},mode);
+      if(bd){ canvas.add(bd); canvas.moveTo(bd, canvas.getObjects().indexOf(img)+1); }
+    }
+    canvas.renderAll();
+    hideLoading();
+    if(isLive()) toast("Neues Bild von "+modelLabel()+" erzeugt");
+  }catch(err){ hideLoading(); toast("Bildgenerierung fehlgeschlagen: "+err.message, 7000); }
+};
+
+/* Lesbarkeit hinter dem Text: scrim -> frosted -> clear */
+const BD_LABEL={scrim:"Abdunklung",frosted:"Frosted-Blur",clear:"Klar"};
+$("tBackdrop").onclick=async()=>{
+  if(current<0) return;
+  const bg=canvas.getObjects().find(o=>o.name==="bg");
+  if(!bg){ toast("Lesbarkeit wirkt nur auf der Cover-Slide"); return; }
+  const modes=["scrim","frosted","clear"];
+  slides[current].backdrop=modes[(modes.indexOf(slides[current].backdrop||"scrim")+1)%modes.length];
+  const old=canvas.getObjects().find(o=>o.name==="backdrop"); if(old) canvas.remove(old);
+  const bd=await makeBackdrop(window._content.bg,{top:0.40,height:0.60},slides[current].backdrop);
+  if(bd){ canvas.add(bd); canvas.moveTo(bd, canvas.getObjects().indexOf(bg)+1); }
+  canvas.renderAll();
+  toast("Text-Lesbarkeit: "+BD_LABEL[slides[current].backdrop]);
+};
+
+let _toastT=null;
+function toast(msg, dur){
+  let el=$("toast");
+  if(!el){ el=document.createElement("div"); el.id="toast"; el.style.cssText="position:fixed;bottom:26px;left:50%;transform:translateX(-50%);max-width:520px;text-align:center;background:#0f1722;color:#fff;font-size:13px;font-weight:600;padding:11px 18px;border-radius:11px;box-shadow:0 10px 30px rgba(0,0,0,.25);z-index:80;opacity:0;transition:opacity .2s,transform .2s"; document.body.appendChild(el); }
+  el.textContent=msg; el.style.opacity="1"; el.style.transform="translateX(-50%) translateY(0)";
+  clearTimeout(_toastT); _toastT=setTimeout(()=>{ el.style.opacity="0"; el.style.transform="translateX(-50%) translateY(8px)"; }, dur||1900);
+}
+function exportPNG(){
+  snapshotCurrent();
+  const url=canvas.toDataURL({format:"png",multiplier:exportMult});
+  const a=document.createElement("a");
+  a.href=url; a.download=`${(window._content.head||"post").replace(/[^a-z0-9]+/gi,"_").slice(0,40)}_slide${current+1}.png`; a.click();
+}
+$("tExport").onclick=exportPNG;
+$("tPublish").onclick=()=>{ alert("Im Live-Betrieb geht der Post von hier per Make an OneUp und die Social-Kanäle. Im Demo: Export PNG nutzen."); };
+
+function showLoading(t,s){ $("loadTitle").textContent=t; $("loadSub").textContent=s; $("loading").classList.add("show"); }
+function hideLoading(){ $("loading").classList.remove("show"); }
+
+/* ============================================================
+   Start
+   ============================================================ */
+$("goStudio").onclick=async()=>{
+  curBrand=$("fBrand").value.trim();
+  const content={
+    head:$("fHead").value, sub:$("fSub").value,
+    bullets:[$("fB1").value,$("fB2").value,$("fB3").value].filter(x=>x.trim()),
+    close:$("fClose").value, closeHead:"Glaubwürdiger Turnaround",
+    prompt:$("fPrompt").value, brand:curBrand, bg:null
+  };
+  showLoading("Dein Post wird erstellt", isLive()?(modelLabel()+" generiert dein Bild"):"Platzhalter wird gezeichnet");
+  let genErr=null;
+  try{ content.bg=await generateImage(content.prompt,curFmt,1,"cover"); }
+  catch(err){ genErr=err.message; content.bg=makePlaceholder(curTheme,FORMATS[curFmt].w,FORMATS[curFmt].h,1,"cover"); }
+  window._content=content;
+
+  DISP=dispDims(curFmt); exportMult=FORMATS[curFmt].w/DISP.w;
+  $("genView").classList.remove("active"); $("editorView").classList.add("active");
+  await document.fonts.ready;
+
+  if(!canvas){
+    canvas=new fabric.Canvas("c",{preserveObjectStacking:true,backgroundColor:"#ffffff"});
+    canvas.on("selection:created",updateProps);
+    canvas.on("selection:updated",updateProps);
+    canvas.on("selection:cleared",clearProps);
+    canvas.on("object:modified",updateProps);
+    canvas.on("object:moving",liveProps);
+    canvas.on("object:scaling",liveProps);
+    canvas.on("object:rotating",liveProps);
+  }
+  canvas.setWidth(DISP.w); canvas.setHeight(DISP.h);
+
+  slides=[
+    {name:"Cover",type:"cover",content,json:null,thumb:null,backdrop:"scrim"},
+    {name:"Content",type:"content",content,json:null,thumb:null,backdrop:"clear"},
+    {name:"Closing",type:"closing",content,json:null,thumb:null,backdrop:"clear"},
+  ];
+  current=-1; await showSlide(0);
+  hideLoading();
+  if(genErr && isLive()){ toast("KI-Bild fehlgeschlagen, Platzhalter aktiv. "+genErr, 7000); }
+};
+
+/* ============================================================
+   GRAFIKEN REDAKTION — Generierung (Voll-Bild) + UI
+   ============================================================ */
+let _graphicInit=false, _grLastImg=null;
+function buildGraphicUcSelect(){
+  const s=$("grUseCase"); if(!s) return;
+  s.innerHTML="";
+  Object.entries(GRAPHIC_USECASES).forEach(([k,uc])=>{
+    const o=document.createElement("option"); o.value=k; o.textContent=uc.label+"  ·  "+uc.redakteur; s.appendChild(o);
+  });
+  s.value=grUseCase; syncGrUseCase();
+}
+function syncGrUseCase(){
+  const uc=GRAPHIC_USECASES[grUseCase]; if(!uc) return;
+  $("grFormat").value=uc.fmt;
+  const dataHeavy=["top5_scoreboard","gwl_dashboard","earnings_radar","musterdepot","thorsten_fokus","tenbagger"].includes(grUseCase);
+  $("grUcHint").textContent = dataHeavy
+    ? "Datenlastige Grafik mit Tabellen/Zahlen. GPT Image 2 rendert Text am saubersten — Ergebnis vor Veröffentlichung auf korrekte Zahlen prüfen."
+    : "Stimmungs-/Story-Grafik. Reines KI-Bild ist hier ideal.";
+}
+function initGraphic(){
+  buildGraphicUcSelect();
+  $("grUseCase").onchange=(e)=>{ grUseCase=e.target.value; syncGrUseCase(); };
+  $("grModel").onchange=(e)=>{ grModel=e.target.value; };
+  $("grRender").onclick=runGraphic;
+  $("grExport").onclick=()=>{ if(!_grLastImg) return; const a=document.createElement("a"); a.href=_grLastImg; a.download=(grUseCase+"_"+Date.now())+".png"; a.click(); };
+  $("grToEditor").onclick=openGraphicInEditor;
+}
+// Voll-Bild generieren: direkt (OpenRouter) oder via Make-Route action=generate-graphic
+async function generateGraphicImage(fullPrompt, fmt, model){
+  const m=genMode();
+  if(m==="demo"){ return makePlaceholder("clean", FORMATS[fmt].w, FORMATS[fmt].h, Math.floor(Math.random()*9999)+1, "content"); }
+  if(m==="direct"){
+    return generateImageDirect(fullPrompt, fmt, model, _orKey);
+  }
+  // make
+  const params=new URLSearchParams();
+  params.set("action","generate-graphic");
+  params.set("prompt",fullPrompt); params.set("format",fmt); params.set("model",model); params.set("use_case",grUseCase);
+  const res=await fetch(CONFIG.API_BASE,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:params.toString()});
+  const data=await res.json();
+  if(!data.ok || !data.image) throw new Error(data.error||"Grafik-Generierung fehlgeschlagen");
+  return data.image;
+}
+async function runGraphic(){
+  const article=$("grArticle").value.trim();
+  if(!article){ toast("Bitte Artikeltext einfügen"); return; }
+  if(genMode()==="demo"){ toast("Zum echten Generieren: Make-Webhook in CONFIG eintragen oder lokal OpenRouter verbinden",5000); }
+  const uc=GRAPHIC_USECASES[grUseCase];
+  const fmt=uc.fmt;
+  const prompt=buildGraphicPrompt(grUseCase, article, $("grTitle").value);
+  const btn=$("grRender"); const old=btn.textContent; btn.disabled=true; btn.textContent="Grafik wird erstellt …";
+  $("grStatus").textContent = isLive()? "Modell rendert die Grafik — das dauert einige Sekunden." : "Demo-Modus: Platzhalter wird gezeichnet.";
+  try{
+    const img=await generateGraphicImage(prompt, fmt, grModel);
+    _grLastImg=img;
+    const wrap=$("grCanvasWrap");
+    const f=FORMATS[fmt];
+    wrap.innerHTML="";
+    const el=new Image(); el.src=img;
+    el.style.cssText="max-width:min(70vw,900px);max-height:calc(100vh-220px);width:auto;height:auto;display:block;border-radius:4px";
+    wrap.appendChild(el);
+    $("grExport").disabled=false; $("grToEditor").disabled=false;
+    $("grStatus").textContent = isLive()? "Fertig. Download als PNG oder zum Feinschliff im Editor öffnen." : "Demo-Platzhalter. Für echte Grafik Make/OpenRouter verbinden.";
+  }catch(e){
+    $("grStatus").textContent="Fehler: "+e.message;
+    toast("Grafik fehlgeschlagen: "+e.message,7000);
+  }
+  btn.disabled=false; btn.textContent=old;
+}
+// generiertes Grafik-Bild als editierbaren Hintergrund in den Fabric-Editor uebergeben
+async function openGraphicInEditor(){
+  if(!_grLastImg) return;
+  const uc=GRAPHIC_USECASES[grUseCase];
+  curFmt = uc.fmt;
+  window._content={ head:"", sub:"", bullets:[], close:"", closeHead:"", prompt:"", brand:"", bg:_grLastImg };
+  DISP=dispDims(curFmt); exportMult=FORMATS[curFmt].w/DISP.w;
+  showView("home"); // views zuruecksetzen
+  $("homeView").classList.remove("active");
+  $("editorView").classList.add("active");
+  await document.fonts.ready;
+  if(!canvas){
+    canvas=new fabric.Canvas("c",{preserveObjectStacking:true,backgroundColor:"#ffffff"});
+    canvas.on("selection:created",updateProps); canvas.on("selection:updated",updateProps);
+    canvas.on("selection:cleared",clearProps); canvas.on("object:modified",updateProps);
+    canvas.on("object:moving",liveProps); canvas.on("object:scaling",liveProps); canvas.on("object:rotating",liveProps);
+  }
+  canvas.setWidth(DISP.w); canvas.setHeight(DISP.h);
+  // Nur das Vollbild als Hintergrund, KEINE Social-Maske
+  slides=[{name:"Grafik",type:"graphic",content:window._content,json:null,thumb:null,backdrop:"clear"}];
+  current=-1;
+  canvas.clear(); canvas.backgroundColor="#ffffff";
+  const img=await loadImageObj(_grLastImg,{name:"bg",selectable:true});
+  canvas.add(img); canvas.sendToBack(img); canvas.renderAll();
+  slides[0].json=canvas.toJSON(EXTRA); slides[0].thumb=makeThumb(); renderSlideTabs();
+}
+
+/* ============================================================
+   View-Routing (Home / Grafik / Social / Chart / Sankey)
+   ============================================================ */
+const VIEWS={ home:"homeView", graphic:"graphicView", social:"genView", chart:"chartView", sankey:"sankeyView" };
+let _chartInit=false, _sankeyInit=false;
+function showView(name){
+  Object.values(VIEWS).forEach(id=>{ const el=$(id); if(el) el.classList.remove("active"); });
+  $("editorView").classList.remove("active");
+  const t=$(VIEWS[name]); if(t) t.classList.add("active");
+  document.querySelectorAll("#topnav a").forEach(a=>a.classList.toggle("on", a.dataset.go===name));
+  if(name==="graphic" && !_graphicInit){ initGraphic(); _graphicInit=true; }
+  if(name==="chart" && !_chartInit){ initChart(); _chartInit=true; }
+  if(name==="sankey" && !_sankeyInit){ initSankey(); _sankeyInit=true; }
+  window.scrollTo(0,0);
+}
+document.querySelectorAll("[data-go]").forEach(el=>el.addEventListener("click",()=>showView(el.dataset.go)));
+$("brandHome").addEventListener("click",()=>showView("home"));
+
+/* ============================================================
+   Auto-Befüllung: Text -> Felder (via verbundenes KI-Modell)
+   ============================================================ */
+const TEXT_MODEL="anthropic/claude-sonnet-4.6";
+async function orChat(messages){
+  if(genMode()==="direct"){
+    const r=await fetch("https://openrouter.ai/api/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+_orKey},body:JSON.stringify({model:TEXT_MODEL,messages,response_format:{type:"json_object"}})});
+    let d={}; try{ d=await r.json(); }catch(e){}
+    if(d.error) throw new Error(d.error.message||"Fehler");
+    if(!r.ok) throw new Error("Status "+r.status);
+    return d.choices[0].message.content;
+  }
+  if(genMode()==="make"){
+    const params=new URLSearchParams(); params.set("action","chat"); params.set("model",TEXT_MODEL); params.set("messages",JSON.stringify(messages));
+    const r=await fetch(CONFIG.API_BASE,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:params.toString()});
+    const d=await r.json(); if(!d.ok) throw new Error(d.error||"Fehler"); return d.text;
+  }
+  throw new Error("kein Modell verbunden");
+}
+function parseJSON(s){ s=(s||"").trim().replace(/^```(json)?/i,"").replace(/```$/,"").trim(); return JSON.parse(s); }
+
+/* ----- Umschalter Manuell / Aus Text, Felder sperren ----- */
+function lockView(view, lock){ const el=$("lock-"+view); if(el) el.classList.toggle("locked", lock); }
+function setFillMode(view, mode){
+  document.querySelectorAll('.fillmode[data-view="'+view+'"] button').forEach(b=>b.classList.toggle("on", b.dataset.m===mode));
+  const box=$("auto-"+view);
+  if(mode==="auto"){ if(box) box.hidden=false; lockView(view, true); }
+  else { if(box) box.hidden=true; lockView(view, false); }
+}
+document.querySelectorAll(".fillmode button").forEach(b=>b.addEventListener("click",()=>{ setFillMode(b.closest(".fillmode").dataset.view, b.dataset.m); }));
+document.querySelectorAll("[data-fill]").forEach(b=>b.addEventListener("click",()=>runFill(b.dataset.fill)));
+
+async function runFill(view){
+  const src=$("src-"+view); const txt=(src?src.value:"").trim();
+  if(!txt){ toast("Bitte zuerst Text einfügen"); return; }
+  if(genMode()==="demo"){ toast("Dafür oben rechts ein KI-Modell verbinden",4000); return; }
+  const btn=document.querySelector('[data-fill="'+view+'"]'); const old=btn.innerHTML; btn.disabled=true; btn.textContent="Claude liest ...";
+  try{
+    if(view==="social") await extractSocial(txt);
+    else if(view==="chart") await extractChart(txt);
+    else if(view==="sankey") await extractSankey(txt);
+    lockView(view, false);
+    toast("Felder gefüllt");
+  }catch(e){ toast("Konnte nicht füllen: "+e.message,6500); }
+  btn.disabled=false; btn.innerHTML=old;
+}
+
+async function extractSocial(txt){
+  const sys="Du bist Redakteur bei finanzen.net und schreibst professionelles, korrektes Deutsch mit Umlauten und richtiger Gross- und Kleinschreibung. Lies den Text und fülle Felder für eine Social-Media-Karussell-Grafik. Antworte NUR mit reinem JSON, ohne Markdown, ohne Erklärung. Schema: {\"head\":\"prägnante Schlagzeile, max 55 Zeichen\",\"sub\":\"Unterzeile, max 110 Zeichen\",\"bullets\":[\"drei Kernaussagen, je max 120 Zeichen\"],\"close\":\"Schluss-Statement, max 140 Zeichen\",\"brand\":\"die zentrale Firma oder Marke, sonst leerer String\",\"prompt\":\"kurzer englischer Bild-Prompt für ein passendes Hintergrundfoto ohne Text und ohne Logos\"}. Alles auf Deutsch ausser prompt. Sachlich, deskriptiv, keine Kaufempfehlung.";
+  const out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,8000)}]));
+  if(out.head) $("fHead").value=out.head;
+  if(out.sub) $("fSub").value=out.sub;
+  if(Array.isArray(out.bullets)){ $("fB1").value=out.bullets[0]||""; $("fB2").value=out.bullets[1]||""; $("fB3").value=out.bullets[2]||""; }
+  if(out.close) $("fClose").value=out.close;
+  if(out.brand!=null){ $("fBrand").value=out.brand; curBrand=out.brand; }
+  // Bei gewaehltem Redakteurs-Use-Case den Template-Prompt behalten (nur Daten ergaenzen),
+  // sonst den von Claude vorgeschlagenen Bild-Prompt uebernehmen.
+  if(curUseCase==="frei"){
+    if(out.prompt) $("fPrompt").value=out.prompt;
+  }
+}
+
+async function extractChart(txt){
+  const sys="Du baust ein finanzen.net-Liniendiagramm und schreibst korrektes Deutsch mit Umlauten. Lies den Text und gib NUR reines JSON zurück, ohne Markdown. Schema: {\"title\":\"kurzer Titel\",\"subtitle\":\"was die Linien zeigen, indexiert etc.\",\"source\":\"Quelle: ...\",\"panels\":[{\"name\":\"Panel-Titel, z.B. Firmenname\",\"x\":[\"X-Achsen-Labels als Strings\"],\"series\":[{\"name\":\"Reihen-Name\",\"values\":[Zahlen]}]}]}. Ein oder zwei Panels. Jede Reihe hat genau so viele values wie x Labels. Nutze nur Zahlen, die im Text stehen; erfinde keine.";
+  const out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,8000)}]));
+  if(out.title) $("cTitle").value=out.title;
+  if(out.subtitle) $("cSub").value=out.subtitle;
+  if(out.source) $("cSource").value=out.source;
+  const panels=Array.isArray(out.panels)?out.panels:[];
+  cPanels = panels.length>=2?2:1;
+  [...$("cPanels").children].forEach(x=>x.classList.toggle("on", +x.dataset.p===cPanels));
+  $("cPanelB").style.display=cPanels===2?"block":"none";
+  if(panels[0]){ $("cAName").value=panels[0].name||""; $("cAX").value=(panels[0].x||[]).join(","); $("cASeries").innerHTML=""; (panels[0].series||[]).forEach((s,i)=>seriesRow("cASeries", s.name, SERIES_COLORS[i%SERIES_COLORS.length], s.values||[])); }
+  if(panels[1]){ $("cBName").value=panels[1].name||""; $("cBX").value=(panels[1].x||[]).join(","); $("cBSeries").innerHTML=""; (panels[1].series||[]).forEach((s,i)=>seriesRow("cBSeries", s.name, SERIES_COLORS[i%SERIES_COLORS.length], s.values||[])); }
+  renderChart();
+}
+
+async function extractSankey(txt){
+  const sys="Du baust ein Income-Statement-Sankey. Lies den Text mit Quartalszahlen und gib NUR reines JSON zurück, ohne Markdown. Schema: {\"company\":\"Firma\",\"period\":\"z.B. Q4 FY26\",\"unit\":\"Währungszeichen, z.B. $\",\"segments\":[{\"name\":\"Umsatzsegment\",\"value\":Zahl}],\"cogs\":Zahl,\"opex\":[{\"name\":\"Betriebsausgabe, z.B. R&D\",\"value\":Zahl}],\"below\":[{\"name\":\"z.B. Tax\",\"value\":Zahl}]}. Alle Werte in derselben Einheit (meist Milliarden). Die Summe der segments ergibt den Umsatz. cogs sind die Kosten der Umsatzerlöse. Nutze nur Zahlen aus dem Text; erfinde keine. GuV-Begriffe auf Englisch sind ok.";
+  const out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,8000)}]));
+  if(out.company) $("sCompany").value=out.company;
+  if(out.period) $("sPeriod").value=out.period;
+  if(out.unit) $("sUnit").value=out.unit;
+  if(out.cogs!=null) $("sCogs").value=out.cogs;
+  if(Array.isArray(out.segments)){ $("sSegments").innerHTML=""; out.segments.forEach(s=>skRow("sSegments", s.name, s.value, "Segment")); }
+  if(Array.isArray(out.opex)){ $("sOpex").innerHTML=""; out.opex.forEach(s=>skRow("sOpex", s.name, s.value, "Posten")); }
+  if(Array.isArray(out.below)){ $("sBelow").innerHTML=""; out.below.forEach(s=>skRow("sBelow", s.name, s.value, "Posten")); }
+  renderSankey();
+}
+
+/* ============================================================
+   CHART (eigener Canvas-Renderer, finanzen.net Dunkel-Stil)
+   ============================================================ */
+const CH={ bg:"#0a2540", title:"#ffffff", sub:"#9db8d4", axis:"#5f7da0", grid:"rgba(255,255,255,0.06)", logo:"#ffffff" };
+const FN_RED="#d70413";
+const _meas=document.createElement("canvas").getContext("2d");
+function measW(text, font){ _meas.font=font; return _meas.measureText(text).width; }
+// finanzen.net mit rotem Punkt auf einen Canvas zeichnen (linksbuendig, Grundlinie y)
+function drawLogoCanvas(ctx, x, y, fs, textColor){
+  ctx.textAlign="left"; ctx.textBaseline="alphabetic";
+  const font="800 "+fs+"px Inter";
+  ctx.font=font; ctx.fillStyle=textColor;
+  ctx.fillText("finanzen", x, y);
+  const w1=measW("finanzen", font);
+  const r=fs*0.115, gap=fs*0.07;
+  const dotX=x+w1+gap+r, dotY=y-r*0.15;
+  ctx.fillStyle=FN_RED; ctx.beginPath(); ctx.arc(dotX, dotY, r, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle=textColor; ctx.fillText("net", dotX+r+gap, y);
+}
+const SERIES_COLORS=["#4ea3f0","#f5b53e","#e6007e","#16c98d"];
+let cPanels=2;
+function seriesRow(panel, name, color, values){
+  const wrap=document.createElement("div"); wrap.className="seg-row";
+  wrap.innerHTML=`<input class="inp nm" placeholder="Reihen-Name" value="${name||""}">
+    <input type="color" value="${color||'#4ea3f0'}" style="width:38px;height:38px;border:1px solid var(--line);border-radius:9px;padding:3px;flex:none">
+    <button class="icon-btn del" title="entfernen"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
+  const vals=document.createElement("input"); vals.className="inp"; vals.placeholder="Werte, Komma-getrennt"; vals.value=(values||[]).join(","); vals.style.marginTop="6px";
+  const box=document.createElement("div"); box.style.marginBottom="10px"; box.appendChild(wrap); box.appendChild(vals);
+  wrap.querySelector(".del").onclick=()=>box.remove();
+  $(panel).appendChild(box);
+}
+function initChart(){
+  seriesRow("cASeries","Kurs","#4ea3f0",[20,42,78,100,52,40]);
+  seriesRow("cASeries","Gewinn je Aktie","#f5b53e",[18,28,40,48,30,33]);
+  seriesRow("cBSeries","Kurs","#4ea3f0",[10,15,55,80]);
+  seriesRow("cBSeries","Gewinn je Aktie","#f5b53e",[8,12,50,98]);
+}
+$("cAAdd").onclick=()=>seriesRow("cASeries","Reihe",SERIES_COLORS[2],[]);
+$("cBAdd").onclick=()=>seriesRow("cBSeries","Reihe",SERIES_COLORS[2],[]);
+$("cPanels").addEventListener("click",(e)=>{ const b=e.target.closest("button"); if(!b) return; cPanels=+b.dataset.p; [...$("cPanels").children].forEach(x=>x.classList.toggle("on",x===b)); $("cPanelB").style.display=cPanels===2?"block":"none"; });
+function readSeries(panel){
+  const out=[];
+  $(panel).querySelectorAll(":scope > div").forEach(box=>{
+    const nm=box.querySelector(".nm").value.trim();
+    const col=box.querySelector('input[type=color]').value;
+    const vals=box.querySelectorAll("input")[2].value.split(",").map(s=>parseFloat(s.trim())).filter(v=>!isNaN(v));
+    if(nm && vals.length) out.push({name:nm,color:col,values:vals});
+  });
   return out;
 }
-
-// ── PROGRESS RENDERING ──
-function renderSteps(path, statusKey){
-  const steps = STEPS[path] || STEPS.C;
-  const idx = steps.findIndex(s => s[0] === statusKey);
-  const ul = document.getElementById('progress-steps');
-  ul.innerHTML = '';
-
-  // Hide spinner when done
-  const spinner = document.getElementById('progress-spinner');
-  if(statusKey === 'done'){
-    spinner.style.borderTopColor = '#22c55e';
-    spinner.style.animation = 'none';
-    spinner.style.border = '2px solid #22c55e';
-  }
-
-  steps.forEach((s, i) => {
-    const li = document.createElement('li');
-    li.className = 'pstep';
-    let state = '';
-    if(idx < 0){ if(i===0) state='active'; }
-    else if(i < idx) state = 'done';
-    else if(i === idx) state = (s[0]==='done') ? 'done' : 'active';
-    if(state) li.classList.add(state);
-
-    const iconContent = state==='done' ? '✓' : '';
-    const label = state==='active' && s[0]!=='done'
-      ? '<span>'+s[1]+'</span><span class="dots-anim"></span>'
-      : '<span>'+s[1]+'</span>';
-
-    li.innerHTML = '<span class="pstep-icon">'+iconContent+'</span>' + label;
-    ul.appendChild(li);
+function drawPanel(ctx, x, y, w, h, labels, series, name){
+  // Panel-Name
+  if(name){ ctx.fillStyle=CH.title; ctx.font="700 30px Inter"; ctx.textAlign="left"; ctx.fillText(name, x, y-14); }
+  // Wertebereich
+  let mn=Infinity,mx=-Infinity;
+  series.forEach(s=>s.values.forEach(v=>{ mn=Math.min(mn,v); mx=Math.max(mx,v); }));
+  if(mn===Infinity){ mn=0; mx=1; } if(mn===mx){ mx=mn+1; }
+  const pad=(mx-mn)*0.12; mn-=pad; mx+=pad;
+  const px=(i,n)=>x + (n<=1?0:(i/(n-1))*w);
+  const py=v=> y + h - ((v-mn)/(mx-mn))*h;
+  // Achsenlinie unten
+  ctx.strokeStyle=CH.axis; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(x,y+h); ctx.lineTo(x+w,y+h); ctx.stroke();
+  // X-Labels
+  ctx.fillStyle=CH.sub; ctx.font="600 19px Inter"; ctx.textAlign="center";
+  labels.forEach((l,i)=>{ ctx.fillText(l, px(i,labels.length), y+h+28); });
+  // Linien
+  series.forEach(s=>{
+    ctx.strokeStyle=s.color; ctx.lineWidth=5; ctx.lineJoin="round"; ctx.lineCap="round"; ctx.beginPath();
+    s.values.forEach((v,i)=>{ const X=px(i,s.values.length), Y=py(v); i===0?ctx.moveTo(X,Y):ctx.lineTo(X,Y); });
+    ctx.stroke();
   });
 }
-
-function showError(msg){
-  const e = document.getElementById('status-error');
-  e.textContent = msg;
-  e.classList.add('visible');
-  document.getElementById('progress').classList.remove('visible');
-  const b = document.getElementById('btn-submit');
-  b.disabled = false;
-  b.textContent = 'Erneut versuchen';
-}
-
-function showResult(url){
-  document.getElementById('progress').classList.remove('visible');
-  document.getElementById('result-image').src = url;
-  const area = document.getElementById('result-area');
-  area.classList.add('visible');
-  area.scrollIntoView({behavior:'smooth', block:'start'});
-  window._lastImageUrl = url;
-  // Submit-Button zurücksetzen (sonst bleibt "Läuft …" stehen)
-  const btn = document.getElementById('btn-submit');
-  btn.disabled = false;
-  btn.textContent = 'Infografik erstellen';
-}
-
-function copyUrl(){
-  if(!window._lastImageUrl) return;
-  navigator.clipboard.writeText(window._lastImageUrl).then(() => {
-    const b = document.querySelector('.btn-action[onclick="copyUrl()"]');
-    b.textContent = 'Kopiert!';
-    setTimeout(() => b.textContent = 'URL kopieren', 2000);
-  });
-}
-
-function downloadImg(){
-  const url = window._lastImageUrl;
-  if(!url) return;
-  fetch(url, {mode:'cors'})
-    .then(r => { if(!r.ok) throw 0; return r.blob(); })
-    .then(b => {
-      const u = URL.createObjectURL(b);
-      const a = document.createElement('a');
-      a.href = u; a.download = 'infografik-' + new Date().toISOString().slice(0,10) + '.png';
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(u);
-    })
-    .catch(() => window.open(url, '_blank'));
-}
-
-function resetForm(){
-  if(pollTimer) clearInterval(pollTimer);
-  document.getElementById('result-area').classList.remove('visible');
-  document.getElementById('progress').classList.remove('visible');
-  document.getElementById('status-error').classList.remove('visible');
-  // Reset spinner
-  const spinner = document.getElementById('progress-spinner');
-  spinner.style.border = '';
-  spinner.style.borderTopColor = '';
-  spinner.style.animation = '';
-  const b = document.getElementById('btn-submit');
-  b.disabled = false; b.textContent = 'Infografik erstellen';
-  document.getElementById('article-text').value = '';
-  window.scrollTo({top:0, behavior:'smooth'});
-}
-
-// ── SUBMIT ──
-async function handleSubmit(e){
-  e.preventDefault();
-  const btn = document.getElementById('btn-submit');
-  btn.disabled = true; btn.textContent = 'Wird gestartet …';
-  document.getElementById('status-error').classList.remove('visible');
-  document.getElementById('result-area').classList.remove('visible');
-
-  const articleText = document.getElementById('article-text').value.trim();
-  const uc = document.getElementById('usecase').value;
-  const cfg = USECASES[uc];
-  const fo = document.getElementById('format').selectedOptions[0];
-  const w = parseFloat(fo.dataset.w), h = parseFloat(fo.dataset.h), scale = parseFloat(fo.dataset.s)||1;
-  const brandId = document.getElementById('branding').value;
-
-  if(!articleText || articleText.length < 30){
-    showError('Bitte einen vollständigen Quelltext einfügen (mindestens 30 Zeichen).');
-    return;
+function renderChart(){
+  const cv=$("chartCanvas"), ctx=cv.getContext("2d"); const W=cv.width, H=cv.height;
+  ctx.clearRect(0,0,W,H); ctx.fillStyle=CH.bg; ctx.fillRect(0,0,W,H);
+  // Kopf
+  ctx.textAlign="left"; ctx.fillStyle=CH.title; ctx.font="800 60px Inter";
+  ctx.fillText($("cTitle").value||"", 70, 110);
+  ctx.fillStyle=CH.sub; ctx.font="600 30px Inter";
+  ctx.fillText($("cSub").value||"", 70, 158);
+  // Plot-Bereich
+  const top=250, bottom=H-180, plotH=bottom-top;
+  if(cPanels===2){
+    const gap=70, pw=(W-140-gap)/2;
+    drawPanel(ctx, 70, top, pw, plotH, $("cAX").value.split(",").map(s=>s.trim()), readSeries("cASeries"), $("cAName").value);
+    drawPanel(ctx, 70+pw+gap, top, pw, plotH, $("cBX").value.split(",").map(s=>s.trim()), readSeries("cBSeries"), $("cBName").value);
+  } else {
+    drawPanel(ctx, 70, top, W-140, plotH, $("cAX").value.split(",").map(s=>s.trim()), readSeries("cASeries"), $("cAName").value);
   }
+  // Legende (aus Panel A)
+  const leg=readSeries("cASeries"); let lx=70; const ly=H-120;
+  leg.forEach(s=>{ ctx.fillStyle=s.color; ctx.fillRect(lx,ly-14,34,6); ctx.fillStyle=CH.title; ctx.font="700 24px Inter"; ctx.textAlign="left"; ctx.fillText(s.name, lx+44, ly); lx+=44+ctx.measureText(s.name).width+46; });
+  // Logo + Quelle
+  drawLogoCanvas(ctx, 70, H-50, 34, CH.logo);
+  ctx.fillStyle=CH.sub; ctx.font="500 22px Inter"; ctx.textAlign="right"; ctx.fillText($("cSource").value||"", W-70, H-50);
+}
+$("cRender").onclick=()=>{ try{ renderChart(); toast("Chart gebaut"); }catch(e){ toast("Fehler: "+e.message,5000); } };
+$("cExport").onclick=()=>{ renderChart(); const a=document.createElement("a"); a.href=$("chartCanvas").toDataURL("image/png"); a.download=($("cTitle").value||"chart").replace(/[^a-z0-9]+/gi,"_").slice(0,40)+".png"; a.click(); };
 
-  const payload = {
-    use_case: uc,
-    article_text: articleText,
-    brand_id: brandId,
-    viewport_width: w,
-    viewport_height: h,
-    device_scale: scale,
-    format_label: fo.textContent,
-    options: collectTypeOptions(),
-    email: document.getElementById('email').value.trim() || null,
-    ausgabe: document.getElementById('ausgabe').value.trim() || null,
-    submitted_at: new Date().toISOString()
-  };
+/* ============================================================
+   SANKEY (Income Statement, App-Economy-Stil, D3)
+   ============================================================ */
+const SK={ green:"#0f9d58", greenN:"#0f9d58", red:"#d0312d", grey:"#3a3a3a", greyL:"#7a7a7a", title:"#0a1f44", text:"#1a1a1a", muted:"#5f6b78", bg:"#f4f5f7" };
+function skRow(container, name, value, ph){
+  const r=document.createElement("div"); r.className="seg-row";
+  r.innerHTML=`<input class="inp nm" placeholder="${ph||'Name'}" value="${name||''}"><input class="inp vl" placeholder="Wert" value="${value!=null?value:''}"><button class="icon-btn del"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
+  r.querySelector(".del").onclick=()=>r.remove();
+  $(container).appendChild(r);
+}
+function initSankey(){
+  [["OCI",5.8],["Cloud Applications",4.1],["Software Support",4.9],["Software License",1.9],["Hardware",0.9],["Services",1.6]].forEach(s=>skRow("sSegments",s[0],s[1],"Segment"));
+  [["R&D",2.6],["S&M",2.1],["Restructuring & Other",0.8],["G&A",0.5],["Amortization",0.4]].forEach(s=>skRow("sOpex",s[0],s[1],"Posten"));
+  [["Tax",1.1],["Interest",0.7]].forEach(s=>skRow("sBelow",s[0],s[1],"Posten"));
+}
+$("sSegAdd").onclick=()=>skRow("sSegments","","","Segment");
+$("sOpexAdd").onclick=()=>skRow("sOpex","","","Posten");
+$("sBelowAdd").onclick=()=>skRow("sBelow","","","Posten");
+function readRows(container){
+  const out=[];
+  $(container).querySelectorAll(".seg-row").forEach(r=>{ const nm=r.querySelector(".nm").value.trim(); const v=parseFloat(r.querySelector(".vl").value); if(nm && !isNaN(v)) out.push({name:nm,value:v}); });
+  return out;
+}
+function fmt(u,v){ return u+(Math.round(v*10)/10); }
+function renderSankey(){
+  const host=$("sankeyCanvas"); host.innerHTML="";
+  const u=$("sUnit").value||"$";
+  const segs=readRows("sSegments"), opex=readRows("sOpex"), below=readRows("sBelow");
+  const cogs=parseFloat($("sCogs").value)||0;
+  const revenue=segs.reduce((a,b)=>a+b.value,0);
+  const opexTotal=opex.reduce((a,b)=>a+b.value,0);
+  const belowTotal=below.reduce((a,b)=>a+b.value,0);
+  const gross=revenue-cogs, op=gross-opexTotal, net=op-belowTotal;
 
-  // Progress sofort zeigen
-  renderSteps(cfg.path, 'queued');
-  const progressEl = document.getElementById('progress');
-  // Reset spinner state
-  const spinner = document.getElementById('progress-spinner');
-  spinner.style.border = '2px solid var(--gray-200)';
-  spinner.style.borderTopColor = 'var(--red)';
-  spinner.style.animation = 'spin .7s linear infinite';
-  progressEl.classList.add('visible');
-  progressEl.scrollIntoView({behavior:'smooth', block:'center'});
+  const nodes=[], links=[];
+  const N=(name,kind)=>{ if(!nodes.find(n=>n.name===name)) nodes.push({name,kind}); return name; };
+  segs.forEach(s=>N(s.name,"seg"));
+  N("Revenue","rev"); N("Gross profit","profit"); N("Cost of revenue","cost");
+  N("Operating profit","profit"); N("Operating expenses","cost");
+  opex.forEach(o=>N(o.name,"cost"));
+  N("Net profit","profit"); below.forEach(b=>N(b.name,"cost"));
+  segs.forEach(s=>links.push({source:s.name,target:"Revenue",value:s.value,c:"grey"}));
+  links.push({source:"Revenue",target:"Gross profit",value:Math.max(gross,0.01),c:"green"});
+  links.push({source:"Revenue",target:"Cost of revenue",value:Math.max(cogs,0.01),c:"red"});
+  links.push({source:"Gross profit",target:"Operating profit",value:Math.max(op,0.01),c:"green"});
+  links.push({source:"Gross profit",target:"Operating expenses",value:Math.max(opexTotal,0.01),c:"red"});
+  opex.forEach(o=>links.push({source:"Operating expenses",target:o.name,value:o.value,c:"red"}));
+  links.push({source:"Operating profit",target:"Net profit",value:Math.max(net,0.01),c:"green"});
+  below.forEach(b=>links.push({source:"Operating profit",target:b.name,value:b.value,c:"red"}));
 
-  try {
-    const res = await fetch(SUBMIT_WEBHOOK_URL, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(payload)
+  const W=1600, H=1060, m={t:150,r:300,b:150,l:275};
+  const svg=d3.create("svg").attr("viewBox",`0 0 ${W} ${H}`).attr("width",W).attr("height",H).style("background",SK.bg).style("font-family","Inter, sans-serif");
+  // Kopf
+  svg.append("text").attr("x",60).attr("y",80).attr("font-size",62).attr("font-weight",800).attr("fill",SK.title).text(($("sCompany").value||"")+" "+($("sPeriod").value||"")+" Income Statement");
+  svg.append("text").attr("x",60).attr("y",120).attr("font-size",24).attr("fill",SK.muted).text($("sPeriod").value||"");
+
+  const sankey=d3.sankey().nodeId(d=>d.name).nodeWidth(26).nodePadding(42).extent([[m.l,m.t],[W-m.r,H-m.b]]);
+  let graph;
+  try{ graph=sankey({nodes:nodes.map(d=>Object.assign({},d)), links:links.map(d=>Object.assign({},d))}); }
+  catch(e){ host.innerHTML='<div style="padding:40px;color:#d0312d;font-family:Inter">Sankey-Fehler: '+e.message+'. Prüfe, dass Summen aufgehen (Segmente &gt; Kosten, Bruttogewinn &gt; Betriebsausgaben).</div>'; return; }
+
+  const col={ green:SK.green, red:SK.red, grey:SK.greyL };
+  const nodeFill=(k)=> k==="profit"?SK.green : (k==="cost"?SK.red : (k==="rev"?SK.grey : SK.grey));
+  // Links
+  svg.append("g").attr("fill","none").selectAll("path").data(graph.links).join("path")
+    .attr("d",d3.sankeyLinkHorizontal()).attr("stroke",d=>col[d.c]).attr("stroke-opacity",0.42).attr("stroke-width",d=>Math.max(1,d.width));
+  // Nodes
+  svg.append("g").selectAll("rect").data(graph.nodes).join("rect")
+    .attr("x",d=>d.x0).attr("y",d=>d.y0).attr("height",d=>Math.max(2,d.y1-d.y0)).attr("width",d=>d.x1-d.x0)
+    .attr("fill",d=>nodeFill(d.kind)).attr("rx",2);
+  // Labels
+  svg.append("g").style("font-weight",700).selectAll("text").data(graph.nodes).join("text")
+    .attr("x",d=> d.x0 < W/2 ? d.x0-12 : d.x1+12)
+    .attr("y",d=>(d.y0+d.y1)/2)
+    .attr("text-anchor",d=> d.x0 < W/2 ? "end":"start")
+    .attr("dominant-baseline","middle")
+    .each(function(d){
+      const t=d3.select(this);
+      const val=d.value!=null?d.value:0;
+      const isProfit=d.kind==="profit", isCost=d.kind==="cost";
+      t.append("tspan").attr("font-size",22).attr("fill", isProfit?SK.green:(isCost?SK.red:SK.text)).text(d.name);
+      t.append("tspan").attr("x",t.attr("x")).attr("dy",26).attr("font-size",20).attr("font-weight",800).attr("fill", isProfit?SK.green:(isCost?SK.red:SK.text)).text(fmt(u,val));
     });
-    if(!res.ok) throw new Error('Start fehlgeschlagen (' + res.status + ')');
-    const data = await res.json();
-    const jobId = data.job_id || data.jobId || data.id;
-    if(!jobId) throw new Error('Keine job_id erhalten.');
-    btn.textContent = 'Läuft …';
-    startPolling(jobId, cfg.path);
-  } catch(err){
-    showError(err.message);
-  }
-}
+  // Logo + Quelle
+  (function(){ const lx=60, ly=H-28, fs=32, font="800 32px Inter", w1=measW("finanzen",font), r=fs*0.115, gap=fs*0.07;
+    svg.append("text").attr("x",lx).attr("y",ly).attr("font-size",fs).attr("font-weight",800).attr("fill",SK.title).text("finanzen");
+    svg.append("circle").attr("cx",lx+w1+gap+r).attr("cy",ly-fs*0.1).attr("r",r).attr("fill",FN_RED);
+    svg.append("text").attr("x",lx+w1+gap+r+r+gap).attr("y",ly).attr("font-size",fs).attr("font-weight",800).attr("fill",SK.title).text("net");
+  })();
+  svg.append("text").attr("x",W-60).attr("y",H-30).attr("text-anchor","end").attr("font-size",20).attr("fill",SK.muted).text("Quelle: Unternehmens-Filings");
 
-// ── POLLING ──
-function startPolling(jobId, path){
-  pollStart = Date.now();
-  pollTimer = setInterval(async () => {
-    if(Date.now() - pollStart > POLL_TIMEOUT_MS){
-      clearInterval(pollTimer);
-      showError('Zeitüberschreitung nach 3 Minuten. Bitte erneut versuchen.');
-      return;
-    }
-    try {
-      const res = await fetch(STATUS_WEBHOOK_URL, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({job_id: jobId})
-      });
-      if(!res.ok) return;
-      const d = await res.json();
-      const status = (d.status||'').toLowerCase();
-      if(status==='rejected'||status==='error'){
-        clearInterval(pollTimer);
-        showError(d.message || d.errors || 'Generierung fehlgeschlagen.');
-        return;
-      }
-      renderSteps(path, status || 'extracting');
-      if(status === 'done'){
-        clearInterval(pollTimer);
-        const url = d.image_url || d.url;
-        if(url) showResult(url);
-        else showError('Fertig, aber keine Bild-URL zurückgegeben.');
-      }
-    } catch(e){ /* Netzwerkfehler ignorieren, weiter pollen */ }
-  }, POLL_INTERVAL_MS);
+  host.appendChild(svg.node());
+  host._svg=svg.node();
 }
-
-// Init
-onUseCaseChange();
+$("sRender").onclick=()=>{ try{ renderSankey(); toast("Sankey gebaut"); }catch(e){ toast("Fehler: "+e.message,5000); } };
+$("sExport").onclick=()=>{
+  if(!$("sankeyCanvas")._svg){ renderSankey(); }
+  const svg=$("sankeyCanvas")._svg; if(!svg){ toast("Erst bauen"); return; }
+  const xml=new XMLSerializer().serializeToString(svg);
+  const img=new Image();
+  img.onload=()=>{ const c=document.createElement("canvas"); c.width=1600; c.height=1060; const x=c.getContext("2d"); x.fillStyle=SK.bg; x.fillRect(0,0,1600,1060); x.drawImage(img,0,0,1600,1060); const a=document.createElement("a"); a.href=c.toDataURL("image/png"); a.download=($("sCompany").value||"sankey").replace(/[^a-z0-9]+/gi,"_")+"_income.png"; a.click(); };
+  img.onerror=()=>toast("Export fehlgeschlagen");
+  img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(xml);
+};
 </script>
 </body>
 </html>
