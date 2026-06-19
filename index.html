@@ -727,8 +727,8 @@
    CONFIG  ->  Make-Webhook-URL für LIVE-Bildgenerierung
    ============================================================ */
 const CONFIG = {
-  API_BASE: "https://hook.eu1.make.com/kcnabb3p1xnd7oa2c27bnifmm9mwwats",        // deine Make Custom-Webhook-URL, z.B. https://hook.eu2.make.com/abc
-  DEMO_MODE: false,     // true = realistischer Platzhalter, false = echtes KI-Bild via Make->OpenRouter
+  API_BASE: "",        // deine Make Custom-Webhook-URL, z.B. https://hook.eu2.make.com/abc
+  DEMO_MODE: true,     // true = realistischer Platzhalter, false = echtes KI-Bild via Make->OpenRouter
 };
 let _orKey = "";
 function genMode(){
@@ -1515,17 +1515,24 @@ function initGraphic(){
   $("grExport").onclick=()=>{ if(!_grLastImg) return; const a=document.createElement("a"); a.href=_grLastImg; a.download=(grUseCase+"_"+Date.now())+".png"; a.click(); };
   $("grToEditor").onclick=openGraphicInEditor;
 }
-// Voll-Bild generieren: direkt (OpenRouter) oder via Make-Route action=generate-graphic
-async function generateGraphicImage(fullPrompt, fmt, model){
+// Voll-Bild generieren.
+// MAKE-Modus: nur use_case + article + title + model senden — Make holt das
+//   Prompt-Template aus Airtable (use_case_config_v2) und setzt die Daten ein.
+// DIREKT/DEMO-Modus: Prompt wird lokal aus GRAPHIC_USECASES gebaut (Fallback ohne Make/Airtable).
+async function generateGraphicImage(article, title, fmt, model){
   const m=genMode();
   if(m==="demo"){ return makePlaceholder("clean", FORMATS[fmt].w, FORMATS[fmt].h, Math.floor(Math.random()*9999)+1, "content"); }
   if(m==="direct"){
-    return generateImageDirect(fullPrompt, fmt, model, _orKey);
+    const localPrompt=buildGraphicPrompt(grUseCase, article, title);
+    return generateImageDirect(localPrompt, fmt, model, _orKey);
   }
-  // make
+  // make: Prompt-Template liegt in Airtable, hier nur die Daten schicken
   const params=new URLSearchParams();
   params.set("action","generate-graphic");
-  params.set("prompt",fullPrompt); params.set("format",fmt); params.set("model",model); params.set("use_case",grUseCase);
+  params.set("use_case",grUseCase);
+  params.set("article",article);
+  params.set("title",title||"");
+  params.set("model",model);
   const res=await fetch(CONFIG.API_BASE,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:params.toString()});
   const data=await res.json();
   if(!data.ok || !data.image) throw new Error(data.error||"Grafik-Generierung fehlgeschlagen");
@@ -1537,11 +1544,11 @@ async function runGraphic(){
   if(genMode()==="demo"){ toast("Zum echten Generieren: Make-Webhook in CONFIG eintragen oder lokal OpenRouter verbinden",5000); }
   const uc=GRAPHIC_USECASES[grUseCase];
   const fmt=uc.fmt;
-  const prompt=buildGraphicPrompt(grUseCase, article, $("grTitle").value);
+  const title=$("grTitle").value;
   const btn=$("grRender"); const old=btn.textContent; btn.disabled=true; btn.textContent="Grafik wird erstellt …";
   $("grStatus").textContent = isLive()? "Modell rendert die Grafik — das dauert einige Sekunden." : "Demo-Modus: Platzhalter wird gezeichnet.";
   try{
-    const img=await generateGraphicImage(prompt, fmt, grModel);
+    const img=await generateGraphicImage(article, title, fmt, grModel);
     _grLastImg=img;
     const wrap=$("grCanvasWrap");
     const f=FORMATS[fmt];
