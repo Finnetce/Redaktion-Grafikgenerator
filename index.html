@@ -286,6 +286,44 @@
   .lockable.locked{opacity:.4;pointer-events:none;filter:grayscale(.3)}
   input:disabled,select:disabled,textarea:disabled{background:#f1f3f7;color:var(--faint);cursor:not-allowed}
   @media(max-width:900px){ .work{grid-template-columns:170px 1fr 240px} }
+
+  /* ---------- Wiki ---------- */
+  .wiki-shell{display:grid;grid-template-columns:268px 1fr;height:calc(100vh - 56px)}
+  .wiki-side{background:var(--panel);border-right:1px solid var(--line);padding:24px 14px;overflow-y:auto}
+  .wiki-side .h{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);font-weight:700;margin:0 0 14px 8px}
+  .wlink{display:block;padding:9px 12px;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--ink-2);cursor:pointer;margin-bottom:2px;transition:.12s}
+  .wlink:hover{background:#f1f3f7}
+  .wlink.on{background:var(--tint);color:var(--tint-ink)}
+  .wlink.sub{margin-left:14px;font-size:13px;font-weight:500;color:var(--muted);padding:7px 12px}
+  .wlink.sub::before{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--tint-line);margin-right:9px;vertical-align:middle}
+  .wlink.sub.on{color:var(--tint-ink);font-weight:600}
+  .wlink.sub.on::before{background:var(--tint-ink)}
+  .wgrp-label{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700;margin:20px 0 8px 8px}
+  .wiki-main{overflow-y:auto;padding:46px 56px 100px}
+  .wiki-doc{max-width:780px}
+  .wiki-doc .eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+  .wiki-doc h1{font-size:30px;font-weight:800;letter-spacing:-0.03em;line-height:1.15;margin-bottom:8px;color:var(--ink)}
+  .wiki-doc .sub{font-size:15px;color:var(--muted);line-height:1.55;margin-bottom:30px}
+  .wiki-doc h2{font-size:18px;font-weight:750;letter-spacing:-0.01em;margin:34px 0 12px;padding-top:22px;border-top:1px solid var(--line-2);color:var(--ink)}
+  .wiki-doc h2:first-of-type{border-top:none;padding-top:0;margin-top:26px}
+  .wiki-doc p{font-size:14.5px;line-height:1.65;color:var(--ink-2);margin-bottom:14px}
+  .wiki-doc ul,.wiki-doc ol{margin:0 0 16px 0;padding-left:22px}
+  .wiki-doc li{font-size:14.5px;line-height:1.6;color:var(--ink-2);margin-bottom:9px}
+  .wiki-doc ol li{padding-left:5px}
+  .wiki-doc b{color:var(--ink);font-weight:650}
+  .wiki-doc code{background:#f1f3f7;border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:12.5px;font-family:'JetBrains Mono',ui-monospace,monospace;color:var(--tint-ink)}
+  .wiki-doc .callout{background:linear-gradient(180deg,#f3f7ff,#eef2fb);border:1px solid #d6e2f7;border-radius:12px;padding:14px 16px;font-size:13.5px;line-height:1.6;color:var(--ink-2);margin:18px 0}
+  .wiki-doc .callout b{color:var(--tint-ink)}
+  .wtable{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0 20px}
+  .wtable th{text-align:left;padding:9px 10px;background:var(--navy);color:#fff;font-weight:600;font-size:12px}
+  .wtable th:first-child{border-radius:8px 0 0 0} .wtable th:last-child{border-radius:0 8px 0 0}
+  .wtable td{padding:8px 10px;border-bottom:1px solid var(--line-2);color:var(--ink-2)}
+  .wtable tr:nth-child(even) td{background:#fafbfc}
+  .wtable .mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px}
+  .wsteps{counter-reset:wstep;list-style:none;padding:0;margin:0 0 18px}
+  .wsteps li{position:relative;padding:0 0 16px 44px;font-size:14.5px;line-height:1.6;color:var(--ink-2)}
+  .wsteps li::before{counter-increment:wstep;content:counter(wstep);position:absolute;left:0;top:-2px;width:28px;height:28px;border-radius:9px;background:var(--navy);color:#fff;font-size:13px;font-weight:700;display:grid;place-items:center}
+  .wsteps li:not(:last-child)::after{content:"";position:absolute;left:13px;top:30px;bottom:2px;width:1.5px;background:var(--line)}
 </style>
 </head>
 <body>
@@ -689,12 +727,12 @@
 
 <!-- ============ WIKI ============ -->
 <div class="view" id="wikiView">
-  <div style="display:grid;grid-template-columns:240px 1fr;gap:0;height:calc(100vh - 56px)">
-    <aside style="background:var(--panel);border-right:1px solid var(--line);padding:22px 16px;overflow-y:auto">
-      <div class="h" style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);font-weight:700;margin-bottom:13px">Wiki</div>
+  <div class="wiki-shell">
+    <aside class="wiki-side">
+      <div class="h">Dokumentation</div>
       <div id="wikiNav"></div>
     </aside>
-    <main style="overflow-y:auto;padding:40px 48px 90px"><div id="wikiContent" style="max-width:760px"></div></main>
+    <main class="wiki-main"><div class="wiki-doc" id="wikiContent"></div></main>
   </div>
 </div>
 
@@ -2021,85 +2059,182 @@ const APP_DATE="19.06.2026";
 /* ============================================================
    WIKI — Unterkategorien + Inhalte
    ============================================================ */
+const UC_ROWS=[["Top-5 Scoreboard","16:9","606×332","GPT Image 2"],["Großwetterlage-Dashboard","16:9","606×332","GPT Image 2"],["Earnings-Radar","16:9","606×316","GPT Image 2"],["Magazin-Artikel-Grafik","4:3","510×364","GPT Image 2"],["Header-/Teaser-Grafik","16:9","1408×768","Nano Banana Pro"],["Tenbagger-Magazinseite","3:4","535×725","GPT Image 2"],["Meinungs-Grafik","16:9","1408×768","GPT Image 2"],["Einleitung / Veranschaulichung","16:9","1024×559","GPT Image 2"],["Unternehmensvorstellung","16:9","1024×559","GPT Image 2"],["Musterdepot-Tabelle","16:9","1045×622","GPT Image 2"],["Featured Image (Blog)","16:9","1200×628","Nano Banana Pro"],["Saisonalitäten","16:9","1283×722","GPT Image 2"],["Ranglisten / Pivotal Points","16:9","856×467","GPT Image 2"],["4-Quadranten-Analyse","16:9","1920×1080","GPT Image 2"],["Blog Title-Card","16:9","1200×628","Nano Banana Pro"],["Screening-Funnel","3:4","1536×2048","GPT Image 2"],["Konzept-Illustration","16:9","1920×1080","Nano Banana Pro"]];
+const UC_EXAMPLES=[
+ ["Top-5 Scoreboard","Top 5 Gewinner der Woche im Megatrend KI: Nvidia +8,4%, Palantir Technologies +6,1%, Super Micro Computer +5,3%, ASML Holding +4,7%, Broadcom +3,9%. Stand Ende KW25 2026."],
+ ["Großwetterlage-Dashboard","Großwetterlage Megatrend KI. Marktbreite: KI-Echtgelddepot GD20 72%, GD50 65%, GD200 58%. MEGATREND KI GD20 68%, GD50 60%, GD200 55%. S&P 500 GD20 61%, GD50 57%, GD200 52%. Trend-Ampel: Übergangsphase."],
+ ["Earnings-Radar","Earnings-Radar vom 10.06. bis 17.06.2026. Megatrend KI: Oracle Corp 10.06.2026, Adobe Inc. 11.06.2026. Megatrend Defense & Space: Smith & Wesson Brands 17.06.2026."],
+ ["Magazin-Artikel-Grafik","Oracle: digitaler Wettlauf in den Rechenzentren. Auslastung Cloud-Infrastruktur OCI 97,5%. IaaS-Segment wächst um 93%. Auftragsbestand 638 Mrd. USD (+363% YoY). Operative Marge 44,8%."],
+ ["Header-/Teaser-Grafik","Die Rechenzentren von Oracle laufen am Limit: 97,5% Auslastung. Während Unternehmen weltweit nach KI-Rechenkapazität suchen, wird physische Kapazität zum Engpass."],
+ ["Tenbagger-Magazinseite","Cerebras: Spektakulärer Börsenstart eines KI-Chip-Herausforderers. IPO: Kürzel CBRS, Nasdaq, Ausgabepreis 185 USD, über 20-fach überzeichnet. Eröffnung 350 USD, Schluss 311 USD, +68%. Wafer-Scale Engine 3, 58x größer als ein GPU-Chip. Risiken: hohe Bewertung, Nvidia-Konkurrenz."],
+ ["Meinungs-Grafik","Meinung: Solstice Advanced Materials stark in Kernenergie und Rechenzentren – Aktie vor Ausbruch aus Base. Seit IPO +60%. Ausbruch über 85 USD = Longsignal. EPS-Ziel 2,75 USD."],
+ ["Einleitung / Veranschaulichung","Schluss mit Value-Traps: das Erfolgsrezept hinter unserem Aktien-Screening. Wir suchen Blue-Chips mit verlässlichem passivem Einkommen und unterdurchschnittlichem Risiko. Filter: Mindestrendite 3% plus technische Qualität."],
+ ["Unternehmensvorstellung","Sempra: Akteur im Energieinfrastruktur-Sektor. Betreibt Gas- und Stromnetze in Kalifornien und Texas, massiv im LNG-Terminalbau. Politischer Rückenwind durch US-Flüssiggas-Export."],
+ ["Musterdepot-Tabelle","Klassisches Musterdepot, Stand Oktober 2026. Startkapital 100.000 EUR, Gesamtwert 112.300 EUR, Rendite +12,3%. Position Sempra (WKN A0Q1YY), Kauf 14.03.2026, 80 Stück, Kaufkurs 70 USD, akt. 78 USD, Gesamtrendite +11,4%."],
+ ["Featured Image (Blog)","Covered Call auf Verizon: Wie wir mit dem Schreiben einer Call-Option auf unsere Dividendenaktie die Ausschüttungsrendite erhöhen."],
+ ["Saisonalitäten","Tennant (TNC): Der Robotiktrend erreicht die Gebäudereinigung. Saisonaler Bullenmarkt 13. Juni bis 31. Juli. Q1: Umsatz +2,7% auf 297,9 Mio. USD, Bruttomarge 38,1%."],
+ ["Ranglisten / Pivotal Points","Cardinal Infrastructure (CRDL): Kleine Infrastruktur-Aktie als möglicher KI-Gewinner. Q1 2026: Umsatz +105% auf 167,5 Mio. USD, Auftragsbestand 854 Mio. USD (+60%). Erster Data-Center-Auftrag 24 Mio. USD."],
+ ["4-Quadranten-Analyse","Nvidia (ISIN US67066G1040). These: KI-Infrastruktur-Marktführer. Quartalszahlen: Umsatz 35,1 Mrd. USD, +94% YoY, Marge 75%. Wachstumstreiber: Data-Center +112%. Risiken: hohe Bewertung, China-Exportbeschränkungen."],
+ ["Blog Title-Card","Titel: Die fünf wertvollsten Firmen weltweit. Untertitel: Wie KI und Cloud die Rangliste der Tech-Giganten neu ordnen. Schlüsselwort: KI."],
+ ["Screening-Funnel","Dividenden-Screening Europa. Universum 1.200 Aktien. Rendite über 3%: 340. Ausschüttungsquote unter 70%: 180. Gewinnwachstum positiv: 95. Verschuldung unter Schnitt: 40. Ergebnis: SpareBank 1 SMN (MING)."],
+ ["Konzept-Illustration","Der KI-Infrastruktur-Boom: Wie der Bau von Rechenzentren zur Goldgräberstimmung an der Börse wird. Bildliche Story über Datenströme und Serverlandschaften. Wenig Text, atmosphärisch."],
+];
+function ucTableHTML(){
+  return '<table class="wtable"><thead><tr><th>Use Case</th><th>Format</th><th>Zielgröße</th><th>Modell</th></tr></thead><tbody>'
+    +UC_ROWS.map(r=>'<tr><td>'+r[0]+'</td><td class="mono">'+r[1]+'</td><td class="mono">'+r[2]+'</td><td>'+r[3]+'</td></tr>').join('')
+    +'</tbody></table>';
+}
+function ucExamplesHTML(){
+  return UC_EXAMPLES.map(([t,ex])=>'<h2>'+t+'</h2><p>'+ex+'</p>').join('');
+}
 const WIKI={
-  start:{ title:"Willkommen", body:`
-    <h1>Creative Studio — Wiki</h1>
-    <p>Hier findest du alles, was du zur Bedienung brauchst. Wähle links eine Kategorie.</p>
+  start:{ body:`
+    <div class="eyebrow">Dokumentation</div>
+    <h1>Creative Studio — Handbuch</h1>
+    <p class="sub">Alles zur Bedienung des finanzen.net Creative Studio. Wähle links eine Kategorie. Für Redakteure ist „Erste Schritte" der beste Einstieg.</p>
+    <h2>Die vier Werkzeuge im Überblick</h2>
     <ul>
-      <li><b>Für Redakteure</b> — Schritt-für-Schritt zur fertigen Grafik.</li>
-      <li><b>Use Cases</b> — alle 17 Grafiktypen mit Beispieltexten.</li>
-      <li><b>Social Karussell</b> — editierbare Bild+Text-Posts.</li>
-      <li><b>Modi-Übersicht</b> — was die vier Bereiche tun.</li>
-      <li><b>FAQ & Tipps</b> — bei Problemen.</li>
-    </ul>` },
-  redakteure:{ title:"Für Redakteure", body:`
-    <h1>Für Redakteure — in 4 Schritten zur Grafik</h1>
-    <ol>
-      <li><b>„Grafiken Redaktion"</b> oben öffnen.</li>
-      <li><b>Use Case wählen</b> (z.B. Top-5 Scoreboard). Format, Stil und Modell sind fest hinterlegt — du stellst nichts ein.</li>
-      <li><b>Artikeltext einfügen</b>. Ganzer Artikel oder nur die Rohdaten/Zahlen. Optional: Aktien-/Firmenname oben.</li>
-      <li><b>„Grafik erstellen"</b> → nach 10–30 Sek. erscheint die Grafik → <b>„Download (Zielgröße)"</b>.</li>
+      <li><b>Grafiken Redaktion</b> — fertige KI-Infografik (Bild inklusive Text) aus deinem Artikeltext. Kein Editor nötig.</li>
+      <li><b>Social Karussell</b> — KI-Bild mit frei editierbarer Text-Ebene für Social-Media-Posts.</li>
+      <li><b>Chart</b> — Liniendiagramm, exakt aus deinen Zahlen gerendert.</li>
+      <li><b>Sankey</b> — Income-Statement-Flussdiagramm aus deinen GuV-Zahlen.</li>
+    </ul>
+    <div class="callout"><b>Faustregel:</b> Story- und Infografiken erstellst du in „Grafiken Redaktion". Exakte Zahlenwerke (Kursverläufe, GuV-Strukturen) gehören in Chart oder Sankey — dort wird nichts vom Modell „gemalt", sondern präzise berechnet.</div>` },
+
+  redakteure:{ body:`
+    <div class="eyebrow">Für Redakteure</div>
+    <h1>Erste Schritte — in 4 Schritten zur Grafik</h1>
+    <p class="sub">So erstellst du in unter einer Minute eine fertige, veröffentlichungsreife Finanzgrafik.</p>
+    <ol class="wsteps">
+      <li>Oben <b>„Grafiken Redaktion"</b> öffnen.</li>
+      <li><b>Use Case wählen</b> (z.B. „Top-5 Scoreboard"). Format, Stil und das beste KI-Modell sind fest hinterlegt — du stellst nichts ein.</li>
+      <li><b>Artikeltext einfügen</b>: der ganze Artikel oder nur die Rohdaten/Zahlen. Optional oben den Aktien-/Firmennamen eintragen.</li>
+      <li><b>„Grafik erstellen"</b> klicken → nach 10–30 Sekunden erscheint die Grafik → <b>„Download (Zielgröße)"</b>.</li>
     </ol>
     <h2>Regeln für gute Ergebnisse</h2>
     <ul>
-      <li>Zahlen und Namen müssen im Text stehen — das Modell erfindet nichts.</li>
-      <li>Lieber präzise Rohdaten als langer Fließtext, besonders bei Tabellen.</li>
-      <li>1–3 Kernbotschaften wirken am besten.</li>
-      <li>Bei Zahlen-Grafiken Ergebnis vor Veröffentlichung kurz prüfen.</li>
-    </ul>` },
-  usecases:{ title:"Use Cases & Beispiele", body:`
-    <h1>Die 17 Use Cases</h1>
-    <p>Modell, Format und Zielgröße sind je Use Case fest hinterlegt.</p>
-    <table style="width:100%;border-collapse:collapse;font-size:13px">
-    <thead><tr style="text-align:left;border-bottom:2px solid var(--line)"><th style="padding:6px">Use Case</th><th>Format</th><th>Zielgröße</th><th>Modell</th></tr></thead>
-    <tbody>
-    ${[["Top-5 Scoreboard","16:9","606×332","GPT Image 2"],["Großwetterlage-Dashboard","16:9","606×332","GPT Image 2"],["Earnings-Radar","16:9","606×316","GPT Image 2"],["Magazin-Artikel-Grafik","4:3","510×364","GPT Image 2"],["Header-/Teaser-Grafik","16:9","1408×768","Nano Banana Pro"],["Tenbagger-Magazinseite","3:4","535×725","GPT Image 2"],["Meinungs-Grafik","16:9","1408×768","GPT Image 2"],["Einleitung / Veranschaulichung","16:9","1024×559","GPT Image 2"],["Unternehmensvorstellung","16:9","1024×559","GPT Image 2"],["Musterdepot-Tabelle","16:9","1045×622","GPT Image 2"],["Featured Image (Blog)","16:9","1200×628","Nano Banana Pro"],["Saisonalitäten","16:9","1283×722","GPT Image 2"],["Ranglisten / Pivotal Points","16:9","856×467","GPT Image 2"],["4-Quadranten-Analyse","16:9","1920×1080","GPT Image 2"],["Blog Title-Card","16:9","1200×628","Nano Banana Pro"],["Screening-Funnel","3:4","1536×2048","GPT Image 2"],["Konzept-Illustration","16:9","1920×1080","Nano Banana Pro"]].map(r=>'<tr style="border-bottom:1px solid var(--line-2)"><td style="padding:6px">'+r[0]+'</td><td>'+r[1]+'</td><td>'+r[2]+'</td><td>'+r[3]+'</td></tr>').join('')}
-    </tbody></table>
-    <p style="margin-top:14px">Fertige Beispieltexte pro Use Case stehen im Dokument <b>USE_CASE_TABELLE.md</b>.</p>` },
-  social:{ title:"Social Karussell", body:`
-    <h1>Social Karussell</h1>
-    <p>Für Social-Media-Posts mit editierbarer Text-Ebene über einem KI-Bild.</p>
-    <ol>
-      <li>„Social Karussell" öffnen, Inhalt eingeben (Schlagzeile, Unterzeile, Kernpunkte, Schluss).</li>
-      <li>Bild-Prompt + optional Marke eingeben, Format wählen (4:5, 9:16, 1:1, 16:9).</li>
-      <li>„Studio öffnen" → im Editor Text/Logo frei verschieben, skalieren, Lesbarkeit anpassen.</li>
-      <li>Als PNG exportieren.</li>
-    </ol>
-    <p>Anders als „Grafiken Redaktion" liegt hier der Text als <b>echte editierbare Ebene</b> über dem Bild — ideal wenn du nachträglich frei gestalten willst.</p>` },
-  modi:{ title:"Modi-Übersicht", body:`
-    <h1>Die vier Modi</h1>
-    <ul>
-      <li><b>Grafiken Redaktion</b> — fertige KI-Infografik (Bild inkl. Text) aus Artikeltext. Kein Editor.</li>
-      <li><b>Social Karussell</b> — KI-Bild + editierbare Text-Ebene, Slides, freies Gestalten.</li>
-      <li><b>Chart</b> — Liniendiagramm, deterministisch aus deinen Zahlen (kein KI-Modell, exakt).</li>
-      <li><b>Sankey</b> — Income-Statement-Flow, deterministisch aus deinen Zahlen.</li>
+      <li><b>Zahlen und Namen müssen im Text stehen.</b> Das Modell übernimmt nur, was du lieferst — es erfindet nichts.</li>
+      <li><b>Lieber präzise Rohdaten</b> als langer Fließtext, besonders bei Tabellen-Grafiken.</li>
+      <li><b>Kurz halten:</b> 1–3 Kernbotschaften wirken am stärksten.</li>
+      <li><b>Ergebnis prüfen:</b> bei Grafiken mit vielen Zahlen vor der Veröffentlichung kurz kontrollieren.</li>
     </ul>
-    <p><b>Faustregel:</b> Stimmungs-/Story-Bilder und Infografiken → Grafiken Redaktion. Exakte Zahlenwerke (Kursverläufe, GuV) → Chart/Sankey, weil dort nichts halluziniert wird.</p>` },
-  faq:{ title:"FAQ & Tipps", body:`
+    <div class="callout">Format, Modell und Zielgröße sind pro Use Case fest hinterlegt. Du wählst nur den Use Case und gibst Text ein — den Rest erledigt das System.</div>` },
+
+  uc_liste:{ body:`
+    <div class="eyebrow">Für Redakteure › Use Cases</div>
+    <h1>Alle 17 Use Cases</h1>
+    <p class="sub">Jeder Use Case hat ein fest hinterlegtes Modell, Seitenverhältnis und eine Veröffentlichungs-Zielgröße. Beim Download wird das Bild automatisch auf die Zielgröße gebracht.</p>
+    `+ucTableHTML()+`
+    <div class="callout"><b>GPT Image 2</b> rendert Text und Tabellen am saubersten und ist daher für datenlastige Grafiken hinterlegt. <b>Nano Banana Pro</b> liefert die besseren reinen Stimmungsbilder (Header, Featured, Title-Card, Konzept-Illustration).</div>` },
+
+  uc_beispiele:{ body:`
+    <div class="eyebrow">Für Redakteure › Use Cases</div>
+    <h1>Beispieltexte zum Reinkopieren</h1>
+    <p class="sub">Pro Use Case ein fertiger Beispiel-Artikeltext. Wähle den Use Case im Studio, kopiere den Text ins Feld „Artikeltext / Rohdaten" und klicke „Grafik erstellen".</p>
+    `+ucExamplesHTML()+` ` },
+
+  social:{ body:`
+    <div class="eyebrow">Werkzeuge</div>
+    <h1>Social Karussell</h1>
+    <p class="sub">Für Social-Media-Posts, bei denen der Text als echte, frei editierbare Ebene über einem KI-Bild liegt.</p>
+    <ol class="wsteps">
+      <li>„Social Karussell" öffnen und Inhalt eingeben: Schlagzeile, Unterzeile, Kernpunkte, Schluss-Statement.</li>
+      <li>Bild-Prompt eingeben, optional eine Marke, und Format wählen (4:5, 9:16, 1:1 oder 16:9).</li>
+      <li>„Studio öffnen" → im Editor Text und Logo frei verschieben, skalieren, Schrift und Lesbarkeit anpassen.</li>
+      <li>Als PNG in voller Auflösung exportieren.</li>
+    </ol>
+    <h2>Wann Social statt Grafiken Redaktion?</h2>
+    <p>In „Grafiken Redaktion" liefert das Modell ein fertiges Bild inklusive Text — schnell, aber nicht nachträglich editierbar. Im Social Karussell ist der Text eine <b>eigene Ebene</b>: ideal, wenn du Position, Schrift und Layout selbst feinjustieren willst.</p>` },
+
+  chart:{ body:`
+    <div class="eyebrow">Werkzeuge › Deterministisch</div>
+    <h1>Chart — Liniendiagramm</h1>
+    <p class="sub">Ein Liniendiagramm im finanzen.net-Dunkelstil, exakt aus deinen Zahlen gerendert. Kein KI-Modell — die Werte stimmen immer auf den Punkt.</p>
+    <h2>Welche Daten funktionieren</h2>
+    <ul>
+      <li><b>Zeitreihen:</b> eine X-Achse (z.B. Jahre oder Uhrzeiten) und eine oder mehrere Datenreihen mit gleich vielen Werten.</li>
+      <li><b>Ein Panel</b> für eine einzelne Zeitreihe, <b>zwei Panels</b> für einen Vergleich (z.B. „Blase oder Boom?": Cisco vs. NVIDIA).</li>
+      <li>Werte als Komma-Liste, jede Reihe gleich lang wie die X-Achse.</li>
+    </ul>
+    <h2>Bedienung</h2>
+    <ol class="wsteps">
+      <li>„Chart" öffnen. Kopf ausfüllen: Titel, Untertitel, Quelle.</li>
+      <li>Ein oder zwei Panels wählen. Pro Panel: Name, X-Achsen-Labels (Komma-Liste), Datenreihen hinzufügen (Name, Farbe, Werte).</li>
+      <li>„Chart bauen" → Vorschau. Bei Bedarf Werte anpassen und erneut bauen.</li>
+      <li>„Export PNG".</li>
+    </ol>
+    <h2>Aus Text befüllen</h2>
+    <p>Über „Aus Text" kannst du einen Text mit Zahlen einwerfen — Claude liest daraus Titel, Achsen und Datenreihen. Funktioniert nur, wenn die Zahlen wirklich im Text stehen.</p>
+    <div class="callout"><b>Wann Chart?</b> Immer wenn Kursverläufe oder indexierte Vergleiche exakt stimmen müssen. Ein KI-Bild würde Werte verfälschen — der Chart-Renderer nicht.</div>` },
+
+  sankey:{ body:`
+    <div class="eyebrow">Werkzeuge › Deterministisch</div>
+    <h1>Sankey — Income Statement</h1>
+    <p class="sub">Ein Fluss-Diagramm von Umsatz zu Nettogewinn im App-Economy-Stil (wie Oracle/Palo Alto). Exakt aus deinen GuV-Zahlen berechnet, nichts wird geschätzt.</p>
+    <h2>Welche Daten funktionieren</h2>
+    <ul>
+      <li><b>Umsatz-Segmente:</b> Name + Wert je Segment. Die Summe ergibt den Gesamtumsatz.</li>
+      <li><b>Kosten der Umsatzerlöse</b> (Cost of revenue): ein Wert. Rest wird automatisch zum Bruttogewinn.</li>
+      <li><b>Betriebsausgaben:</b> Posten wie R&D, Marketing, G&A. Rest wird zum operativen Gewinn.</li>
+      <li><b>Unter dem operativen Gewinn:</b> Steuern, Zinsen usw. Rest wird zum Nettogewinn.</li>
+    </ul>
+    <p>Das Tool rechnet alle Zwischensummen selbst und prüft, dass die Summen aufgehen.</p>
+    <h2>Bedienung</h2>
+    <ol class="wsteps">
+      <li>„Sankey" öffnen. Kopf: Firma, Periode (z.B. Q4 FY26), Einheit (z.B. $).</li>
+      <li>Umsatz-Segmente eintragen (Name + Wert). Dann Kosten, Betriebsausgaben und Posten unter dem operativen Gewinn.</li>
+      <li>„Sankey bauen" → Vorschau. Werte anpassen, erneut bauen.</li>
+      <li>„Export PNG".</li>
+    </ol>
+    <h2>Aus Text befüllen</h2>
+    <p>Über „Aus Text" einen Quartalsbericht einwerfen — Claude ordnet die GuV-Zahlen den Feldern zu. Bitte danach prüfen, ob die Zuordnung stimmt.</p>
+    <div class="callout"><b>Grenze der ersten Version:</b> keine Zwischengruppen (z.B. „Cloud" als Sammelknoten vor dem Umsatz) — Segmente fließen direkt in den Umsatz. Bei sehr vielen kleinen Posten können Labels eng werden.</div>` },
+
+  faq:{ body:`
+    <div class="eyebrow">Hilfe</div>
     <h1>FAQ & Tipps</h1>
+    <p class="sub">Die häufigsten Fragen und schnelle Lösungen.</p>
     <h2>„Grafik fehlgeschlagen"</h2>
-    <p>Einfach nochmal „Grafik erstellen" — KI-Bilder variieren, ein zweiter Versuch hilft oft.</p>
-    <h2>Eine Zahl ist falsch</h2>
-    <p>Text präziser formulieren und neu generieren. Bei dichten Tabellen kann ein Bildmodell Werte verrutschen — vor Veröffentlichung prüfen.</p>
-    <h2>Bild zu überladen</h2>
-    <p>Weniger in den Text, nur die 1–3 wichtigsten Punkte.</p>
-    <h2>Größe stimmt nicht exakt</h2>
-    <p>„Download (Zielgröße)" bringt das Bild automatisch auf die hinterlegte Veröffentlichungsgröße.</p>` },
+    <p>Einfach nochmal „Grafik erstellen" klicken. KI-Bilder variieren, ein zweiter Versuch hilft oft.</p>
+    <h2>Eine Zahl in der Grafik ist falsch</h2>
+    <p>Text präziser formulieren und neu generieren. Bei dichten Tabellen kann ein Bildmodell Werte verrutschen — vor der Veröffentlichung prüfen. Für 100% exakte Zahlen den Chart- oder Sankey-Modus nutzen.</p>
+    <h2>Das Bild wirkt überladen</h2>
+    <p>Weniger in den Text packen, nur die 1–3 wichtigsten Punkte.</p>
+    <h2>Die Größe stimmt nicht exakt</h2>
+    <p>Der Button „Download (Zielgröße)" bringt das Bild automatisch auf die hinterlegte Veröffentlichungsgröße (z.B. 606×332). Das Modell generiert im richtigen Seitenverhältnis, der Download skaliert exakt.</p>
+    <h2>Wo landen die fertigen Grafiken?</h2>
+    <p>Jede erzeugte Grafik wird automatisch archiviert — mit Use Case, Modell, Format, Größe und Datum.</p>` },
 };
-const WIKI_ORDER=[["start","Willkommen"],["redakteure","Für Redakteure"],["usecases","Use Cases & Beispiele"],["social","Social Karussell"],["modi","Modi-Übersicht"],["faq","FAQ & Tipps"]];
+
+// Navigation: verschachtelt. type "group" = Gruppenlabel, "item" = Seite, "sub" = eingerückte Unterseite.
+const WIKI_NAV=[
+  {type:"item", key:"start", label:"Willkommen"},
+  {type:"grp", label:"Für Redakteure"},
+  {type:"item", key:"redakteure", label:"Erste Schritte"},
+  {type:"sub", key:"uc_liste", label:"Use Cases (Übersicht)"},
+  {type:"sub", key:"uc_beispiele", label:"Beispieltexte"},
+  {type:"grp", label:"Werkzeuge"},
+  {type:"item", key:"social", label:"Social Karussell"},
+  {type:"item", key:"chart", label:"Chart"},
+  {type:"item", key:"sankey", label:"Sankey"},
+  {type:"grp", label:"Hilfe"},
+  {type:"item", key:"faq", label:"FAQ & Tipps"},
+];
 let _wikiInit=false;
 function initWiki(){
   const nav=$("wikiNav");
-  nav.innerHTML=WIKI_ORDER.map(([k,t])=>'<a class="nav" data-wiki="'+k+'" style="display:block;padding:9px 11px;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--ink-2);cursor:pointer;margin-bottom:3px">'+t+'</a>').join('');
+  nav.innerHTML=WIKI_NAV.map(n=>{
+    if(n.type==="grp") return '<div class="wgrp-label">'+n.label+'</div>';
+    const cls = n.type==="sub" ? "wlink sub" : "wlink";
+    return '<a class="'+cls+'" data-wiki="'+n.key+'">'+n.label+'</a>';
+  }).join('');
   nav.querySelectorAll("[data-wiki]").forEach(a=>a.onclick=()=>showWiki(a.dataset.wiki));
   showWiki("start");
 }
 function showWiki(key){
   $("wikiContent").innerHTML=WIKI[key].body;
-  document.querySelectorAll("#wikiNav [data-wiki]").forEach(a=>{
-    const on=a.dataset.wiki===key;
-    a.style.background=on?"var(--tint)":""; a.style.color=on?"var(--tint-ink)":"var(--ink-2)";
-  });
+  document.querySelectorAll("#wikiNav [data-wiki]").forEach(a=>a.classList.toggle("on", a.dataset.wiki===key));
+  const main=document.querySelector(".wiki-main"); if(main) main.scrollTo(0,0);
 }
 </script>
 </body>
