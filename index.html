@@ -1605,7 +1605,13 @@ async function runGraphic(){
   const title=$("grTitle").value;
   const btn=$("grRender"); const old=btn.textContent; btn.disabled=true; btn.textContent="Grafik wird erstellt …";
   $("grStatus").textContent = isLive()? "Modell rendert die Grafik — das dauert einige Sekunden." : "Demo-Modus: Platzhalter wird gezeichnet.";
-  showLoading("Grafik wird erstellt", isLive()? (modelLabelFor(grUseCase)+" rendert die Grafik — das dauert 10-30 Sekunden") : "Demo-Platzhalter wird gezeichnet");
+  // Dezenter Lade-Zustand NUR im Vorschau-Bereich (verdeckt nicht das Formular)
+  const wrapL=$("grCanvasWrap");
+  wrapL.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;gap:14px;color:var(--muted)">'
+    +'<div class="orb" style="width:54px;height:54px;border-radius:15px"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l1.6 4.8a2 2 0 0 0 1.3 1.3L19.5 11l-4.6 1.6a2 2 0 0 0-1.3 1.3L12 19l-1.6-4.8a2 2 0 0 0-1.3-1.3L4.5 11l4.6-1.6a2 2 0 0 0 1.3-1.3z"/></svg></div>'
+    +'<div style="font-weight:700;font-size:15px;color:var(--ink)">Grafik wird erstellt</div>'
+    +'<div style="font-size:13px">'+(isLive()?(modelLabelFor(grUseCase)+" rendert — 10-30 Sek."):"Demo-Platzhalter")+'</div>'
+    +'<div class="bar" style="width:160px"><i></i></div></div>';
   try{
     const img=await generateGraphicImage(article, title, fmt, grModel);
     _grLastImg=img;
@@ -1619,9 +1625,9 @@ async function runGraphic(){
     $("grStatus").textContent = isLive()? "Fertig. Download als PNG oder zum Feinschliff im Editor öffnen." : "Demo-Platzhalter. Für echte Grafik Make/OpenRouter verbinden.";
   }catch(e){
     $("grStatus").textContent="Fehler: "+e.message;
+    $("grCanvasWrap").innerHTML='<div class="empty" style="text-align:center;max-width:320px"><div class="icwrap" style="margin:0 auto 13px"><svg class="ic" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div>Grafik fehlgeschlagen: '+e.message+'</div>';
     toast("Grafik fehlgeschlagen: "+e.message,7000);
   }
-  hideLoading();
   btn.disabled=false; btn.textContent=old;
 }
 // generiertes Grafik-Bild als editierbaren Hintergrund in den Fabric-Editor uebergeben
