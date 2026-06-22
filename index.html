@@ -320,10 +320,31 @@
   .wtable td{padding:8px 10px;border-bottom:1px solid var(--line-2);color:var(--ink-2)}
   .wtable tr:nth-child(even) td{background:#fafbfc}
   .wtable .mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px}
-  .wsteps{counter-reset:wstep;list-style:none;padding:0;margin:0 0 18px}
-  .wsteps li{position:relative;padding:0 0 16px 44px;font-size:14.5px;line-height:1.6;color:var(--ink-2)}
-  .wsteps li::before{counter-increment:wstep;content:counter(wstep);position:absolute;left:0;top:-2px;width:28px;height:28px;border-radius:9px;background:var(--navy);color:#fff;font-size:13px;font-weight:700;display:grid;place-items:center}
-  .wsteps li:not(:last-child)::after{content:"";position:absolute;left:13px;top:30px;bottom:2px;width:1.5px;background:var(--line)}
+  .wiki-doc ol.wsteps{counter-reset:wstep;list-style:none;padding-left:0;margin:0 0 18px}
+  .wiki-doc ol.wsteps li{position:relative;padding:5px 0 18px 46px;font-size:14.5px;line-height:1.6;color:var(--ink-2);margin-bottom:0}
+  .wiki-doc ol.wsteps li::before{counter-increment:wstep;content:counter(wstep);position:absolute;left:0;top:0;width:30px;height:30px;border-radius:9px;background:var(--navy);color:#fff;font-size:13px;font-weight:700;display:grid;place-items:center}
+  .wiki-doc ol.wsteps li:not(:last-child)::after{content:"";position:absolute;left:14px;top:34px;bottom:4px;width:1.5px;background:var(--line)}
+
+  /* ---------- Responsive ---------- */
+  @media(max-width:860px){
+    .appbar{flex-wrap:wrap;height:auto;padding:8px 14px;gap:6px}
+    .nav{margin-left:0;overflow-x:auto;width:100%;order:3;-webkit-overflow-scrolling:touch}
+    .nav a{white-space:nowrap;padding:6px 10px;font-size:12.5px}
+    .wiki-shell{grid-template-columns:1fr}
+    .wiki-side{position:fixed;top:56px;left:0;bottom:0;width:240px;z-index:30;transform:translateX(-100%);transition:transform .2s;box-shadow:var(--shadow-lg)}
+    .wiki-shell.nav-open .wiki-side{transform:translateX(0)}
+    .wiki-main{padding:28px 22px 90px}
+    .wiki-doc h1{font-size:25px}
+    .mod{grid-template-columns:1fr}
+    .mod-form{border-right:none;border-bottom:1px solid var(--line)}
+    .work{grid-template-columns:1fr}
+    .slides,.props{display:none}
+    .gen-wrap{padding:24px 16px 100px}
+    .home-wrap{padding:32px 16px 90px}
+    .fmt-grid{grid-template-columns:repeat(2,1fr)}
+  }
+  .wiki-burger{display:none}
+  @media(max-width:860px){ .wiki-burger{display:inline-flex} }
 </style>
 </head>
 <body>
@@ -400,7 +421,8 @@
     <label class="lab">Artikeltext / Rohdaten</label>
     <textarea class="ta" id="grArticle" style="min-height:150px" placeholder="Ganzen Artikel oder die Rohdaten einfügen. Das Modell verdichtet daraus die Grafik. Zahlen und Namen werden exakt übernommen."></textarea>
     <label class="lab">Aktien-/Firmenname (optional, für Titel)</label>
-    <input class="inp" id="grTitle" placeholder="z.B. Oracle (ORCL) — leer lassen, wenn aus Text" />
+    <input class="inp" id="grTitle" placeholder="z.B. Oracle (ORCL)" />
+    <span class="hint" style="display:block;margin-top:7px">Optional. Leer lassen, wenn der Name aus dem Artikeltext kommen soll.</span>
 
     <div class="grp-h">Format, Modell & Zielgröße (fest je Use Case)</div>
     <div class="two">
@@ -444,8 +466,8 @@
 
     <div class="fillbar">
       <div class="seg-pick fillmode" data-view="social">
-        <button class="on" data-m="manual">Manuell ausfüllen</button>
-        <button data-m="auto">Aus Text befüllen</button>
+        <button class="on" data-m="auto">Aus Text befüllen</button>
+        <button data-m="manual">Manuell ausfüllen</button>
       </div>
       <span class="hint">Selbst eintragen oder einen Artikel einwerfen und alle Felder von Claude Sonnet füllen lassen.</span>
     </div>
@@ -466,7 +488,7 @@
 
     <div class="card">
       <div class="card-h"><span class="n">0</span><h3>Use Case</h3></div>
-      <label class="lab">Vorlage wählen (Redakteur)</label>
+      <label class="lab">Vorlage wählen</label>
       <div class="selwrap">
         <select class="sel" id="ucSelect"></select>
         <svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
@@ -521,6 +543,7 @@
     <div class="card">
       <div class="card-h"><span class="n">3</span><h3>Format</h3></div>
       <div class="fmt-grid" id="fmtGrid"></div>
+      <span class="hint" style="display:block;margin-top:10px">Weitere Formate sind in Planung.</span>
     </div>
 
     </div><!-- /lock-social -->
@@ -732,7 +755,10 @@
       <div class="h">Dokumentation</div>
       <div id="wikiNav"></div>
     </aside>
-    <main class="wiki-main"><div class="wiki-doc" id="wikiContent"></div></main>
+    <main class="wiki-main">
+      <button class="wiki-burger tool" id="wikiBurger" style="margin-bottom:14px;padding-left:0"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg> Menü</button>
+      <div class="wiki-doc" id="wikiContent"></div>
+    </main>
   </div>
 </div>
 
@@ -1683,22 +1709,22 @@ function startGraphicLoader(){
     ? ["Artikeltext wird analysiert …","Vorlage & Layout werden vorbereitet …",modelLabelFor(grUseCase)+" rendert die Grafik …","Texte & Kennzahlen werden gesetzt …","Bild wird finalisiert …"]
     : ["Demo-Platzhalter wird gezeichnet …"];
   _grLoaderStep=0; _grLoaderSec=0;
-  const est = GR_NANO_UCS.includes(grUseCase)? 25 : 30; // grobe Schätzung
+  const est = 105; // realistische Schätzung bei hoher Auslastung (~90-120s)
   const wrap=$("grCanvasWrap");
   const render=()=>{
     const pct=Math.min(96, Math.round(_grLoaderSec/est*100));
-    wrap.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;gap:16px;color:var(--muted);min-width:280px">'
+    wrap.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;gap:16px;color:var(--muted);min-width:300px">'
       +'<div class="orb" style="width:58px;height:58px;border-radius:16px"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l1.6 4.8a2 2 0 0 0 1.3 1.3L19.5 11l-4.6 1.6a2 2 0 0 0-1.3 1.3L12 19l-1.6-4.8a2 2 0 0 0-1.3-1.3L4.5 11l4.6-1.6a2 2 0 0 0 1.3-1.3z"/></svg></div>'
       +'<div style="font-weight:700;font-size:15px;color:var(--ink)">Grafik wird erstellt</div>'
       +'<div style="font-size:13px;min-height:18px;text-align:center;transition:opacity .3s">'+steps[_grLoaderStep%steps.length]+'</div>'
-      +'<div class="bar" style="width:220px;background:#e2e6ec"><i style="width:'+pct+'%;transition:width .9s ease"></i></div>'
-      +(live?'<div style="font-size:11.5px;color:var(--faint)">'+_grLoaderSec+'s · ca. '+est+'s geschätzt</div>':'')
+      +'<div class="bar" style="width:240px;background:#e2e6ec"><i style="width:'+pct+'%;transition:width .9s ease"></i></div>'
+      +(live?'<div style="font-size:11.5px;color:var(--faint);text-align:center;max-width:260px">'+_grLoaderSec+'s · ca. 90–120 s wegen hoher Auslastung. Bitte das Fenster offen lassen.</div>':'')
       +'</div>';
   };
   render();
   _grLoaderTimer=setInterval(()=>{
     _grLoaderSec++;
-    if(_grLoaderSec % 5 === 0) _grLoaderStep++;  // alle 5s naechster Schritt
+    if(_grLoaderSec % 20 === 0) _grLoaderStep++;  // alle 20s naechster Schritt
     render();
   }, 1000);
 }
@@ -1780,6 +1806,8 @@ function setFillMode(view, mode){
 }
 document.querySelectorAll(".fillmode button").forEach(b=>b.addEventListener("click",()=>{ setFillMode(b.closest(".fillmode").dataset.view, b.dataset.m); }));
 document.querySelectorAll("[data-fill]").forEach(b=>b.addEventListener("click",()=>runFill(b.dataset.fill)));
+// Standard: Social-Karussell startet im Modus "Aus Text befüllen"
+setFillMode("social","auto");
 
 async function runFill(view){
   const src=$("src-"+view); const txt=(src?src.value:"").trim();
@@ -2085,7 +2113,16 @@ function ucTableHTML(){
     +'</tbody></table>';
 }
 function ucExamplesHTML(){
-  return UC_EXAMPLES.map(([t,ex])=>'<h2>'+t+'</h2><p>'+ex+'</p>').join('');
+  return UC_EXAMPLES.map(([t,ex],i)=>{
+    const id="ucex"+i;
+    const esc=ex.replace(/"/g,"&quot;");
+    return '<div style="border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px;background:#fff">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px">'
+      +'<div style="font-weight:700;font-size:14px;color:var(--ink)">'+t+'</div>'
+      +'<button class="wcopy" data-copy="'+id+'" style="flex:none;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--tint-ink);background:var(--tint);border:1px solid var(--tint-line);padding:5px 11px;border-radius:8px;cursor:pointer">'
+      +'<svg class="ic ic-sm" viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Kopieren</button></div>'
+      +'<div id="'+id+'" style="font-size:13.5px;line-height:1.6;color:var(--ink-2)">'+ex+'</div></div>';
+  }).join('');
 }
 const WIKI={
   start:{ body:`
@@ -2229,12 +2266,23 @@ function initWiki(){
     return '<a class="'+cls+'" data-wiki="'+n.key+'">'+n.label+'</a>';
   }).join('');
   nav.querySelectorAll("[data-wiki]").forEach(a=>a.onclick=()=>showWiki(a.dataset.wiki));
+  const burger=$("wikiBurger"); if(burger) burger.onclick=()=>{ const sh=document.querySelector(".wiki-shell"); if(sh) sh.classList.toggle("nav-open"); };
   showWiki("start");
 }
 function showWiki(key){
   $("wikiContent").innerHTML=WIKI[key].body;
   document.querySelectorAll("#wikiNav [data-wiki]").forEach(a=>a.classList.toggle("on", a.dataset.wiki===key));
   const main=document.querySelector(".wiki-main"); if(main) main.scrollTo(0,0);
+  // Kopier-Buttons (Beispieltexte) verdrahten
+  document.querySelectorAll(".wcopy").forEach(b=>b.onclick=async()=>{
+    const el=document.getElementById(b.dataset.copy); if(!el) return;
+    try{ await navigator.clipboard.writeText(el.textContent); }
+    catch(e){ const r=document.createRange(); r.selectNode(el); const s=getSelection(); s.removeAllRanges(); s.addRange(r); try{document.execCommand("copy");}catch(_){} s.removeAllRanges(); }
+    const old=b.innerHTML; b.innerHTML='<svg class="ic ic-sm" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M20 6L9 17l-5-5"/></svg>Kopiert'; b.style.color="var(--accent-2)";
+    setTimeout(()=>{ b.innerHTML=old; b.style.color="var(--tint-ink)"; },1600);
+  });
+  // mobile: Sidebar nach Auswahl schliessen
+  if(window.innerWidth<=860){ const sh=document.querySelector(".wiki-shell"); if(sh) sh.classList.remove("nav-open"); }
 }
 </script>
 </body>
