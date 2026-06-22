@@ -1605,6 +1605,7 @@ async function runGraphic(){
   const title=$("grTitle").value;
   const btn=$("grRender"); const old=btn.textContent; btn.disabled=true; btn.textContent="Grafik wird erstellt …";
   $("grStatus").textContent = isLive()? "Modell rendert die Grafik — das dauert einige Sekunden." : "Demo-Modus: Platzhalter wird gezeichnet.";
+  showLoading("Grafik wird erstellt", isLive()? (modelLabelFor(grUseCase)+" rendert die Grafik — das dauert 10-30 Sekunden") : "Demo-Platzhalter wird gezeichnet");
   try{
     const img=await generateGraphicImage(article, title, fmt, grModel);
     _grLastImg=img;
@@ -1620,6 +1621,7 @@ async function runGraphic(){
     $("grStatus").textContent="Fehler: "+e.message;
     toast("Grafik fehlgeschlagen: "+e.message,7000);
   }
+  hideLoading();
   btn.disabled=false; btn.textContent=old;
 }
 // generiertes Grafik-Bild als editierbaren Hintergrund in den Fabric-Editor uebergeben
