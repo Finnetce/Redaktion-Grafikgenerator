@@ -1766,7 +1766,7 @@ function startGraphicLoader(){
       +'<div style="font-weight:700;font-size:15px;color:var(--ink)">Grafik wird erstellt</div>'
       +'<div style="font-size:13px;min-height:18px;text-align:center;transition:opacity .3s">'+steps[_grLoaderStep%steps.length]+'</div>'
       +'<div class="bar" style="width:240px;background:#e2e6ec"><i style="width:'+pct+'%;transition:width .9s ease"></i></div>'
-      +(live?'<div style="font-size:11.5px;color:var(--faint);text-align:center;max-width:260px">'+_grLoaderSec+'s · ca. 90–120 s wegen hoher Auslastung. Bitte das Fenster offen lassen.</div>':'')
+      +(live?'<div style="font-size:11.5px;color:var(--faint);text-align:center;max-width:260px">'+_grLoaderSec+'s · je nach Modell bis zu 120 s wegen hoher Auslastung. Bitte das Fenster offen lassen.</div>':'')
       +'</div>';
   };
   render();
