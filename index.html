@@ -380,7 +380,6 @@
     <div class="mod-actions">
       <button class="btn-primary2" id="grRender">Grafik erstellen</button>
       <button class="btn-ghost2" id="grExport" disabled>Download (Zielgröße)</button>
-      <button class="btn-ghost2" id="grToEditor" disabled>Im Editor öffnen (zuschneiden)</button>
     </div>
     <p class="hint" id="grStatus" style="margin-top:12px"></p>
   </div>
@@ -438,23 +437,23 @@
     <div class="card">
       <div class="card-h"><span class="n">1</span><h3>Inhalt</h3></div>
       <label class="lab">Schlagzeile</label>
-      <input class="inp" id="fHead" value="Puma: China-Boost und WM-Schwung" />
+      <input class="inp" id="fHead" placeholder="z.B. Puma: China-Boost und WM-Schwung" />
       <label class="lab">Unterzeile (Cover)</label>
-      <input class="inp" id="fSub" value="Vor WM-Start kletterte die Aktie um 3,5 Prozent." />
+      <input class="inp" id="fSub" placeholder="z.B. Vor WM-Start kletterte die Aktie um 3,5 Prozent." />
       <label class="lab">Kernpunkte (Content-Slide)</label>
-      <div class="bul"><span class="num">1</span><input class="inp" id="fB1" value="Die Partnerschaft mit Anta öffnet Türen zum chinesischen Markt und bringt operatives Know-how." /></div>
-      <div class="bul"><span class="num">2</span><input class="inp" id="fB2" value="Analysten sehen erhebliches Kurspotenzial mit Zielen von bis zu 40 Euro." /></div>
-      <div class="bul"><span class="num">3</span><input class="inp" id="fB3" value="Puma übertrifft Konkurrenten wie Adidas und Nike deutlich in der Jahresperformance." /></div>
+      <div class="bul"><span class="num">1</span><input class="inp" id="fB1" placeholder="z.B. Partnerschaft mit Anta öffnet den chinesischen Markt." /></div>
+      <div class="bul"><span class="num">2</span><input class="inp" id="fB2" placeholder="z.B. Analysten sehen Kursziele von bis zu 40 Euro." /></div>
+      <div class="bul"><span class="num">3</span><input class="inp" id="fB3" placeholder="z.B. Puma übertrifft Adidas und Nike in der Jahresperformance." /></div>
       <label class="lab">Schluss-Statement (letzte Slide)</label>
-      <input class="inp" id="fClose" value="Trotz Risiken in China sieht Puma dank starkem Ankeraktionär eine vielversprechende Zukunft." />
+      <input class="inp" id="fClose" placeholder="z.B. Trotz Risiken: vielversprechende Zukunft dank starkem Ankeraktionär." />
     </div>
 
     <div class="card">
       <div class="card-h"><span class="n">2</span><h3>KI-Bild</h3></div>
       <label class="lab">Firma / Marke im Bild</label>
-      <input class="inp" id="fBrand" value="Puma" placeholder="z.B. Puma. Leer lassen = kein Markenbezug" />
+      <input class="inp" id="fBrand" placeholder="z.B. Puma. Leer lassen = kein Markenbezug" />
       <label class="lab">Bild-Prompt (wird zum Hintergrund)</label>
-      <textarea class="ta" id="fPrompt">Moderner Puma Flagship Store in einer belebten chinesischen Einkaufsstraße bei Dämmerung, großflächige Leuchtwerbung, urbane Energie, cineastisches Licht</textarea>
+      <textarea class="ta" id="fPrompt" placeholder="z.B. Moderner Flagship Store in chinesischer Einkaufsstraße bei Dämmerung, Leuchtwerbung, cineastisches Licht. Untere Bildzone ruhig für Text."></textarea>
       <div class="two" style="margin-top:15px">
         <div>
           <label class="lab">Modell</label>
@@ -1031,13 +1030,12 @@ buildFormatGrid();
 function buildUseCaseSelect(){
   const s=$("ucSelect"); if(!s) return;
   s.innerHTML="";
-  Object.entries(USECASES).forEach(([key,uc])=>{
-    const o=document.createElement("option");
-    o.value=key;
-    o.textContent = uc.redakteur && uc.redakteur!=="–" ? uc.label+"  ·  "+uc.redakteur : uc.label;
-    s.appendChild(o);
+  // Social-Karussell: nur "Frei / Social (Standard)". Die Redakteurs-Use-Cases
+  // leben jetzt ausschliesslich im Modus "Grafiken Redaktion".
+  Object.entries(USECASES).filter(([key])=>key==="frei").forEach(([key,uc])=>{
+    const o=document.createElement("option"); o.value=key; o.textContent=uc.label; s.appendChild(o);
   });
-  s.value=curUseCase;
+  curUseCase="frei"; s.value="frei";
 }
 function applyUseCase(key){
   const uc=USECASES[key]; if(!uc) return;
@@ -1510,7 +1508,7 @@ function buildGraphicUcSelect(){
   const s=$("grUseCase"); if(!s) return;
   s.innerHTML="";
   Object.entries(GRAPHIC_USECASES).forEach(([k,uc])=>{
-    const o=document.createElement("option"); o.value=k; o.textContent=uc.label+"  ·  "+uc.redakteur; s.appendChild(o);
+    const o=document.createElement("option"); o.value=k; o.textContent=uc.label; s.appendChild(o);
   });
   s.value=grUseCase; syncGrUseCase();
 }
@@ -1571,7 +1569,6 @@ function initGraphic(){
       a.download=grUseCase+(tg?("_"+tg[0]+"x"+tg[1]):"")+".png"; a.click();
     }catch(e){ toast("Export fehlgeschlagen: "+e.message+" — nutze 'Im Editor öffnen'",6000); }
   };
-  $("grToEditor").onclick=openGraphicInEditor;
 }
 // Voll-Bild generieren.
 // MAKE-Modus: nur use_case + article + title + model senden — Make holt das
@@ -1621,7 +1618,7 @@ async function runGraphic(){
     const el=new Image(); el.src=img;
     el.style.cssText="max-width:min(70vw,900px);max-height:calc(100vh-220px);width:auto;height:auto;display:block;border-radius:4px";
     wrap.appendChild(el);
-    $("grExport").disabled=false; $("grToEditor").disabled=false;
+    $("grExport").disabled=false;
     $("grStatus").textContent = isLive()? "Fertig. Download als PNG oder zum Feinschliff im Editor öffnen." : "Demo-Platzhalter. Für echte Grafik Make/OpenRouter verbinden.";
   }catch(e){
     $("grStatus").textContent="Fehler: "+e.message;
