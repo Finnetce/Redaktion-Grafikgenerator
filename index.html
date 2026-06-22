@@ -362,30 +362,25 @@
     <label class="lab">Aktien-/Firmenname (optional, für Titel)</label>
     <input class="inp" id="grTitle" placeholder="z.B. Oracle (ORCL) — leer lassen, wenn aus Text" />
 
-    <div class="grp-h">Modell & Format</div>
+    <div class="grp-h">Format, Modell & Zielgröße (fest je Use Case)</div>
     <div class="two">
       <div>
-        <label class="lab">Bild-Modell</label>
-        <div class="selwrap">
-          <select class="sel" id="grModel">
-            <option value="openai/gpt-5.4-image-2">GPT Image 2 · OpenAI (beste Textqualität)</option>
-            <option value="google/gemini-3-pro-image">Nano Banana Pro · Google</option>
-            <option value="black-forest-labs/flux.2-pro">FLUX.2 Pro · Black Forest Labs</option>
-          </select>
-          <svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-        </div>
-      </div>
-      <div>
-        <label class="lab">Format (vom Use Case)</label>
+        <label class="lab">Verhältnis (Generierung)</label>
         <input class="inp" id="grFormat" value="16:9" readonly style="background:#f1f3f7;color:var(--muted)" />
       </div>
+      <div>
+        <label class="lab">Bild-Modell</label>
+        <input class="inp" id="grModelLabel" value="GPT Image 2" readonly style="background:#f1f3f7;color:var(--muted)" />
+      </div>
     </div>
-    <p class="hint" style="margin-top:9px">GPT Image 2 rendert Text in Grafiken am saubersten. Nano Banana Pro und FLUX.2 Pro sind Alternativen für mehr fotografischen bzw. illustrativen Look. (GPT Image Mini erzeugt keine vollwertigen Grafiken und ist daher nicht wählbar.)</p>
+    <label class="lab">Zielgröße beim Export (px)</label>
+    <input class="inp" id="grTargetLabel" value="606 x 332 px" readonly style="background:#f1f3f7;color:var(--muted)" />
+    <p class="hint" style="margin-top:9px">Format, Modell und Zielgröße sind pro Use Case fest hinterlegt — du wählst nichts. Das Bild wird im richtigen Verhältnis generiert und beim Download automatisch exakt auf die Zielgröße gebracht. Für Feinschliff (Ausschnitt verschieben/zoomen) „Im Editor öffnen".</p>
 
     <div class="mod-actions">
       <button class="btn-primary2" id="grRender">Grafik erstellen</button>
-      <button class="btn-ghost2" id="grExport" disabled>Download PNG</button>
-      <button class="btn-ghost2" id="grToEditor" disabled>Im Editor öffnen</button>
+      <button class="btn-ghost2" id="grExport" disabled>Download (Zielgröße)</button>
+      <button class="btn-ghost2" id="grToEditor" disabled>Im Editor öffnen (zuschneiden)</button>
     </div>
     <p class="hint" id="grStatus" style="margin-top:12px"></p>
   </div>
@@ -747,7 +742,9 @@ const FORMATS = {
   "9:16": { w:1080, h:1920, nm:"Story",     bw:20, bh:36 },
   "1:1":  { w:1080, h:1080, nm:"Square",    bw:30, bh:30 },
   "16:9": { w:1920, h:1080, nm:"Landscape", bw:40, bh:23 },
-  "2:3":  { w:1080, h:1620, nm:"Hochformat",bw:22, bh:33 },  // Tenbagger 535x725
+  "2:3":  { w:1080, h:1620, nm:"Hochformat",bw:22, bh:33 },
+  "3:4":  { w:1080, h:1440, nm:"Hochformat",bw:24, bh:32 },  // Tenbagger 535x725, Screening-Funnel
+  "4:3":  { w:1440, h:1080, nm:"Querformat",bw:32, bh:24 },  // Magazin-Artikel 510x364
 };
 let curFmt = "4:5", curTheme = "clean", curModel = "openai/gpt-5.4-image-2", curBrand = "Puma";
 
@@ -815,11 +812,11 @@ const GRAPHIC_USECASES = {
     prompt:"Erstelle eine fertige Dashboard-Finanzinfografik (Voll-Bild inkl. Text) 16:9, Titel 'Grosswetterlage im MEGATREND ...', Untertitel 'Marktbreite (GD20 / GD50 / GD200)'. Heatmap-aehnliche Matrix mit klarer Ampel-Farbskala (Dunkelgruen sehr positiv, Hellgruen positiv, Gelb neutral, Rot negativ), grosse Prozentwerte mit Pfeilen, abgerundete Kacheln, dezente Trennlinien ohne Gitter, kleine Trend-Ampel rechts. Dunkler institutioneller Finanz-Look. Werte exakt aus dem Artikeltext." },
   "earnings_radar": { label:"Earnings-Radar", redakteur:"Bank", fmt:"16:9",
     prompt:"Erstelle eine fertige Tabellen-Infografik (Voll-Bild inkl. Text) 16:9 fuer ein Boersenmagazin, Ueberschrift 'MEGATREND-EARNINGS-RADAR' mit Zeitraum. Mehrere Bloecke je Megatrend (z.B. KI, Defense&Space, Rohstoffsicherung), pro Eintrag Aktienname und Berichtstermin im Format TT.MM.JJJJ. Dunkler Hintergrund, klare serifenlose Typografie, Termine in Monospace, gleich breite Spalten, generische Icons (keine echten Logos). Daten exakt aus dem Artikeltext." },
-  "magazin_artikel": { label:"Magazin-Artikel-Grafik", redakteur:"Bank", fmt:"16:9",
-    prompt:"Erstelle eine fertige, professionelle und minimalistische Finanzinfografik (Voll-Bild inkl. Text) 16:9 zum Artikel. Sehr uebersichtlich, maximal 1-3 Kernbotschaften, grosse prominente Zahlen, generische Icons, clean editorial / Barron's-Stil, dunkler Premium-Hintergrund mit dezenten Verlaeufen. Farbwelt an die Branche des Unternehmens angepasst. Schreibe Millionen als Mio., Milliarden als Mrd., Waehrungen als USD oder EUR. Kennzahlen exakt aus dem Artikeltext." },
+  "magazin_artikel": { label:"Magazin-Artikel-Grafik", redakteur:"Bank", fmt:"4:3",
+    prompt:"Erstelle eine fertige, professionelle und minimalistische Finanzinfografik (Voll-Bild inkl. Text) zum Artikel, Querformat. Sehr uebersichtlich, maximal 1-3 Kernbotschaften, grosse prominente Zahlen, generische Icons, clean editorial / Barron's-Stil, dunkler Premium-Hintergrund mit dezenten Verlaeufen. Farbwelt an die Branche des Unternehmens angepasst. Schreibe Millionen als Mio., Milliarden als Mrd., Waehrungen als USD oder EUR. Kennzahlen exakt aus dem Artikeltext." },
   "header_grafik": { label:"Header-/Teaser-Grafik", redakteur:"Bank", fmt:"16:9",
     prompt:"Erstelle ein fertiges, atmosphaerisches Header-/Teaser-Bild 16:9 als Klick-Anreiz, illustrativ, dunkler Premium-Stil, mit grossem Titel und optional einer kurzen Kennzahl-Subline, branchenpassende Akzentfarben. Sehr wenig Text. Thema aus dem Artikeltext." },
-  "tenbagger": { label:"Tenbagger-Magazinseite", redakteur:"Haslinger", fmt:"2:3",
+  "tenbagger": { label:"Tenbagger-Magazinseite", redakteur:"Haslinger", fmt:"3:4",
     prompt:"Erstelle eine fertige, hochwertige Infografik (Voll-Bild inkl. Text) im Hochformat fuer ein deutsches Finanzmagazin (Tenbagger). Aufbau wie redaktionelle Magazin-Seite: starke Hauptueberschrift oben, kurzer Teaser darunter, dann mehrere klar getrennte Infoboxen / Datenkarten mit Mini-Charts und Key-Stats. Moderne Business-Optik, Barron's editorial infographic style, minimal institutional flat design, abstrakte Tech-Illustrationen und generische Icons, branchenpassende dunkle Farbwelt (Navy, Tuerkis/Cyan, Weiss, Akzentfarben fuer Zahlen). Inhalt und Zahlen exakt aus dem Artikeltext." },
   "meinung": { label:"Meinungs-Grafik", redakteur:"Haslinger", fmt:"16:9",
     prompt:"Erstelle eine fertige Meinungs-Finanzinfografik (Voll-Bild inkl. Text) 16:9 fuer ein Aktien-Magazin/Trading-Desk. Dunkler Premium-Stil, eine klare Kernaussage prominent, darunter 2-3 Kerngruende als kurze Boxen, branchenpassende Akzentfarben, generische Icons, kleine Chart-Elemente. Wenig Text, grosse Zahlen. Inhalt exakt aus dem Artikeltext." },
@@ -831,8 +828,18 @@ const GRAPHIC_USECASES = {
     prompt:"Erstelle eine fertige, hochaufloesende Finanztabelle (Voll-Bild inkl. Text) 16:9 als Musterdepot-Uebersicht. Kopf-KPI-Streifen (Startkapital, Cashbestand, investiert in EUR und USD GLEICH GROSS dargestellt, Gesamtwert, Rendite %). Positionstabelle mit Spalten: Aktie, WKN, Kaufdatum, Stueck, Kaufkurs, Akt. Kurs, Dividende je Aktie, Gesamtrendite %, naechster Zahltag. Untere Zeile mit Ueberschrift 'Depotzusammenfassung'. Positive Werte gruen, negative rot, Zahlen in Monospace tabular. Werte exakt aus dem Artikeltext." },
   "featured": { label:"Featured Image (Blog)", redakteur:"Duenn", fmt:"16:9",
     prompt:"Erstelle ein fertiges, simples und uebersichtliches Featured Image 16:9 fuer einen Depot-Blog-Beitrag mit hohem Wiedererkennungswert. Eine klare visuelle Kernaussage, dunkler Premium-Stil, branchenpassende Akzentfarben, generische Icons, sehr wenig Text. Thema aus dem Artikeltext." },
-  "thorsten_fokus": { label:"IM FOKUS (Reich: Saisonal/Rangliste)", redakteur:"Reich", fmt:"16:9",
-    prompt:"Erstelle eine fertige, hochwertige Finanzinfografik (Voll-Bild inkl. Text) 16:9 quer fuer ein deutsches Finanzmagazin im dunklen Premium-Stil (Navy-/Schwarzblau-Verlauf, hochwertige dunkle Kartenflaechen, leuchtende branchenpassende Akzentfarben, abgerundete Karten mit feinen Konturen, Mischung aus Barron's, Wall Street Journal und Fintech-Dashboard). Ueberschrift oben 'IM FOKUS: AKTIENNAME (TICKER)' (IM FOKUS in Weiss/Hellgrau, der Name farblich hervorgehoben), darunter kurze Unterzeile mit der Investmentthese. Dann drei vertikale Infokarten nebeneinander: links 'Geschaeftsmodell & Positionierung', Mitte die zentrale Investmentstory/Saisonalitaet/Wachstumstreiber, rechts 'Finanzdaten & Kurstreiber'. Jede Karte mit generischen Icons, kurzen Stichpunkten, KPI-Kacheln und Mini-Charts. Positive Finanzdaten gruen, Risiken dezent orange/grau. Zahlen exakt aus dem Artikeltext, keine erfundenen Kennzahlen." },
+  "saisonalitaeten": { label:"Saisonalitäten", redakteur:"Reich", fmt:"16:9",
+    prompt:"Erstelle eine fertige, hochwertige Finanzinfografik (Voll-Bild inkl. Text) 16:9 quer fuer ein deutsches Finanzmagazin im dunklen Premium-Stil (Navy-/Schwarzblau-Verlauf, hochwertige dunkle Kartenflaechen, leuchtende branchenpassende Akzentfarben). Ueberschrift oben 'IM FOKUS: AKTIENNAME (TICKER)', darunter kurze Unterzeile mit Investmentthese. Drei vertikale Infokarten: links 'Geschaeftsmodell & Positionierung', Mitte die Saisonalitaets-Story mit Saison-Timeline (Zeitraum des saisonalen Musters), rechts 'Finanzdaten & Kurstreiber'. Generische Icons, KPI-Kacheln, Mini-Charts. Positive Finanzdaten gruen, Risiken dezent orange/grau. Zahlen exakt aus dem Artikeltext, keine erfundenen Kennzahlen." },
+  "ranglisten": { label:"Ranglisten / Pivotal Points", redakteur:"Reich", fmt:"16:9",
+    prompt:"Erstelle eine fertige, hochwertige Finanzinfografik (Voll-Bild inkl. Text) 16:9 quer fuer ein deutsches Finanzmagazin im dunklen Premium-Stil (Navy-/Schwarzblau-Verlauf, hochwertige dunkle Kartenflaechen, leuchtende branchenpassende Akzentfarben). Ueberschrift oben 'IM FOKUS: AKTIENNAME (TICKER)', darunter kurze Unterzeile mit Investmentthese. Drei vertikale Infokarten: links 'Geschaeftsmodell & Positionierung', Mitte die Ranglisten-/Pivotal-Points-Story (warum die Aktie in der Rangliste auftaucht), rechts 'Finanzdaten & Kurstreiber'. Generische Icons, KPI-Kacheln, Mini-Charts. Positive Finanzdaten gruen, Risiken dezent orange/grau. Zahlen exakt aus dem Artikeltext, keine erfundenen Kennzahlen." },
+  "quadranten_analyse": { label:"4-Quadranten-Analyse", redakteur:"Bank/Reich", fmt:"16:9",
+    prompt:"Erstelle eine fertige Aktien-Analyse-Infografik (Voll-Bild inkl. Text) 16:9. Header mit Firmenname und einer einzeiligen Investmentthese. Darunter ein 2x2-Raster mit vier Quadranten: Q1 Geschaeftsmodell (blauer Akzent), Q2 Quartalszahlen (gruener Akzent), Q3 Wachstumstreiber (gruener Akzent), Q4 Risiken (roter Akzent). Jeder Quadrant mit farbiger Leiste links, Icon und Titel, einer praegnanten Kennzahl und kurzem Kontext. Fusszeile mit ISIN und Disclaimer links, Logo-Text rechts. Dunkler Premium-Finanz-Look. Daten exakt aus dem Artikeltext." },
+  "blog_title_card": { label:"Blog Title-Card", redakteur:"Bank", fmt:"16:9",
+    prompt:"Erstelle eine fertige Blog-Title-Card (Voll-Bild inkl. Text) im Querformat. Links ein dezenter Logo-Bereich (kein echtes Logo generieren), mittig ein grosser zweizeiliger Titel mit farblichem Akzent auf dem Schluesselwort, darunter eine kurze Subline. Dezenter dunkler Verlaufs-Hintergrund, sehr wenig Text, viel Ruhe. Zentrale Inhalte mittig mit klarem Abstand zu allen Raendern. Thema aus dem Artikeltext." },
+  "screening_funnel": { label:"Screening-Funnel", redakteur:"Duenn", fmt:"3:4",
+    prompt:"Erstelle eine fertige Trichter-Infografik (Voll-Bild inkl. Text) im Hochformat zu einem Aktien-Screening. Titel oben. Darunter eine Universum-Box (Label und Anzahl, breiteste Stufe), dann nach unten schmaler werdende Filter-Stufen, jede mit Titel, kurzen Kriterien-Bulletpoints und Icon, dazwischen Pfeile nach unten. Unten eine Ergebnis-Box mit Label und Ticker. Trichter-Optik durch abnehmende Breite. Dunkler Premium-Look, branchenpassende Akzentfarbe. Daten exakt aus dem Artikeltext." },
+  "konzept_illustration": { label:"Konzept-Illustration", redakteur:"Haslinger/Reich", fmt:"16:9",
+    prompt:"Erstelle eine fertige, hochwertige deutsche Finanz-Konzept-Illustration (Voll-Bild) zur Artikel-Einleitung. Eine bildliche, erzaehlerische Visualisierung der Kernidee mit sehr wenig Text, dunkler Premium-Stil, branchenpassende Akzentfarben. Falls Texte/Zahlen vorkommen, exakt aus dem Quelltext. Inhalt aus dem Artikeltext." },
 };
 let grUseCase = "top5_scoreboard", grModel = "openai/gpt-5.4-image-2";
 
@@ -1432,11 +1439,19 @@ function toast(msg, dur){
   el.textContent=msg; el.style.opacity="1"; el.style.transform="translateX(-50%) translateY(0)";
   clearTimeout(_toastT); _toastT=setTimeout(()=>{ el.style.opacity="0"; el.style.transform="translateX(-50%) translateY(8px)"; }, dur||1900);
 }
-function exportPNG(){
+async function exportPNG(){
   snapshotCurrent();
+  // volle Canvas-Auflösung rendern
   const url=canvas.toDataURL({format:"png",multiplier:exportMult});
+  // Bei Grafiken-Redaktion exakt auf die Veröffentlichungs-Zielgröße bringen
+  const tg = (slides[current] && slides[current].type==="graphic") ? GR_TARGET[grUseCase] : null;
+  let out=url, suffix="_slide"+(current+1);
+  if(tg){
+    try{ out=await fitToTarget(url, tg[0], tg[1], "image/png"); suffix="_"+tg[0]+"x"+tg[1]; }
+    catch(e){ /* fallback: volle Auflösung */ }
+  }
   const a=document.createElement("a");
-  a.href=url; a.download=`${(window._content.head||"post").replace(/[^a-z0-9]+/gi,"_").slice(0,40)}_slide${current+1}.png`; a.click();
+  a.href=out; a.download=`${(window._content.head||grUseCase||"grafik").replace(/[^a-z0-9]+/gi,"_").slice(0,40)}${suffix}.png`; a.click();
 }
 $("tExport").onclick=exportPNG;
 $("tPublish").onclick=()=>{ alert("Im Live-Betrieb geht der Post von hier per Make an OneUp und die Social-Kanäle. Im Demo: Export PNG nutzen."); };
@@ -1499,20 +1514,63 @@ function buildGraphicUcSelect(){
   });
   s.value=grUseCase; syncGrUseCase();
 }
+// Echte Veröffentlichungs-Zielgrößen pro Use Case (deckungsgleich mit Airtable target_width/height).
+// Das KI-Bild wird im Seitenverhältnis generiert und beim Export EXAKT auf diese Pixel gebracht.
+const GR_TARGET={
+  top5_scoreboard:[606,332], gwl_dashboard:[606,332], earnings_radar:[606,316],
+  magazin_artikel:[510,364], header_grafik:[1408,768], tenbagger:[535,725],
+  meinung:[1408,768], einleitung:[1024,559], unternehmen:[1024,559],
+  musterdepot:[1045,622], featured:[1200,628], saisonalitaeten:[1283,722],
+  ranglisten:[856,467], quadranten_analyse:[1920,1080], blog_title_card:[1200,628],
+  screening_funnel:[1536,2048], konzept_illustration:[1920,1080]
+};
+// Bild auf exakte Zielgröße bringen (cover-fit, zentriert) und als data-URL zurückgeben
+function fitToTarget(srcUrl, tw, th, mime){
+  return new Promise((resolve,reject)=>{
+    const im=new Image(); im.crossOrigin="anonymous";
+    im.onload=()=>{
+      const cv=document.createElement("canvas"); cv.width=tw; cv.height=th;
+      const ctx=cv.getContext("2d");
+      const s=Math.max(tw/im.width, th/im.height);     // cover: füllt die Box ganz
+      const dw=im.width*s, dh=im.height*s;
+      ctx.drawImage(im,(tw-dw)/2,(th-dh)/2,dw,dh);
+      resolve(cv.toDataURL(mime||"image/png", 0.95));
+    };
+    im.onerror=()=>reject(new Error("Bild konnte nicht geladen werden (CORS?)"));
+    im.src=srcUrl;
+  });
+}
+// Festes Modell pro Use Case (deckungsgleich mit Airtable model_default).
+// Nano Banana Pro fuer reine Stimmungsbilder, sonst GPT Image 2 (bester Textrenderer).
+const GR_NANO_UCS=["header_grafik","featured","blog_title_card","konzept_illustration"];
+function modelForUseCase(uc){ return GR_NANO_UCS.includes(uc) ? "google/gemini-3-pro-image" : "openai/gpt-5.4-image-2"; }
+function modelLabelFor(uc){ return GR_NANO_UCS.includes(uc) ? "Nano Banana Pro" : "GPT Image 2"; }
 function syncGrUseCase(){
   const uc=GRAPHIC_USECASES[grUseCase]; if(!uc) return;
   $("grFormat").value=uc.fmt;
-  const dataHeavy=["top5_scoreboard","gwl_dashboard","earnings_radar","musterdepot","thorsten_fokus","tenbagger"].includes(grUseCase);
+  grModel=modelForUseCase(grUseCase);            // festes Modell, kein User-Select
+  const ml=$("grModelLabel"); if(ml) ml.value=modelLabelFor(grUseCase);
+  const tg=GR_TARGET[grUseCase]; const tl=$("grTargetLabel");
+  if(tl && tg) tl.value=tg[0]+" x "+tg[1]+" px";
+  const dataHeavy=["top5_scoreboard","gwl_dashboard","earnings_radar","musterdepot","saisonalitaeten","ranglisten","tenbagger","quadranten_analyse","screening_funnel"].includes(grUseCase);
   $("grUcHint").textContent = dataHeavy
-    ? "Datenlastige Grafik mit Tabellen/Zahlen. GPT Image 2 rendert Text am saubersten — Ergebnis vor Veröffentlichung auf korrekte Zahlen prüfen."
-    : "Stimmungs-/Story-Grafik. Reines KI-Bild ist hier ideal.";
+    ? "Datenlastige Grafik mit Tabellen/Zahlen. Fest auf GPT Image 2 (bester Textrenderer) — Ergebnis vor Veröffentlichung auf korrekte Zahlen prüfen."
+    : "Stimmungs-/Story-Grafik. Modell ist passend fest hinterlegt.";
 }
 function initGraphic(){
   buildGraphicUcSelect();
   $("grUseCase").onchange=(e)=>{ grUseCase=e.target.value; syncGrUseCase(); };
-  $("grModel").onchange=(e)=>{ grModel=e.target.value; };
   $("grRender").onclick=runGraphic;
-  $("grExport").onclick=()=>{ if(!_grLastImg) return; const a=document.createElement("a"); a.href=_grLastImg; a.download=(grUseCase+"_"+Date.now())+".png"; a.click(); };
+  // Auto-Export: Bild exakt auf die Veröffentlichungs-Zielgröße bringen, dann PNG laden
+  $("grExport").onclick=async()=>{
+    if(!_grLastImg) return;
+    const tg=GR_TARGET[grUseCase];
+    try{
+      const out = tg ? await fitToTarget(_grLastImg, tg[0], tg[1], "image/png") : _grLastImg;
+      const a=document.createElement("a"); a.href=out;
+      a.download=grUseCase+(tg?("_"+tg[0]+"x"+tg[1]):"")+".png"; a.click();
+    }catch(e){ toast("Export fehlgeschlagen: "+e.message+" — nutze 'Im Editor öffnen'",6000); }
+  };
   $("grToEditor").onclick=openGraphicInEditor;
 }
 // Voll-Bild generieren.
