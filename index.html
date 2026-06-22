@@ -424,20 +424,42 @@
     <input class="inp" id="grTitle" placeholder="z.B. Oracle (ORCL)" />
     <span class="hint" style="display:block;margin-top:7px">Optional. Leer lassen, wenn der Name aus dem Artikeltext kommen soll.</span>
 
-    <div class="grp-h">Format, Modell & Zielgröße (fest je Use Case)</div>
+    <label class="lab">Quellangabe im Bild</label>
+    <div class="selwrap">
+      <select class="sel" id="grSource">
+        <option value="">Keine Quelle (Standard)</option>
+        <option value="Quelle: finanzen.net">Quelle: finanzen.net</option>
+        <option value="Quelle: Eigene Berechnung auf Basis aktueller Marktdaten">Quelle: Eigene Berechnung auf Basis aktueller Marktdaten</option>
+        <option value="Quelle: TraderFox">Quelle: TraderFox</option>
+      </select>
+      <svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+    <span class="hint" style="display:block;margin-top:7px">Optional. Wird klein in die Fußzeile der Grafik gesetzt. Standard: keine Quelle — die Quelle kommt dann redaktionell ins CMS.</span>
+
+    <div class="grp-h">Format, Modell & Zielgröße</div>
     <div class="two">
       <div>
         <label class="lab">Verhältnis (Generierung)</label>
         <input class="inp" id="grFormat" value="16:9" readonly style="background:#f1f3f7;color:var(--muted)" />
       </div>
       <div>
-        <label class="lab">Bild-Modell</label>
-        <input class="inp" id="grModelLabel" value="GPT Image 2" readonly style="background:#f1f3f7;color:var(--muted)" />
+        <label class="lab">Zielgröße beim Export (px)</label>
+        <input class="inp" id="grTargetLabel" value="606 x 332 px" readonly style="background:#f1f3f7;color:var(--muted)" />
       </div>
     </div>
-    <label class="lab">Zielgröße beim Export (px)</label>
-    <input class="inp" id="grTargetLabel" value="606 x 332 px" readonly style="background:#f1f3f7;color:var(--muted)" />
-    <p class="hint" style="margin-top:9px">Format, Modell und Zielgröße sind pro Use Case fest hinterlegt — du wählst nichts. Das Bild wird im richtigen Verhältnis generiert und beim Download automatisch exakt auf die Zielgröße gebracht. Für Feinschliff (Ausschnitt verschieben/zoomen) „Im Editor öffnen".</p>
+    <label class="lab">Bild-Modell</label>
+    <div class="selwrap">
+      <select class="sel" id="grModel">
+        <option value="openai/gpt-5.4-image-2">GPT Image 2 · OpenAI</option>
+        <option value="openai/gpt-5-image">GPT Image 1 · OpenAI</option>
+        <option value="google/gemini-3-pro-image">Nano Banana Pro · Gemini 3 Pro Image</option>
+        <option value="google/gemini-3.1-flash-image">Nano Banana 2 · Gemini 3.1 Flash Image</option>
+        <option value="google/gemini-2.5-flash-image">Nano Banana · Gemini 2.5 Flash Image</option>
+      </select>
+      <svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+    <p class="hint" id="grModelHint" style="display:block;margin-top:7px"></p>
+    <p class="hint" style="margin-top:9px">Format und Zielgröße sind pro Use Case fest hinterlegt. Das empfohlene Modell ist vorausgewählt — du kannst zum Testen ein anderes wählen, falls dich das Ergebnis nicht überzeugt. Das Bild wird im richtigen Verhältnis generiert und beim Download exakt auf die Zielgröße gebracht.</p>
 
     <div class="mod-actions">
       <button class="btn-primary2" id="grRender">Grafik erstellen</button>
@@ -1619,22 +1641,45 @@ function fitToTarget(srcUrl, tw, th, mime){
 // Nano Banana Pro fuer reine Stimmungsbilder, sonst GPT Image 2 (bester Textrenderer).
 const GR_NANO_UCS=["header_grafik","featured","blog_title_card","konzept_illustration"];
 function modelForUseCase(uc){ return GR_NANO_UCS.includes(uc) ? "google/gemini-3-pro-image" : "openai/gpt-5.4-image-2"; }
-function modelLabelFor(uc){ return GR_NANO_UCS.includes(uc) ? "Nano Banana Pro" : "GPT Image 2"; }
+// Anzeigenamen für die Modell-Slugs (für Statustexte)
+const MODEL_LABELS={
+  "openai/gpt-5.4-image-2":"GPT Image 2",
+  "openai/gpt-5-image":"GPT Image 1",
+  "google/gemini-3-pro-image":"Nano Banana Pro",
+  "google/gemini-3.1-flash-image":"Nano Banana 2",
+  "google/gemini-2.5-flash-image":"Nano Banana"
+};
+function modelLabelFor(uc){ return MODEL_LABELS[grModel] || MODEL_LABELS[modelForUseCase(uc)] || "GPT Image 2"; }
+let _grModelManual=false;  // true, sobald der Nutzer das Modell selbst gewählt hat
 function syncGrUseCase(){
   const uc=GRAPHIC_USECASES[grUseCase]; if(!uc) return;
   $("grFormat").value=uc.fmt;
-  grModel=modelForUseCase(grUseCase);            // festes Modell, kein User-Select
-  const ml=$("grModelLabel"); if(ml) ml.value=modelLabelFor(grUseCase);
+  // Empfohlenes Modell vorauswählen (außer der Nutzer hat bewusst ein anderes gewählt)
+  const rec=modelForUseCase(grUseCase);
+  if(!_grModelManual){ grModel=rec; const sel=$("grModel"); if(sel) sel.value=rec; }
+  updateGrModelHint();
   const tg=GR_TARGET[grUseCase]; const tl=$("grTargetLabel");
   if(tl && tg) tl.value=tg[0]+" x "+tg[1]+" px";
   const dataHeavy=["top5_scoreboard","gwl_dashboard","earnings_radar","musterdepot","saisonalitaeten","ranglisten","tenbagger","quadranten_analyse","screening_funnel"].includes(grUseCase);
   $("grUcHint").textContent = dataHeavy
-    ? "Datenlastige Grafik mit Tabellen/Zahlen. Fest auf GPT Image 2 (bester Textrenderer) — Ergebnis vor Veröffentlichung auf korrekte Zahlen prüfen."
-    : "Stimmungs-/Story-Grafik. Modell ist passend fest hinterlegt.";
+    ? "Datenlastige Grafik mit Tabellen/Zahlen. Empfohlen ist GPT Image 2 (bester Textrenderer) — Ergebnis vor Veröffentlichung auf korrekte Zahlen prüfen."
+    : "Stimmungs-/Story-Grafik. Reines KI-Bild ist hier ideal.";
+}
+function updateGrModelHint(){
+  const rec=modelForUseCase(grUseCase);
+  const h=$("grModelHint"); if(!h) return;
+  if(grModel===rec){
+    h.textContent="Empfohlenes Modell für diesen Use Case ist vorausgewählt.";
+    h.style.color="var(--faint)";
+  } else {
+    h.textContent="Test-Modell gewählt. Empfehlung wäre "+MODEL_LABELS[rec]+". Zum Zurücksetzen Use Case neu wählen.";
+    h.style.color="var(--tint-ink)";
+  }
 }
 function initGraphic(){
   buildGraphicUcSelect();
-  $("grUseCase").onchange=(e)=>{ grUseCase=e.target.value; syncGrUseCase(); };
+  $("grUseCase").onchange=(e)=>{ grUseCase=e.target.value; _grModelManual=false; syncGrUseCase(); };
+  $("grModel").onchange=(e)=>{ grModel=e.target.value; _grModelManual=true; updateGrModelHint(); };
   $("grRender").onclick=runGraphic;
   // Auto-Export: Bild exakt auf die Veröffentlichungs-Zielgröße bringen, dann PNG laden
   $("grExport").onclick=async()=>{
@@ -1653,9 +1698,11 @@ function initGraphic(){
 // DIREKT/DEMO-Modus: Prompt wird lokal aus GRAPHIC_USECASES gebaut (Fallback ohne Make/Airtable).
 async function generateGraphicImage(article, title, fmt, model){
   const m=genMode();
+  const source=($("grSource")&&$("grSource").value)||"";
   if(m==="demo"){ return makePlaceholder("clean", FORMATS[fmt].w, FORMATS[fmt].h, Math.floor(Math.random()*9999)+1, "content"); }
   if(m==="direct"){
-    const localPrompt=buildGraphicPrompt(grUseCase, article, title);
+    let localPrompt=buildGraphicPrompt(grUseCase, article, title);
+    if(source) localPrompt+="\n\nQUELLANGABE: Setze klein und dezent in die Fußzeile genau diesen Text: "+source+". Keine andere Quelle erfinden.";
     return generateImageDirect(localPrompt, fmt, model, _orKey);
   }
   // make: Prompt-Template liegt in Airtable, hier nur die Daten schicken
@@ -1664,6 +1711,7 @@ async function generateGraphicImage(article, title, fmt, model){
   params.set("use_case",grUseCase);
   params.set("article",article);
   params.set("title",title||"");
+  params.set("source",source);
   params.set("model",model);
   const res=await fetch(CONFIG.API_BASE,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:params.toString()});
   const data=await res.json();
@@ -1718,7 +1766,7 @@ function startGraphicLoader(){
       +'<div style="font-weight:700;font-size:15px;color:var(--ink)">Grafik wird erstellt</div>'
       +'<div style="font-size:13px;min-height:18px;text-align:center;transition:opacity .3s">'+steps[_grLoaderStep%steps.length]+'</div>'
       +'<div class="bar" style="width:240px;background:#e2e6ec"><i style="width:'+pct+'%;transition:width .9s ease"></i></div>'
-      +(live?'<div style="font-size:11.5px;color:var(--faint);text-align:center;max-width:260px">'+_grLoaderSec+'s · bis zu 120 s wegen hoher Auslastung. Bitte das Fenster offen lassen.</div>':'')
+      +(live?'<div style="font-size:11.5px;color:var(--faint);text-align:center;max-width:260px">'+_grLoaderSec+'s · ca. 90–120 s wegen hoher Auslastung. Bitte das Fenster offen lassen.</div>':'')
       +'</div>';
   };
   render();
