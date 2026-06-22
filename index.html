@@ -301,6 +301,7 @@
     <a data-go="social">Social Karussell</a>
     <a data-go="chart">Chart</a>
     <a data-go="sankey">Sankey</a>
+    <a data-go="wiki">Wiki</a>
   </nav>
   <div class="appbar-right">
     <button class="conn-btn" id="connBtn"><svg class="ic ic-sm" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M9 12l2 2 4-4"/><path d="M7.5 7.5a5 5 0 0 0 0 9M16.5 7.5a5 5 0 0 1 0 9"/></svg> <span id="connLabel">GPT Image 2 verbinden</span></button>
@@ -348,8 +349,9 @@
 <!-- ============ GRAFIKEN REDAKTION (Voll-KI-Bild) ============ -->
 <div class="mod" id="graphicView">
   <div class="mod-form">
+    <button class="tool" data-go="home" style="margin-bottom:10px;padding-left:0"><svg class="ic" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Zurück zur Übersicht</button>
     <h2>Grafiken Redaktion</h2>
-    <p class="lead">Fertige KI-Infografik aus deinem Artikeltext — ein Voll-Bild inklusive Text und Kennzahlen, im Stil der Redakteurs-Vorlagen. Das Modell erzeugt die ganze Grafik; du lädst sie direkt herunter oder öffnest sie zum Feinschliff im Editor.</p>
+    <p class="lead">Fertige KI-Infografik aus deinem Artikeltext — ein Voll-Bild inklusive Text und Kennzahlen, im Stil der Redakteurs-Vorlagen. Use Case wählen, Text einfügen, „Grafik erstellen".</p>
 
     <div class="grp-h">Vorlage</div>
     <label class="lab">Use Case (Redakteur)</label>
@@ -682,6 +684,17 @@
   </div>
   <div class="mod-stage">
     <div class="mod-canvas" id="sankeyCanvas" style="background:#f4f5f7"></div>
+  </div>
+</div>
+
+<!-- ============ WIKI ============ -->
+<div class="view" id="wikiView">
+  <div style="display:grid;grid-template-columns:240px 1fr;gap:0;height:calc(100vh - 56px)">
+    <aside style="background:var(--panel);border-right:1px solid var(--line);padding:22px 16px;overflow-y:auto">
+      <div class="h" style="font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);font-weight:700;margin-bottom:13px">Wiki</div>
+      <div id="wikiNav"></div>
+    </aside>
+    <main style="overflow-y:auto;padding:40px 48px 90px"><div id="wikiContent" style="max-width:760px"></div></main>
   </div>
 </div>
 
@@ -1601,16 +1614,11 @@ async function runGraphic(){
   const fmt=uc.fmt;
   const title=$("grTitle").value;
   const btn=$("grRender"); const old=btn.textContent; btn.disabled=true; btn.textContent="Grafik wird erstellt …";
-  $("grStatus").textContent = isLive()? "Modell rendert die Grafik — das dauert einige Sekunden." : "Demo-Modus: Platzhalter wird gezeichnet.";
-  // Dezenter Lade-Zustand NUR im Vorschau-Bereich (verdeckt nicht das Formular)
-  const wrapL=$("grCanvasWrap");
-  wrapL.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;gap:14px;color:var(--muted)">'
-    +'<div class="orb" style="width:54px;height:54px;border-radius:15px"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l1.6 4.8a2 2 0 0 0 1.3 1.3L19.5 11l-4.6 1.6a2 2 0 0 0-1.3 1.3L12 19l-1.6-4.8a2 2 0 0 0-1.3-1.3L4.5 11l4.6-1.6a2 2 0 0 0 1.3-1.3z"/></svg></div>'
-    +'<div style="font-weight:700;font-size:15px;color:var(--ink)">Grafik wird erstellt</div>'
-    +'<div style="font-size:13px">'+(isLive()?(modelLabelFor(grUseCase)+" rendert — 10-30 Sek."):"Demo-Platzhalter")+'</div>'
-    +'<div class="bar" style="width:160px"><i></i></div></div>';
+  $("grStatus").textContent="";
+  startGraphicLoader();  // animierte Schritte + Countdown im Vorschaubereich
   try{
     const img=await generateGraphicImage(article, title, fmt, grModel);
+    stopGraphicLoader();
     _grLastImg=img;
     const wrap=$("grCanvasWrap");
     const f=FORMATS[fmt];
@@ -1621,12 +1629,42 @@ async function runGraphic(){
     $("grExport").disabled=false;
     $("grStatus").textContent = isLive()? "Fertig. Download als PNG oder zum Feinschliff im Editor öffnen." : "Demo-Platzhalter. Für echte Grafik Make/OpenRouter verbinden.";
   }catch(e){
+    stopGraphicLoader();
     $("grStatus").textContent="Fehler: "+e.message;
     $("grCanvasWrap").innerHTML='<div class="empty" style="text-align:center;max-width:320px"><div class="icwrap" style="margin:0 auto 13px"><svg class="ic" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div>Grafik fehlgeschlagen: '+e.message+'</div>';
     toast("Grafik fehlgeschlagen: "+e.message,7000);
   }
   btn.disabled=false; btn.textContent=old;
 }
+
+/* ---------- Animierter Grafik-Loader: wechselnde Schritte + Countdown ---------- */
+let _grLoaderTimer=null, _grLoaderStep=0, _grLoaderSec=0;
+function startGraphicLoader(){
+  const live=isLive();
+  const steps = live
+    ? ["Artikeltext wird analysiert …","Vorlage & Layout werden vorbereitet …",modelLabelFor(grUseCase)+" rendert die Grafik …","Texte & Kennzahlen werden gesetzt …","Bild wird finalisiert …"]
+    : ["Demo-Platzhalter wird gezeichnet …"];
+  _grLoaderStep=0; _grLoaderSec=0;
+  const est = GR_NANO_UCS.includes(grUseCase)? 25 : 30; // grobe Schätzung
+  const wrap=$("grCanvasWrap");
+  const render=()=>{
+    const pct=Math.min(96, Math.round(_grLoaderSec/est*100));
+    wrap.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;gap:16px;color:var(--muted);min-width:280px">'
+      +'<div class="orb" style="width:58px;height:58px;border-radius:16px"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l1.6 4.8a2 2 0 0 0 1.3 1.3L19.5 11l-4.6 1.6a2 2 0 0 0-1.3 1.3L12 19l-1.6-4.8a2 2 0 0 0-1.3-1.3L4.5 11l4.6-1.6a2 2 0 0 0 1.3-1.3z"/></svg></div>'
+      +'<div style="font-weight:700;font-size:15px;color:var(--ink)">Grafik wird erstellt</div>'
+      +'<div style="font-size:13px;min-height:18px;text-align:center;transition:opacity .3s">'+steps[_grLoaderStep%steps.length]+'</div>'
+      +'<div class="bar" style="width:220px;background:#e2e6ec"><i style="width:'+pct+'%;transition:width .9s ease"></i></div>'
+      +(live?'<div style="font-size:11.5px;color:var(--faint)">'+_grLoaderSec+'s · ca. '+est+'s geschätzt</div>':'')
+      +'</div>';
+  };
+  render();
+  _grLoaderTimer=setInterval(()=>{
+    _grLoaderSec++;
+    if(_grLoaderSec % 5 === 0) _grLoaderStep++;  // alle 5s naechster Schritt
+    render();
+  }, 1000);
+}
+function stopGraphicLoader(){ if(_grLoaderTimer){ clearInterval(_grLoaderTimer); _grLoaderTimer=null; } }
 // generiertes Grafik-Bild als editierbaren Hintergrund in den Fabric-Editor uebergeben
 async function openGraphicInEditor(){
   if(!_grLastImg) return;
@@ -1657,7 +1695,7 @@ async function openGraphicInEditor(){
 /* ============================================================
    View-Routing (Home / Grafik / Social / Chart / Sankey)
    ============================================================ */
-const VIEWS={ home:"homeView", graphic:"graphicView", social:"genView", chart:"chartView", sankey:"sankeyView" };
+const VIEWS={ home:"homeView", graphic:"graphicView", social:"genView", chart:"chartView", sankey:"sankeyView", wiki:"wikiView" };
 let _chartInit=false, _sankeyInit=false;
 function showView(name){
   Object.values(VIEWS).forEach(id=>{ const el=$(id); if(el) el.classList.remove("active"); });
@@ -1667,6 +1705,7 @@ function showView(name){
   if(name==="graphic" && !_graphicInit){ initGraphic(); _graphicInit=true; }
   if(name==="chart" && !_chartInit){ initChart(); _chartInit=true; }
   if(name==="sankey" && !_sankeyInit){ initSankey(); _sankeyInit=true; }
+  if(name==="wiki" && !_wikiInit){ initWiki(); _wikiInit=true; }
   window.scrollTo(0,0);
 }
 document.querySelectorAll("[data-go]").forEach(el=>el.addEventListener("click",()=>showView(el.dataset.go)));
@@ -1965,6 +2004,103 @@ $("sExport").onclick=()=>{
   img.onerror=()=>toast("Export fehlgeschlagen");
   img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(xml);
 };
+
+/* ============================================================
+   Version / Footer
+   ============================================================ */
+const APP_VERSION="1.0";
+const APP_DATE="19.06.2026";
+(function(){
+  const f=document.createElement("div");
+  f.id="appFooter";
+  f.style.cssText="position:fixed;bottom:0;left:0;right:0;height:26px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px;color:var(--faint);background:rgba(255,255,255,.85);backdrop-filter:blur(4px);border-top:1px solid var(--line);z-index:40;pointer-events:none";
+  f.innerHTML='finanzen<span style="color:#d70413;font-weight:800">.</span>net Creative Studio · v'+APP_VERSION+' · '+APP_DATE;
+  document.body.appendChild(f);
+})();
+
+/* ============================================================
+   WIKI — Unterkategorien + Inhalte
+   ============================================================ */
+const WIKI={
+  start:{ title:"Willkommen", body:`
+    <h1>Creative Studio — Wiki</h1>
+    <p>Hier findest du alles, was du zur Bedienung brauchst. Wähle links eine Kategorie.</p>
+    <ul>
+      <li><b>Für Redakteure</b> — Schritt-für-Schritt zur fertigen Grafik.</li>
+      <li><b>Use Cases</b> — alle 17 Grafiktypen mit Beispieltexten.</li>
+      <li><b>Social Karussell</b> — editierbare Bild+Text-Posts.</li>
+      <li><b>Modi-Übersicht</b> — was die vier Bereiche tun.</li>
+      <li><b>FAQ & Tipps</b> — bei Problemen.</li>
+    </ul>` },
+  redakteure:{ title:"Für Redakteure", body:`
+    <h1>Für Redakteure — in 4 Schritten zur Grafik</h1>
+    <ol>
+      <li><b>„Grafiken Redaktion"</b> oben öffnen.</li>
+      <li><b>Use Case wählen</b> (z.B. Top-5 Scoreboard). Format, Stil und Modell sind fest hinterlegt — du stellst nichts ein.</li>
+      <li><b>Artikeltext einfügen</b>. Ganzer Artikel oder nur die Rohdaten/Zahlen. Optional: Aktien-/Firmenname oben.</li>
+      <li><b>„Grafik erstellen"</b> → nach 10–30 Sek. erscheint die Grafik → <b>„Download (Zielgröße)"</b>.</li>
+    </ol>
+    <h2>Regeln für gute Ergebnisse</h2>
+    <ul>
+      <li>Zahlen und Namen müssen im Text stehen — das Modell erfindet nichts.</li>
+      <li>Lieber präzise Rohdaten als langer Fließtext, besonders bei Tabellen.</li>
+      <li>1–3 Kernbotschaften wirken am besten.</li>
+      <li>Bei Zahlen-Grafiken Ergebnis vor Veröffentlichung kurz prüfen.</li>
+    </ul>` },
+  usecases:{ title:"Use Cases & Beispiele", body:`
+    <h1>Die 17 Use Cases</h1>
+    <p>Modell, Format und Zielgröße sind je Use Case fest hinterlegt.</p>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead><tr style="text-align:left;border-bottom:2px solid var(--line)"><th style="padding:6px">Use Case</th><th>Format</th><th>Zielgröße</th><th>Modell</th></tr></thead>
+    <tbody>
+    ${[["Top-5 Scoreboard","16:9","606×332","GPT Image 2"],["Großwetterlage-Dashboard","16:9","606×332","GPT Image 2"],["Earnings-Radar","16:9","606×316","GPT Image 2"],["Magazin-Artikel-Grafik","4:3","510×364","GPT Image 2"],["Header-/Teaser-Grafik","16:9","1408×768","Nano Banana Pro"],["Tenbagger-Magazinseite","3:4","535×725","GPT Image 2"],["Meinungs-Grafik","16:9","1408×768","GPT Image 2"],["Einleitung / Veranschaulichung","16:9","1024×559","GPT Image 2"],["Unternehmensvorstellung","16:9","1024×559","GPT Image 2"],["Musterdepot-Tabelle","16:9","1045×622","GPT Image 2"],["Featured Image (Blog)","16:9","1200×628","Nano Banana Pro"],["Saisonalitäten","16:9","1283×722","GPT Image 2"],["Ranglisten / Pivotal Points","16:9","856×467","GPT Image 2"],["4-Quadranten-Analyse","16:9","1920×1080","GPT Image 2"],["Blog Title-Card","16:9","1200×628","Nano Banana Pro"],["Screening-Funnel","3:4","1536×2048","GPT Image 2"],["Konzept-Illustration","16:9","1920×1080","Nano Banana Pro"]].map(r=>'<tr style="border-bottom:1px solid var(--line-2)"><td style="padding:6px">'+r[0]+'</td><td>'+r[1]+'</td><td>'+r[2]+'</td><td>'+r[3]+'</td></tr>').join('')}
+    </tbody></table>
+    <p style="margin-top:14px">Fertige Beispieltexte pro Use Case stehen im Dokument <b>USE_CASE_TABELLE.md</b>.</p>` },
+  social:{ title:"Social Karussell", body:`
+    <h1>Social Karussell</h1>
+    <p>Für Social-Media-Posts mit editierbarer Text-Ebene über einem KI-Bild.</p>
+    <ol>
+      <li>„Social Karussell" öffnen, Inhalt eingeben (Schlagzeile, Unterzeile, Kernpunkte, Schluss).</li>
+      <li>Bild-Prompt + optional Marke eingeben, Format wählen (4:5, 9:16, 1:1, 16:9).</li>
+      <li>„Studio öffnen" → im Editor Text/Logo frei verschieben, skalieren, Lesbarkeit anpassen.</li>
+      <li>Als PNG exportieren.</li>
+    </ol>
+    <p>Anders als „Grafiken Redaktion" liegt hier der Text als <b>echte editierbare Ebene</b> über dem Bild — ideal wenn du nachträglich frei gestalten willst.</p>` },
+  modi:{ title:"Modi-Übersicht", body:`
+    <h1>Die vier Modi</h1>
+    <ul>
+      <li><b>Grafiken Redaktion</b> — fertige KI-Infografik (Bild inkl. Text) aus Artikeltext. Kein Editor.</li>
+      <li><b>Social Karussell</b> — KI-Bild + editierbare Text-Ebene, Slides, freies Gestalten.</li>
+      <li><b>Chart</b> — Liniendiagramm, deterministisch aus deinen Zahlen (kein KI-Modell, exakt).</li>
+      <li><b>Sankey</b> — Income-Statement-Flow, deterministisch aus deinen Zahlen.</li>
+    </ul>
+    <p><b>Faustregel:</b> Stimmungs-/Story-Bilder und Infografiken → Grafiken Redaktion. Exakte Zahlenwerke (Kursverläufe, GuV) → Chart/Sankey, weil dort nichts halluziniert wird.</p>` },
+  faq:{ title:"FAQ & Tipps", body:`
+    <h1>FAQ & Tipps</h1>
+    <h2>„Grafik fehlgeschlagen"</h2>
+    <p>Einfach nochmal „Grafik erstellen" — KI-Bilder variieren, ein zweiter Versuch hilft oft.</p>
+    <h2>Eine Zahl ist falsch</h2>
+    <p>Text präziser formulieren und neu generieren. Bei dichten Tabellen kann ein Bildmodell Werte verrutschen — vor Veröffentlichung prüfen.</p>
+    <h2>Bild zu überladen</h2>
+    <p>Weniger in den Text, nur die 1–3 wichtigsten Punkte.</p>
+    <h2>Größe stimmt nicht exakt</h2>
+    <p>„Download (Zielgröße)" bringt das Bild automatisch auf die hinterlegte Veröffentlichungsgröße.</p>` },
+};
+const WIKI_ORDER=[["start","Willkommen"],["redakteure","Für Redakteure"],["usecases","Use Cases & Beispiele"],["social","Social Karussell"],["modi","Modi-Übersicht"],["faq","FAQ & Tipps"]];
+let _wikiInit=false;
+function initWiki(){
+  const nav=$("wikiNav");
+  nav.innerHTML=WIKI_ORDER.map(([k,t])=>'<a class="nav" data-wiki="'+k+'" style="display:block;padding:9px 11px;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--ink-2);cursor:pointer;margin-bottom:3px">'+t+'</a>').join('');
+  nav.querySelectorAll("[data-wiki]").forEach(a=>a.onclick=()=>showWiki(a.dataset.wiki));
+  showWiki("start");
+}
+function showWiki(key){
+  $("wikiContent").innerHTML=WIKI[key].body;
+  document.querySelectorAll("#wikiNav [data-wiki]").forEach(a=>{
+    const on=a.dataset.wiki===key;
+    a.style.background=on?"var(--tint)":""; a.style.color=on?"var(--tint-ink)":"var(--ink-2)";
+  });
+}
 </script>
 </body>
 </html>
