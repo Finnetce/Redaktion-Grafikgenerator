@@ -195,6 +195,19 @@
   @media(prefers-reduced-motion:reduce){.orb,.orb .ic,.bar i{animation:none}}
 
   .hidden-file{display:none}
+  /* ---------- Datei-Upload (Excel / Bild / PDF) ---------- */
+  .upzone{margin-top:9px;border:1.5px dashed #c6cdd8;border-radius:10px;padding:11px 13px;display:flex;align-items:center;gap:10px;cursor:pointer;background:#fafbfd;transition:border-color .15s,background .15s;font-size:13px;color:var(--muted)}
+  .upzone:hover,.upzone.drag{border-color:var(--acc,#0a6cff);background:#f0f6ff}
+  .upzone .ic{width:17px;height:17px;flex:none}
+  .upzone b{color:var(--ink);font-weight:600}
+  .upchip{margin-top:8px;display:none;align-items:center;gap:9px;background:#eef3fa;border:1px solid #d9e2ef;border-radius:9px;padding:8px 11px;font-size:12.5px;color:var(--ink)}
+  .upchip.show{display:flex}
+  .upchip .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:230px}
+  .upchip .st{color:var(--muted);flex:1}
+  .upchip .st.ok{color:#0d8a4f}
+  .upchip .st.err{color:#c2372f}
+  .upchip button{border:0;background:none;cursor:pointer;color:var(--muted);padding:2px;line-height:0}
+  .upchip button:hover{color:#c2372f}
 
   /* connect button + modal */
   .conn-btn{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--tint-ink);background:var(--tint);border:1px solid var(--tint-line);padding:7px 13px;border-radius:9px;transition:.14s}
@@ -421,6 +434,8 @@
     <div class="grp-h">Inhalt</div>
     <label class="lab">Artikeltext / Rohdaten</label>
     <textarea class="ta" id="grArticle" style="min-height:150px" placeholder="Ganzen Artikel oder die Rohdaten einfügen. Das Modell verdichtet daraus die Grafik. Zahlen und Namen werden exakt übernommen."></textarea>
+    <div class="upzone" data-upload="grArticle" tabindex="0"><svg class="ic" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg><span><b>Datei hochladen</b> oder hierher ziehen — Excel, PDF, JPG/PNG. Inhalt wird automatisch ausgelesen und oben eingefügt.</span></div>
+    <div class="upchip" data-upchip="grArticle"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><span class="nm"></span><span class="st"></span><button title="Entfernen" type="button"><svg style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <label class="lab">Aktien-/Firmenname (optional, für Titel)</label>
     <input class="inp" id="grTitle" placeholder="z.B. Oracle (ORCL)" />
     <span class="hint" style="display:block;margin-top:7px">Optional. Leer lassen, wenn der Name aus dem Artikeltext kommen soll.</span>
@@ -503,6 +518,8 @@
     <div class="autobox" id="auto-social" hidden>
       <label class="lab">Artikel oder Rohtext einfügen</label>
       <textarea class="ta" id="src-social" data-nolock style="min-height:120px" placeholder="Ganzen Artikel oder Notizen einfügen. Claude Sonnet zieht daraus Schlagzeile, Unterzeile, drei Kernpunkte, Schluss, die Firma und einen Bild-Prompt und füllt die Felder unten."></textarea>
+      <div class="upzone" data-upload="src-social" data-nolock tabindex="0"><svg class="ic" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg><span><b>Datei hochladen</b> oder hierher ziehen — Excel, PDF, JPG/PNG. Inhalt wird ausgelesen und oben eingefügt.</span></div>
+      <div class="upchip" data-upchip="src-social" data-nolock><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><span class="nm"></span><span class="st"></span><button title="Entfernen" type="button"><svg style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
       <div class="row">
         <button class="btn btn-primary" data-fill="social" data-nolock>
           <svg class="ic" viewBox="0 0 24 24" style="color:#fff"><path d="M12 3l1.6 4.8a2 2 0 0 0 1.3 1.3L19.5 11l-4.6 1.6a2 2 0 0 0-1.3 1.3L12 19l-1.6-4.8a2 2 0 0 0-1.3-1.3L4.5 11l4.6-1.6a2 2 0 0 0 1.3-1.3z"/></svg>
@@ -645,6 +662,8 @@
     <div class="autobox" id="auto-chart" hidden>
       <label class="lab">Text mit den Zahlen einfügen</label>
       <textarea class="ta" id="src-chart" data-nolock style="min-height:110px" placeholder="Text einfügen, der die Werte enthält (z.B. Kurs- und Gewinnreihen ueber mehrere Jahre). Claude Sonnet baut daraus Titel, Achsen und Datenreihen."></textarea>
+      <div class="upzone" data-upload="src-chart" data-nolock tabindex="0"><svg class="ic" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg><span><b>Datei hochladen</b> oder hierher ziehen — Excel, PDF, JPG/PNG mit den Zahlen.</span></div>
+      <div class="upchip" data-upchip="src-chart" data-nolock><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><span class="nm"></span><span class="st"></span><button title="Entfernen" type="button"><svg style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
       <div class="row">
         <button class="btn btn-primary" data-fill="chart" data-nolock>
           <svg class="ic" viewBox="0 0 24 24" style="color:#fff"><path d="M12 3l1.6 4.8a2 2 0 0 0 1.3 1.3L19.5 11l-4.6 1.6a2 2 0 0 0-1.3 1.3L12 19l-1.6-4.8a2 2 0 0 0-1.3-1.3L4.5 11l4.6-1.6a2 2 0 0 0 1.3-1.3z"/></svg>
@@ -729,6 +748,8 @@
     <div class="autobox" id="auto-sankey" hidden>
       <label class="lab">Quartalsbericht oder Zahlen einfügen</label>
       <textarea class="ta" id="src-sankey" data-nolock style="min-height:110px" placeholder="Text mit den GuV-Zahlen einfügen (Umsatzsegmente, Kosten, Betriebsausgaben, Steuern). Claude Sonnet ordnet die Zahlen den Feldern zu."></textarea>
+      <div class="upzone" data-upload="src-sankey" data-nolock tabindex="0"><svg class="ic" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg><span><b>Datei hochladen</b> oder hierher ziehen — Excel, PDF, JPG/PNG mit den GuV-Zahlen.</span></div>
+      <div class="upchip" data-upchip="src-sankey" data-nolock><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><span class="nm"></span><span class="st"></span><button title="Entfernen" type="button"><svg style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
       <div class="row">
         <button class="btn btn-primary" data-fill="sankey" data-nolock>
           <svg class="ic" viewBox="0 0 24 24" style="color:#fff"><path d="M12 3l1.6 4.8a2 2 0 0 0 1.3 1.3L19.5 11l-4.6 1.6a2 2 0 0 0-1.3 1.3L12 19l-1.6-4.8a2 2 0 0 0-1.3-1.3L4.5 11l4.6-1.6a2 2 0 0 0 1.3-1.3z"/></svg>
@@ -837,6 +858,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-sankey/0.12.3/d3-sankey.min.js"></script>
 <script>
@@ -1945,9 +1967,10 @@ $("brandHome").addEventListener("click",()=>showView("home"));
    Auto-Befüllung: Text -> Felder (via verbundenes KI-Modell)
    ============================================================ */
 const TEXT_MODEL="anthropic/claude-sonnet-4.6";
-async function orChat(messages){
+async function orChat(messages, extra){
   if(genMode()==="direct"){
-    const r=await fetch("https://openrouter.ai/api/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+_orKey},body:JSON.stringify({model:TEXT_MODEL,messages,response_format:{type:"json_object"}})});
+    const body=Object.assign({model:TEXT_MODEL,messages,response_format:{type:"json_object"}}, extra||{});
+    const r=await fetch("https://openrouter.ai/api/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+_orKey},body:JSON.stringify(body)});
     let d={}; try{ d=await r.json(); }catch(e){}
     if(d.error) throw new Error(d.error.message||"Fehler");
     if(!r.ok) throw new Error("Status "+r.status);
@@ -1955,12 +1978,121 @@ async function orChat(messages){
   }
   if(genMode()==="make"){
     const params=new URLSearchParams(); params.set("action","chat"); params.set("model",TEXT_MODEL); params.set("messages",JSON.stringify(messages));
+    params.set("plugins", JSON.stringify((extra&&extra.plugins)||[]));  // z.B. PDF-OCR (mistral-ocr)
     const r=await fetch(CONFIG.API_BASE,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:params.toString()});
     const d=await r.json(); if(!d.ok) throw new Error(d.error||"Fehler"); return d.text;
   }
   throw new Error("kein Modell verbunden");
 }
 function parseJSON(s){ s=(s||"").trim().replace(/^```(json)?/i,"").replace(/```$/,"").trim(); return JSON.parse(s); }
+
+/* ============================================================
+   Datei-Upload: Excel / PDF / JPG / PNG -> Text ins Zielfeld
+   - Excel: SheetJS im Browser (kein Modell noetig, exakte Zahlen)
+   - Bild:  multimodal ans verbundene Modell (image_url)
+   - PDF:   als Datei ans Modell (OpenRouter file-parsing / mistral-ocr)
+   Funktioniert im Direct- UND im Make-Modus: die Make-Chat-Route
+   reicht "messages" unveraendert an OpenRouter durch.
+   ============================================================ */
+const UP_MAX_BYTES = 4*1024*1024;      // Webhook-/Payload-Limit, konservativ
+const UP_MAX_CHARS = 12000;            // Schutz gegen Riesen-Excels
+const _upInsert = {};                  // targetId -> zuletzt eingefuegter Block (fuer "Entfernen")
+
+function _upChip(target, name, state, cls){
+  const chip=document.querySelector('.upchip[data-upchip="'+target+'"]'); if(!chip) return;
+  chip.classList.add("show");
+  chip.querySelector(".nm").textContent=name;
+  const st=chip.querySelector(".st"); st.textContent=state; st.className="st"+(cls?" "+cls:"");
+}
+function _upChipHide(target){
+  const chip=document.querySelector('.upchip[data-upchip="'+target+'"]'); if(chip) chip.classList.remove("show");
+}
+function _upKind(file){
+  const n=(file.name||"").toLowerCase();
+  if(/\.(xlsx|xls|xlsm|csv)$/.test(n)) return "excel";
+  if(/\.pdf$/.test(n) || file.type==="application/pdf") return "pdf";
+  if(/\.(png|jpe?g|webp)$/.test(n) || /^image\//.test(file.type)) return "image";
+  return null;
+}
+function _readAs(file, mode){
+  return new Promise((res,rej)=>{ const r=new FileReader();
+    r.onload=()=>res(r.result); r.onerror=()=>rej(new Error("Datei konnte nicht gelesen werden"));
+    if(mode==="buffer") r.readAsArrayBuffer(file); else r.readAsDataURL(file);
+  });
+}
+function _upExcelToText(buf, fname){
+  const wb=XLSX.read(buf,{type:"array"});
+  let out="";
+  wb.SheetNames.forEach(sn=>{
+    const csv=XLSX.utils.sheet_to_csv(wb.Sheets[sn],{blankrows:false}).trim();
+    if(csv) out+="\n[Tabellenblatt: "+sn+"]\n"+csv+"\n";
+  });
+  out=out.trim();
+  if(!out) throw new Error("Excel-Datei enthaelt keine lesbaren Daten");
+  if(out.length>UP_MAX_CHARS) out=out.slice(0,UP_MAX_CHARS)+"\n[... gekuerzt, Datei ist groesser ...]";
+  return out;
+}
+async function _upFileToText(file){
+  const kind=_upKind(file);
+  if(!kind) throw new Error("Nicht unterstuetzt. Bitte Excel, PDF, JPG oder PNG hochladen.");
+  if(kind==="excel"){
+    if(typeof XLSX==="undefined") throw new Error("Excel-Bibliothek nicht geladen (Internetverbindung pruefen)");
+    return _upExcelToText(await _readAs(file,"buffer"), file.name);
+  }
+  // Bild & PDF brauchen ein verbundenes Modell
+  if(genMode()==="demo") throw new Error("Fuer Bild/PDF-Auswertung oben rechts ein KI-Modell verbinden (Excel geht auch ohne).");
+  if(file.size>UP_MAX_BYTES) throw new Error("Datei zu gross (max. 4 MB). Bitte verkleinern oder relevante Seite als Bild hochladen.");
+  const dataUrl=await _readAs(file,"dataurl");
+  const sys="Du bist Redakteur bei finanzen.net. Extrahiere den kompletten fachlichen Inhalt aus der angehaengten Datei: allen Text, alle Tabellen (als einfache Textzeilen 'Spalte: Wert' oder Markdown-Tabelle), alle Zahlen EXAKT wie angegeben, nichts erfinden, nichts runden. Antworte NUR mit reinem JSON: {\"text\":\"der extrahierte Inhalt auf Deutsch, Zahlen und Namen unveraendert\"}";
+  const userContent = kind==="image"
+    ? [{type:"text",text:"Extrahiere den Inhalt dieses Bildes (z.B. Screenshot einer Tabelle oder Grafik)."},{type:"image_url",image_url:{url:dataUrl}}]
+    : [{type:"text",text:"Extrahiere den Inhalt dieses PDFs."},{type:"file",file:{filename:file.name,file_data:dataUrl}}];
+  // PDF: OpenRouter-File-Parser (mistral-ocr) aktivieren; bei nativen PDF-Modellen (Claude) harmlos
+  const extra = kind==="pdf" ? {plugins:[{id:"file-parser",pdf:{engine:"mistral-ocr"}}]} : undefined;
+  const out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:userContent}], extra));
+  if(!out.text || !out.text.trim()) throw new Error("Kein Inhalt erkannt");
+  return out.text.trim();
+}
+async function _upHandle(target, file){
+  if(!file) return;
+  _upChip(target, file.name, "wird ausgelesen …");
+  try{
+    const text=await _upFileToText(file);
+    const ta=$(target);
+    const block="\n\n--- Inhalt aus Datei: "+file.name+" ---\n"+text;
+    // vorherigen Block dieser Zone ersetzen statt anhaengen
+    if(_upInsert[target] && ta.value.indexOf(_upInsert[target])!==-1) ta.value=ta.value.replace(_upInsert[target],"");
+    ta.value=(ta.value.trimEnd()+block).trim();
+    _upInsert[target]=block.trim();
+    _upChip(target, file.name, "eingefuegt ✓","ok");
+    toast("Datei ausgelesen — Inhalt steht im Textfeld");
+  }catch(e){
+    _upChip(target, file.name, e.message, "err");
+    toast("Upload: "+e.message, 7000);
+  }
+}
+document.querySelectorAll(".upzone[data-upload]").forEach(zone=>{
+  const target=zone.dataset.upload;
+  const inp=document.createElement("input");
+  inp.type="file"; inp.className="hidden-file";
+  inp.accept=".xlsx,.xls,.xlsm,.csv,.pdf,image/png,image/jpeg,image/webp";
+  zone.after(inp);
+  zone.addEventListener("click",()=>inp.click());
+  zone.addEventListener("keydown",(e)=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); inp.click(); } });
+  inp.addEventListener("change",()=>{ if(inp.files&&inp.files[0]) _upHandle(target, inp.files[0]); inp.value=""; });
+  ["dragover","dragenter"].forEach(ev=>zone.addEventListener(ev,(e)=>{ e.preventDefault(); zone.classList.add("drag"); }));
+  ["dragleave","drop"].forEach(ev=>zone.addEventListener(ev,(e)=>{ e.preventDefault(); zone.classList.remove("drag"); }));
+  zone.addEventListener("drop",(e)=>{ const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) _upHandle(target,f); });
+});
+document.querySelectorAll(".upchip[data-upchip] button").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    const target=btn.closest(".upchip").dataset.upchip;
+    const ta=$(target);
+    if(_upInsert[target] && ta && ta.value.indexOf(_upInsert[target])!==-1){ ta.value=ta.value.replace(_upInsert[target],"").trim(); }
+    delete _upInsert[target];
+    _upChipHide(target);
+  });
+});
 
 /* ----- Umschalter Manuell / Aus Text, Felder sperren ----- */
 function lockView(view, lock){ const el=$("lock-"+view); if(el) el.classList.toggle("locked", lock); }
