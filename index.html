@@ -181,13 +181,13 @@
   .empty .icwrap .ic{width:21px;height:21px}
 
   /* loading */
-  .loading{position:fixed;inset:0;background:rgba(243,245,248,.94);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;flex-direction:column;z-index:60}
+  .loading{position:fixed;left:auto;top:auto;right:22px;bottom:22px;background:#ffffff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-lg);display:none;align-items:center;justify-content:center;flex-direction:column;z-index:60;padding:16px 22px;max-width:300px;text-align:center}
   .loading.show{display:flex}
-  .loading .orb{width:64px;height:64px;border-radius:18px;background:radial-gradient(120% 120% at 30% 25%, #6f93ff, #2a4cad 50%, #0a1f44);display:grid;place-items:center;box-shadow:var(--shadow-lg);animation:float 2.2s ease-in-out infinite}
-  .loading .orb .ic{width:30px;height:30px;color:#fff;stroke-width:1.6;animation:spin 3s linear infinite}
-  .loading .t{font-weight:700;font-size:16.5px;margin-top:22px}
-  .loading .s{color:var(--muted);font-size:13px;margin-top:5px}
-  .loading .bar{width:200px;height:4px;border-radius:4px;background:#e2e6ec;margin-top:20px;overflow:hidden}
+  .loading .orb{width:38px;height:38px;border-radius:11px;background:radial-gradient(120% 120% at 30% 25%, #6f93ff, #2a4cad 50%, #0a1f44);display:grid;place-items:center;box-shadow:var(--shadow-lg);animation:float 2.2s ease-in-out infinite}
+  .loading .orb .ic{width:18px;height:18px;color:#fff;stroke-width:1.6;animation:spin 3s linear infinite}
+  .loading .t{font-weight:700;font-size:13.5px;margin-top:10px}
+  .loading .s{color:var(--muted);font-size:12px;margin-top:4px}
+  .loading .bar{width:160px;height:4px;border-radius:4px;background:#e2e6ec;margin-top:10px;overflow:hidden}
   .loading .bar i{display:block;height:100%;width:40%;border-radius:4px;background:linear-gradient(90deg,#2a4cad,#6f93ff);animation:slide 1.3s ease-in-out infinite}
   @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
   @keyframes spin{to{transform:rotate(360deg)}}
@@ -371,7 +371,7 @@
   <nav class="nav" id="topnav">
     <a data-go="home" class="on">Übersicht</a>
     <a data-go="graphic">Grafiken Redaktion</a>
-    <a data-go="social">Social Karussell</a>
+    <a data-go="social">Social Media</a>
     <a data-go="chart">Chart</a>
     <a data-go="sankey">Sankey</a>
     <a data-go="wiki">Wiki</a>
@@ -399,7 +399,7 @@
       </button>
       <button class="tile" data-go="social">
         <div class="tic tic-a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="9" r="1.7"/><path d="m21 16-4.5-4.5a2 2 0 0 0-2.8 0L5 20"/></svg></div>
-        <h3>Social Karussell</h3>
+        <h3>Social Media</h3>
         <p>Cover, Content und Closing als editierbare Slides. KI-Bild als Hintergrund, Text und Logo deterministisch drüber.</p>
         <span class="tag">KI-Bild + Text</span>
       </button>
@@ -859,6 +859,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-sankey/0.12.3/d3-sankey.min.js"></script>
 <script>
@@ -1333,7 +1334,7 @@ function buildClosing(content){
   const W=DISP.w,H=DISP.h,objs=[];
   objs.push({kind:"obj",obj:new fabric.Rect({left:0,top:0,width:W,height:H,fill:"#ffffff",name:"bg2",selectable:false,evented:false})});
   objs.push({kind:"image",src:content.bg,props:{name:"image",selectable:true,_coverH:px(0.50,H)}});
-  objs.push({kind:"obj",obj:new fabric.Textbox(content.closeHead||"Glaubwürdiger Turnaround",{left:px(0.06,W),top:px(0.585,H),width:px(0.86,W),fontFamily:BRAND.font,fontWeight:800,fontSize:px(0.052,W),fill:BRAND.navy,name:"headline"})});
+  objs.push({kind:"obj",obj:new fabric.Textbox(content.closeHead||content.head||"Fazit",{left:px(0.06,W),top:px(0.585,H),width:px(0.86,W),fontFamily:BRAND.font,fontWeight:800,fontSize:px(0.052,W),fill:BRAND.navy,name:"headline"})});
   objs.push({kind:"obj",obj:new fabric.Textbox(content.close,{left:px(0.06,W),top:px(0.71,H),width:px(0.86,W),fontFamily:BRAND.font,fontWeight:500,fontSize:px(0.034,W),fill:BRAND.muted,lineHeight:1.35,name:"body"})});
   objs.push({kind:"obj",obj:new fabric.Text("Quelle: finanzen.net",{left:px(0.06,W),top:px(0.95,H),fontFamily:BRAND.font,fontSize:px(0.020,W),fill:BRAND.muted,name:"source"})});
   return {objs,logoDark:false};
@@ -1657,7 +1658,7 @@ $("goStudio").onclick=async()=>{
   const content={
     head:$("fHead").value, sub:$("fSub").value,
     bullets:[$("fB1").value,$("fB2").value,$("fB3").value].filter(x=>x.trim()),
-    close:$("fClose").value, closeHead:"Glaubwürdiger Turnaround",
+    close:$("fClose").value, closeHead:(window._smCloseHead || ($("fCloseHead")?$("fCloseHead").value:"") || $("fHead").value || "Fazit"),
     prompt:$("fPrompt").value, brand:curBrand, bg:null
   };
   showLoading("Dein Post wird erstellt", isLive()?(modelLabel()+" generiert dein Bild"):"Platzhalter wird gezeichnet");
@@ -2656,6 +2657,353 @@ function showWiki(key){
   // mobile: Sidebar nach Auswahl schliessen
   if(window.innerWidth<=860){ const sh=document.querySelector(".wiki-shell"); if(sh) sh.classList.remove("nav-open"); }
 }
+</script>
+
+<script>
+/* ============================================================
+   SOCIAL MEDIA UPGRADE v014
+   Marke (finnet/ZERO) · Plattform-Checkboxen · Formatvorschläge
+   Captions & Hashtags mit Copy · Download-Bundle (ZIP) · HQ-Export
+   Ergänzt die bestehende Logik, ohne andere Reiter zu verändern.
+   ============================================================ */
+(function(){
+"use strict";
+var $id=function(x){ return document.getElementById(x); };
+
+/* ---------- Marken-Konfiguration ----------
+   ZERO: Farbwerte/Logo sind PROVISORISCH, bis Yuki die finalen
+   ZERO-Assets liefert. Dann hier eintragen + Logo in LOGOS_BUILTIN. */
+window.SOCIAL_BRANDS={
+  finnet:{ id:"finnet", label:"finanzen.net", navy:"#09437A", accent:"#4A7FF7", logo:"finanzen_net",
+    cta:"Mehr auf finanzen.net", handle:"finanzen.net",
+    ton:"informativ, serioes, fuer Privatanleger. Instagram: Hook-Zeile, sparsame Emojis, kurze Absaetze. LinkedIn: sachlich-analytisch, laengerer Fliesstext, keine Emojis." },
+  zero:{ id:"zero", label:"finanzen.net zero", navy:"#0A1F44", accent:"#4A7FF7", logo:"zero",
+    cta:"Jetzt kostenlos handeln mit finanzen.net zero", handle:"finanzen.net zero",
+    ton:"direkt, schnell, tradingfokussiert (Zielgruppe ca. 80 Prozent Trader). Kurze Saetze, Kurse, Chancen/Risiken klar benannt. Pflicht: kein Anlage-Rat, sachlich bleiben." }
+};
+window._smBrand="finnet"; window._smText=null; window._smFormat=null; window._smCloseHead="";
+
+/* ---------- Plattformen mit fixen Zielgroessen ---------- */
+window.SM_PLATFORMS=[
+  { id:"ig_feed",  label:"Instagram Feed / Karussell", w:1080, h:1350, master:"4:5"  },
+  { id:"ig_story", label:"Instagram Story",            w:1080, h:1920, master:"9:16" },
+  { id:"li_feed",  label:"LinkedIn Post",              w:1080, h:1350, master:"4:5"  },
+  { id:"li_quer",  label:"LinkedIn Querformat (Link)", w:1200, h:627,  master:"16:9" }
+];
+
+/* ---------- Styles ---------- */
+var css=document.createElement("style");
+css.textContent=[
+".sm-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:22px;margin-top:18px;box-shadow:var(--shadow-sm)}",
+".sm-plats{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:4px}",
+".sm-plat{display:flex;align-items:center;gap:10px;border:1.5px solid var(--line);border-radius:11px;padding:10px 12px;cursor:pointer;transition:.13s;font-size:13px;font-weight:600}",
+".sm-plat:hover{background:#f5f7fa}",
+".sm-plat.on{border-color:var(--tint-line);background:var(--tint)}",
+".sm-plat input{accent-color:var(--navy)}",
+".sm-plat .sz{margin-left:auto;font-size:11px;color:var(--faint);font-weight:600}",
+".sm-sug{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:9px;margin-top:12px}",
+".sm-sug-card{border:1.5px solid var(--line);border-radius:11px;padding:12px 13px;cursor:pointer;transition:.13s;background:#fff}",
+".sm-sug-card:hover{background:#f5f7fa}",
+".sm-sug-card.on{border-color:var(--tint-ink);background:var(--tint);box-shadow:0 0 0 3px rgba(42,76,173,.10)}",
+".sm-sug-card .t{font-size:13px;font-weight:700}",
+".sm-sug-card .g{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.4}",
+".sm-drawer{position:fixed;top:0;right:-420px;width:400px;height:100%;background:var(--panel);border-left:1px solid var(--line);box-shadow:var(--shadow-lg);z-index:70;transition:right .22s ease;display:flex;flex-direction:column}",
+".sm-drawer.open{right:0}",
+".sm-drawer .hd{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line)}",
+".sm-drawer .hd h3{font-size:14.5px;font-weight:800}",
+".sm-drawer .bd{flex:1;overflow-y:auto;padding:16px 18px}",
+".sm-drawer .ft{padding:14px 18px;border-top:1px solid var(--line)}",
+".sm-sec{margin-bottom:18px}",
+".sm-sec .lb{display:flex;align-items:center;justify-content:space-between;font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-bottom:7px}",
+".sm-box{background:#fafbfd;border:1px solid var(--line);border-radius:10px;padding:11px 13px;font-size:12.5px;line-height:1.55;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow-y:auto}",
+".sm-copy{font-size:11.5px;font-weight:700;color:var(--tint-ink);cursor:pointer;border:1px solid var(--tint-line);border-radius:7px;padding:3px 9px;background:#fff}",
+".sm-copy:hover{background:var(--tint)}",
+".sm-dl{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--navy);color:#fff;font-weight:700;font-size:13.5px;border-radius:11px;padding:12px}",
+".sm-dl:disabled{opacity:.55;cursor:default}",
+".sm-x{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:var(--muted)}",
+".sm-x:hover{background:#f1f3f7}"
+].join("\n");
+document.head.appendChild(css);
+
+/* ---------- UI-Injektion in den Social-Media-Reiter ---------- */
+var lock=$id("lock-social");
+if(lock){
+  lock.insertAdjacentHTML("afterbegin",
+   '<div class="sm-card">'+
+   '<div class="card-h"><span class="n">M</span><h3>Marke</h3></div>'+
+   '<label class="lab">Für welche Marke wird der Post erstellt?</label>'+
+   '<div class="selwrap"><select class="sel" id="smBrand">'+
+   '<option value="finnet">finanzen.net</option><option value="zero">finanzen.net zero</option>'+
+   '</select><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>'+
+   '<span class="hint" style="display:block;margin-top:8px">Steuert Markenfarbe, Logo, Tonalität der Captions und Hashtags.</span>'+
+   '</div>');
+}
+var fmtCard=$id("fmtGrid")?$id("fmtGrid").closest(".card"):null;
+if(fmtCard){
+  var platHtml='<div class="sm-card"><div class="card-h"><span class="n">P</span><h3>Plattformen</h3></div>'+
+    '<label class="lab">Für welche Plattformen soll der Post generiert werden?</label><div class="sm-plats">';
+  SM_PLATFORMS.forEach(function(p){
+    var on=(p.id==="ig_feed"||p.id==="li_feed");
+    platHtml+='<label class="sm-plat'+(on?" on":"")+'" data-plat="'+p.id+'">'+
+      '<input type="checkbox" '+(on?"checked":"")+'> '+p.label+'<span class="sz">'+p.w+'×'+p.h+'</span></label>';
+  });
+  platHtml+='</div><span class="hint" style="display:block;margin-top:10px" id="smPlatHint"></span></div>';
+  fmtCard.insertAdjacentHTML("afterend", platHtml);
+}
+if($id("fClose")){
+  $id("fClose").insertAdjacentHTML("afterend",
+    '<label class="lab">Schluss-Headline (Slide 3)</label>'+
+    '<input class="inp" id="fCloseHead" placeholder="z.B. Ausblick bleibt positiv" />');
+  $id("fCloseHead").addEventListener("input",function(){ window._smCloseHead=this.value; });
+}
+var auto=$id("auto-social");
+if(auto){
+  auto.insertAdjacentHTML("beforeend",
+    '<div id="smSug" style="display:none;margin-top:14px">'+
+    '<label class="lab" style="margin-top:0">Formatvorschläge — eins auswählen, dann generieren</label>'+
+    '<div class="sm-sug" id="smSugList"></div></div>');
+}
+
+/* ---------- Marke anwenden ---------- */
+function smApplyBrand(bid){
+  var b=SOCIAL_BRANDS[bid]||SOCIAL_BRANDS.finnet;
+  window._smBrand=b.id;
+  try{ BRAND.navy=b.navy; }catch(e){}
+  var sel=$id("socialLogo");
+  if(sel){
+    var want=(typeof LOGOS!=="undefined"&&LOGOS[b.logo])?b.logo:"finanzen_net";
+    var has=false; for(var i=0;i<sel.options.length;i++){ if(sel.options[i].value===want){ has=true; break; } }
+    if(has) sel.value=want;
+    if(b.id==="zero" && want!==b.logo) toast("Hinweis: ZERO-Logo noch nicht hinterlegt — nutze finanzen.net-Logo als Platzhalter",5000);
+  }
+}
+if($id("smBrand")) $id("smBrand").onchange=function(){ smApplyBrand(this.value); };
+
+/* ---------- Plattform-Auswahl -> Masterformat ---------- */
+function smSelectedPlatforms(){
+  var out=[];
+  document.querySelectorAll(".sm-plat").forEach(function(el){
+    if(el.querySelector("input").checked){
+      var p=SM_PLATFORMS.find(function(x){return x.id===el.dataset.plat;});
+      if(p) out.push(p);
+    }
+  });
+  return out;
+}
+function smSyncFormat(){
+  var sel=smSelectedPlatforms();
+  var ids=sel.map(function(p){return p.id;});
+  var master="4:5";
+  if(ids.indexOf("ig_feed")===-1 && ids.indexOf("li_feed")===-1){
+    if(ids.indexOf("ig_story")!==-1) master="9:16";
+    else if(ids.indexOf("li_quer")!==-1) master="16:9";
+  }
+  try{ curFmt=master; if(typeof buildFormatGrid==="function") buildFormatGrid(); }catch(e){}
+  var h=$id("smPlatHint");
+  if(h){
+    h.textContent = sel.length
+      ? ("Master-Format "+master+" · Export-Größen (2× HQ): "+sel.map(function(p){return p.label+" "+(p.w*2)+"×"+(p.h*2);}).join(" · ")+". Story/Quer werden per Center-Crop aus dem Master erzeugt.")
+      : "Keine Plattform gewählt — mindestens eine anwählen.";
+  }
+}
+document.querySelectorAll(".sm-plat input").forEach(function(cb){
+  cb.addEventListener("change",function(){
+    cb.closest(".sm-plat").classList.toggle("on",cb.checked);
+    smSyncFormat();
+  });
+});
+smSyncFormat();
+
+/* ---------- Eingabe-Sanitizer (Artikeltexte mit Sonderzeichen) ---------- */
+function smSanitize(t){
+  t=(t||"");
+  t=t.replace(/<script[\s\S]*?<\/script>/gi," ").replace(/<style[\s\S]*?<\/style>/gi," ").replace(/<[^>]{1,300}>/g," ");
+  t=t.replace(/[\u00AD\u200B-\u200F\u202A-\u202E\u2060\uFEFF]/g,"");
+  t=t.replace(/[\u201C\u201D\u201E\u00AB\u00BB]/g,'"').replace(/[\u2018\u2019\u201A]/g,"'");
+  t=t.replace(/\u00A0/g," ").replace(/[ \t]{2,}/g," ").replace(/\n{3,}/g,"\n\n");
+  return t.trim();
+}
+window.smSanitize=smSanitize;
+
+/* ---------- Erweiterte Extraktion: Felder + Formatvorschlaege + Captions ---------- */
+var SM_FORMAT_LABELS={ news:"Klassisches News-Format", quartalszahlen:"Quartalszahlen-Format", vergleich:"Vergleichsformat", zitat:"Zitate-Format" };
+extractSocial = async function(txt){
+  txt=smSanitize(txt);
+  var b=SOCIAL_BRANDS[window._smBrand]||SOCIAL_BRANDS.finnet;
+  var sys="Du bist Social-Media-Redakteur bei "+b.label+" und schreibst professionelles, korrektes Deutsch mit Umlauten. Tonalitaet: "+b.ton+" Lies den Artikeltext und antworte NUR mit reinem JSON ohne Markdown. Schema: {"+
+    "\"head\":\"praegnante Schlagzeile, max 55 Zeichen\","+
+    "\"sub\":\"Unterzeile, max 110 Zeichen\","+
+    "\"bullets\":[\"drei Kernaussagen, je max 120 Zeichen\"],"+
+    "\"close\":\"Schluss-Statement, max 140 Zeichen\","+
+    "\"closeHead\":\"kurze Headline fuer die Schluss-Slide, max 40 Zeichen, inhaltlich zum Artikel passend, NICHT generisch\","+
+    "\"brand\":\"die zentrale Firma oder Marke, sonst leerer String\","+
+    "\"companies\":[\"alle im Artikel genannten Firmennamen\"],"+
+    "\"prompt\":\"kurzer englischer Bild-Prompt fuer ein passendes Hintergrundfoto ohne Text und ohne Logos\","+
+    "\"formats\":[maximal 3 Vorschlaege, jeweils {\"key\":\"news|quartalszahlen|vergleich|zitat\",\"grund\":\"1 Satz warum dieses Format passt\",\"bildprompt\":\"englischer Bild-Prompt passend zum Format, ohne Text im Bild\"}] sortiert nach Eignung,"+
+    "\"captions\":{\"instagram\":\"fertige Instagram-Caption im Markenton, mit Absaetzen, CTA '"+b.cta+"' am Ende\",\"linkedin\":\"fertige LinkedIn-Caption, sachlicher und laenger, WICHTIG: vor JEDEM Firmennamen ein @ (z.B. @Apple, @NVIDIA), Frage oder Einordnung am Ende\"},"+
+    "\"hashtags\":{\"instagram\":[\"5-10 deutsche Hashtags, Mix aus Marke und Thema\"],\"linkedin\":[\"3-5 Hashtags\"]}}. "+
+    "Sachlich, deskriptiv, keine Kaufempfehlung, keine Kursziele als Empfehlung. Alle Zahlen exakt aus dem Text, nichts erfinden.";
+  var out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,9000)}]));
+  if(out.head) $id("fHead").value=out.head;
+  if(out.sub) $id("fSub").value=out.sub;
+  if(Array.isArray(out.bullets)){ $id("fB1").value=out.bullets[0]||""; $id("fB2").value=out.bullets[1]||""; $id("fB3").value=out.bullets[2]||""; }
+  if(out.close) $id("fClose").value=out.close;
+  if(out.closeHead){ window._smCloseHead=out.closeHead; if($id("fCloseHead")) $id("fCloseHead").value=out.closeHead; }
+  if(out.brand!=null){ $id("fBrand").value=out.brand; try{ curBrand=out.brand; }catch(e){} }
+  if(curUseCase==="frei" && out.prompt) $id("fPrompt").value=out.prompt;
+  window._smText=out;
+  smRenderSuggestions(out.formats||[]);
+  smRenderDrawer();
+};
+
+function smRenderSuggestions(formats){
+  var box=$id("smSug"), list=$id("smSugList");
+  if(!box||!list) return;
+  list.innerHTML=""; window._smFormat=null;
+  if(!formats.length){ box.style.display="none"; return; }
+  formats.slice(0,3).forEach(function(f,i){
+    var c=document.createElement("div");
+    c.className="sm-sug-card"+(i===0?" on":"");
+    c.innerHTML='<div class="t">'+(SM_FORMAT_LABELS[f.key]||f.key)+'</div><div class="g">'+(f.grund||"")+'</div>';
+    c.onclick=function(){
+      list.querySelectorAll(".sm-sug-card").forEach(function(x){x.classList.remove("on");});
+      c.classList.add("on"); window._smFormat=f.key;
+      if(f.bildprompt && curUseCase==="frei") $id("fPrompt").value=f.bildprompt;
+      toast("Format: "+(SM_FORMAT_LABELS[f.key]||f.key));
+    };
+    list.appendChild(c);
+  });
+  window._smFormat=formats[0].key;
+  if(formats[0].bildprompt && curUseCase==="frei") $id("fPrompt").value=formats[0].bildprompt;
+  box.style.display="block";
+  box.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+
+/* ---------- Captions-Drawer (Copy vor Download) ---------- */
+document.body.insertAdjacentHTML("beforeend",
+  '<div class="sm-drawer" id="smDrawer">'+
+  '<div class="hd"><h3>Texte, Hashtags &amp; Export</h3><button class="sm-x" id="smDrawerX"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>'+
+  '<div class="bd" id="smDrawerBody"></div>'+
+  '<div class="ft"><button class="sm-dl" id="smBundle"><svg class="ic" viewBox="0 0 24 24" style="color:#fff"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/></svg> Download Bundle (ZIP)</button>'+
+  '<span class="hint" style="display:block;margin-top:8px;text-align:center">Alle Slides in allen gewählten Plattform-Größen (2× HQ) + Captions als Textdatei.</span></div></div>');
+
+function smCopyBtn(txt){
+  var b=document.createElement("button"); b.className="sm-copy"; b.textContent="Kopieren";
+  b.onclick=function(){
+    (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(function(){
+      b.textContent="Kopiert ✓"; setTimeout(function(){b.textContent="Kopieren";},1500);
+    }).catch(function(){ toast("Kopieren fehlgeschlagen"); });
+  };
+  return b;
+}
+function smSection(parent,label,text){
+  var s=document.createElement("div"); s.className="sm-sec";
+  var lb=document.createElement("div"); lb.className="lb";
+  var sp=document.createElement("span"); sp.textContent=label; lb.appendChild(sp); lb.appendChild(smCopyBtn(text));
+  var bx=document.createElement("div"); bx.className="sm-box"; bx.textContent=text;
+  s.appendChild(lb); s.appendChild(bx); parent.appendChild(s);
+}
+function smRenderDrawer(){
+  var bd=$id("smDrawerBody"); if(!bd) return;
+  bd.innerHTML="";
+  var t=window._smText, b=SOCIAL_BRANDS[window._smBrand]||SOCIAL_BRANDS.finnet;
+  var info=document.createElement("div"); info.className="hint"; info.style.marginBottom="14px";
+  info.textContent="Marke: "+b.label+(window._smFormat?(" · Format: "+(SM_FORMAT_LABELS[window._smFormat]||window._smFormat)):"");
+  bd.appendChild(info);
+  if(!t||!t.captions){
+    var e=document.createElement("div"); e.className="hint";
+    e.textContent="Noch keine Texte generiert. Im Reiter Social Media „Aus Text befüllen“ nutzen — dann stehen hier Captions und Hashtags mit Copy-Buttons.";
+    bd.appendChild(e); return;
+  }
+  var igTags=(t.hashtags&&t.hashtags.instagram||[]).join(" ");
+  var liTags=(t.hashtags&&t.hashtags.linkedin||[]).join(" ");
+  if(t.captions.instagram){
+    smSection(bd,"Instagram · Caption",t.captions.instagram);
+    if(igTags) smSection(bd,"Instagram · Hashtags",igTags);
+    smSection(bd,"Instagram · Komplett",t.captions.instagram+"\n\n"+igTags);
+  }
+  if(t.captions.linkedin){
+    smSection(bd,"LinkedIn · Caption (@-Tags prüfen)",t.captions.linkedin);
+    if(liTags) smSection(bd,"LinkedIn · Hashtags",liTags);
+    smSection(bd,"LinkedIn · Komplett",t.captions.linkedin+"\n\n"+liTags);
+  }
+}
+function smOpenDrawer(){ smRenderDrawer(); $id("smDrawer").classList.add("open"); }
+function smCloseDrawer(){ $id("smDrawer").classList.remove("open"); }
+$id("smDrawerX").onclick=smCloseDrawer;
+
+/* Editor-Toolbar-Button "Texte" */
+var spacer=document.querySelector("#editorView .toolbar .spacer");
+if(spacer){
+  var tb=document.createElement("button"); tb.className="tool"; tb.id="tTexts";
+  tb.innerHTML='<svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg> Texte &amp; Hashtags';
+  spacer.parentNode.insertBefore(tb,spacer);
+  tb.onclick=smOpenDrawer;
+}
+
+/* Nach der Generierung Drawer automatisch anbieten */
+var goBtn=$id("goStudio");
+if(goBtn && typeof goBtn.onclick==="function"){
+  var prevGo=goBtn.onclick;
+  goBtn.onclick=async function(){
+    if(!smSelectedPlatforms().length){ toast("Bitte mindestens eine Plattform anwählen"); return; }
+    await prevGo();
+    if(window._smText&&window._smText.captions) smOpenDrawer();
+  };
+}
+
+/* ---------- Download Bundle (ZIP) ---------- */
+async function smDownloadBundle(){
+  if(typeof JSZip==="undefined"){ toast("ZIP-Bibliothek nicht geladen — Internetverbindung prüfen"); return; }
+  if(typeof canvas==="undefined"||!canvas||!slides||!slides.length){ toast("Erst einen Post generieren"); return; }
+  var plats=smSelectedPlatforms();
+  if(!plats.length){ toast("Mindestens eine Plattform anwählen"); return; }
+  var btn=$id("smBundle"); btn.disabled=true; var old=btn.innerHTML; btn.textContent="Bundle wird gebaut …";
+  try{
+    var zip=new JSZip();
+    var b=SOCIAL_BRANDS[window._smBrand]||SOCIAL_BRANDS.finnet;
+    var base=(($id("fHead").value||"post").replace(/[^a-z0-9äöüß]+/gi,"_").replace(/^_+|_+$/g,"").slice(0,40))||"post";
+    snapshotCurrent();
+    var orig=current;
+    for(var i=0;i<slides.length;i++){
+      await showSlide(i);
+      await new Promise(function(r){ setTimeout(r,60); });
+      var hi=canvas.toDataURL({format:"png",multiplier:exportMult*2});
+      zip.file(b.id+"/"+base+"_slide"+(i+1)+"_master.png", hi.split(",")[1], {base64:true});
+      for(var k=0;k<plats.length;k++){
+        var p=plats[k];
+        var url=await fitToTarget(hi,p.w*2,p.h*2,"image/png");
+        zip.file(b.id+"/"+p.id+"/"+base+"_slide"+(i+1)+"_"+(p.w*2)+"x"+(p.h*2)+".png", url.split(",")[1], {base64:true});
+      }
+    }
+    await showSlide(orig>=0?orig:0);
+    var t=window._smText, lines=[];
+    lines.push("Marke: "+b.label);
+    if(window._smFormat) lines.push("Format: "+(SM_FORMAT_LABELS[window._smFormat]||window._smFormat));
+    lines.push("Erstellt: "+new Date().toLocaleString("de-DE"));
+    lines.push("");
+    if(t&&t.captions){
+      if(t.captions.instagram){ lines.push("=== INSTAGRAM CAPTION ==="); lines.push(t.captions.instagram); lines.push(""); lines.push("=== INSTAGRAM HASHTAGS ==="); lines.push((t.hashtags&&t.hashtags.instagram||[]).join(" ")); lines.push(""); }
+      if(t.captions.linkedin){ lines.push("=== LINKEDIN CAPTION (@-Tags vor dem Posten pruefen) ==="); lines.push(t.captions.linkedin); lines.push(""); lines.push("=== LINKEDIN HASHTAGS ==="); lines.push((t.hashtags&&t.hashtags.linkedin||[]).join(" ")); lines.push(""); }
+    } else {
+      lines.push("(Keine generierten Captions vorhanden — Felder wurden manuell befüllt.)");
+    }
+    zip.file(b.id+"/captions_und_hashtags.txt", lines.join("\n"));
+    var blob=await zip.generateAsync({type:"blob"});
+    var a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=b.id+"_"+base+"_bundle.zip";
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); },4000);
+    toast("Bundle heruntergeladen");
+  }catch(err){ toast("Bundle fehlgeschlagen: "+err.message,7000); }
+  btn.disabled=false; btn.innerHTML=old;
+}
+$id("smBundle").onclick=smDownloadBundle;
+
+/* ---------- Init ---------- */
+smApplyBrand("finnet");
+})();
 </script>
 </body>
 </html>
