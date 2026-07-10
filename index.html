@@ -896,12 +896,27 @@ const BRAND = { navy:"#0a1f44", accent:"#00935d", text:"#1a1a1a", muted:"#5f6b78
    zero:   Font Plus Jakarta Sans · Headline 50px (3-Zeiler vermeiden) · Subline 30px
            Snapping-Hilfslinien 80px nach innen · Logo 227.7x74.9px @ X772.1/Y80.2 (oben rechts) */
 function brandSpec(){
+  // WICHTIG: Yukis Schriftgrößen sind pt-Angaben -> Master-Pixel = pt * 4/3
+  // (an den Referenz-Slides nachgemessen: Headline ~77px, Subline ~43px auf 1080er-Master).
   const zero=(window._smBrand==="zero");
   return zero
-    ? { font:"Plus Jakarta Sans", headPx:50, subPx:30, inset:80,
+    ? { font:"Plus Jakarta Sans", headPx:Math.round(50*4/3), subPx:40, bodyPx:40, h2Px:Math.round(50*4/3), inset:80,
         logo:{ w:227.7, h:74.9, x:772.1, y:80.2 } }
-    : { font:"Poppins", headPx:58, subPx:32, inset:108,
+    : { font:"Poppins", headPx:77, subPx:43, bodyPx:40, h2Px:67, inset:108,
         logo:{ w:216.6, h:26.4, x:755.4, y:1213.5 } };
+}
+/* Referenz-Farben (finnet x Sourcera, nachgemessen) */
+const REF={ navy:"#09437a", text:"#1a1a1a", box:"#f0f2f6" };
+/* Chevron-Bullet-Icon wie im Referenzbild: navy Kreis mit weißem ">"-Pfeil */
+function makeChevron(cx,cy,d){
+  const r=d/2;
+  const circle=new fabric.Circle({left:0,top:0,radius:r,fill:REF.navy,originX:"center",originY:"center"});
+  const s=d*0.34; // Pfeilgröße relativ zum Kreis
+  const chev=new fabric.Polyline([{x:-s*0.35,y:-s},{x:s*0.55,y:0},{x:-s*0.35,y:s}],{
+    fill:"", stroke:"#ffffff", strokeWidth:Math.max(2,d*0.14), strokeLineCap:"round", strokeLineJoin:"round",
+    originX:"center",originY:"center", left:d*0.04, top:0
+  });
+  return new fabric.Group([circle,chev],{left:cx,top:cy,originX:"left",originY:"top",name:"marker",selectable:false,evented:false});
 }
 /* Logo-Platzierung nach Logo-ID (exakte Master-Koordinaten 1080x1350) */
 const LOGO_PLACE={ zero:{w:227.7,x:772.1,y:80.2}, _default:{w:216.6,x:755.4,y:1213.5} };
@@ -1311,11 +1326,15 @@ function buildCover(content){
   objs.push({kind:"image",src:content.bg,props:{name:"bg",selectable:true}});
   objs.push({kind:"backdrop",zone:{top:0.40,height:0.60}});
   if(curFmt==="4:5"){
-    // Exakte Positionen (Yuki, Master 1080x1350): Headline X108 Y864 B864, Subline X108 Y988.5 B864
+    // Positionen nach Yuki/Referenz (Master 1080x1350): Headline X108 Y864 B864.
+    // Subline dynamisch UNTER der Headline (bei 2-zeiliger Headline würde fixes Y988.5 kollidieren).
     const sx=W/1080, sy=H/1350;
-    objs.push({kind:"obj",obj:tHeadline(content.head,{left:108*sx,top:864*sy,width:864*sx,fontSize:spec.headPx*sx,fontFamily:spec.font})});
-    objs.push({kind:"obj",obj:new fabric.Textbox(content.sub,{left:108*sx,top:988.5*sy,width:864*sx,fontFamily:spec.font,fontWeight:600,fontSize:spec.subPx*sx,fill:"#ffffff",name:"subline"})});
-    objs.push({kind:"obj",obj:new fabric.Text("Bildquelle: KI-generiert",{left:108*sx,top:H-108*sy-18*sx,fontFamily:spec.font,fontSize:18*sx,fill:"rgba(255,255,255,0.72)",name:"credit"})});
+    const head=tHeadline(content.head,{left:108*sx,top:864*sy,width:864*sx,fontSize:spec.headPx*sx,fontFamily:spec.font,lineHeight:1.12});
+    head.initDimensions&&head.initDimensions();
+    const subTop=Math.max(988.5*sy, head.top+head.height+26*sy);
+    objs.push({kind:"obj",obj:head});
+    objs.push({kind:"obj",obj:new fabric.Textbox(content.sub,{left:108*sx,top:subTop,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.subPx*sx,fill:"#ffffff",name:"subline"})});
+    objs.push({kind:"obj",obj:new fabric.Text("Bildquelle: KI-generiert",{left:108*sx,top:H-70*sy-18*sx,fontFamily:spec.font,fontSize:18*sx,fill:"rgba(255,255,255,0.72)",name:"credit"})});
   } else if(curFmt==="9:16"){
     // FIX Story (9:16): Texte lagen zu tief und wurden von der Instagram-UI (Reply-Feld unten,
     // Profil/Buttons oben) abgeschnitten. Safe-Zone: oben ~250px, unten ~310px (Master 1080x1920).
@@ -1337,8 +1356,13 @@ function makeBackdrop(bgSrc, zone, mode){
   const W=DISP.w,H=DISP.h, top=H*zone.top, height=H*zone.height;
   if(mode==="clear") return Promise.resolve(null);
   if(mode==="scrim"){
-    const r=new fabric.Rect({left:0,top:top,width:W,height:height,name:"backdrop",selectable:false,evented:false});
-    r.set("fill",new fabric.Gradient({type:"linear",coords:{x1:0,y1:0,x2:0,y2:height},colorStops:[{offset:0,color:"rgba(0,0,0,0)"},{offset:0.55,color:"rgba(0,0,0,0.45)"},{offset:1,color:"rgba(0,0,0,0.84)"}]}));
+    // Referenz-Look (Yuki): navy-blauer Gradient statt schwarzem Scrim —
+    // läuft von transparent in dunkles Markenblau (unten ~rgb(15,35,60))
+    const r=new fabric.Rect({left:-1,top:top,width:W+2,height:H-top+1,name:"backdrop",selectable:false,evented:false});
+    r.set("fill",new fabric.Gradient({type:"linear",coords:{x1:0,y1:0,x2:0,y2:H-top},colorStops:[
+      {offset:0,color:"rgba(10,35,68,0)"},
+      {offset:0.45,color:"rgba(10,35,68,0.55)"},
+      {offset:1,color:"rgba(11,29,48,0.92)"}]}));
     return Promise.resolve(r);
   }
   // frosted: geblurrte Bildkopie, weich in die Textzone eingeblendet
@@ -1375,30 +1399,31 @@ function buildContent(content){
     // Exakte Positionen Slide 2 (Yuki, Master 1080x1350): Balken 1080x319.5, Headline X108 Y108 B864 / 50px, Bullets 30px
     const sx=W/1080, sy=H/1350;
     objs.push({kind:"obj",obj:new fabric.Rect({left:-1,top:-1,width:W+2,height:319.5*sy+1,fill:BRAND.navy,name:"headerbar",selectable:false,evented:false})});
-    objs.push({kind:"obj",obj:tHeadline(content.head,{left:108*sx,top:108*sy,width:864*sx,fontSize:50*sx,fontFamily:spec.font})});
+    objs.push({kind:"obj",obj:tHeadline(content.head,{left:108*sx,top:108*sy,width:864*sx,fontSize:spec.h2Px*sx,fontFamily:spec.font})});
     (content.bullets||[]).forEach((bt,i)=>{
-      const y=(430+i*195)*sy;   // enger: Bullets kompakt unter dem Balken statt weit gestreut
-      objs.push({kind:"obj",obj:new fabric.Triangle({left:81*sx,top:y+6*sy,width:28*sx,height:28*sx,angle:90,fill:"#8fa6c8",name:"marker",selectable:false,evented:false})});
-      objs.push({kind:"obj",obj:new fabric.Textbox(bt,{left:146*sx,top:y,width:826*sx,fontFamily:spec.font,fontWeight:500,fontSize:30*sx,fill:"#333333",lineHeight:1.25,name:"bullet"+(i+1)})});
+      const y=(430+i*195)*sy;
+      // Chevron-Icon (navy Kreis + weißer Pfeil) wie im Referenzbild, Text schwarz
+      objs.push({kind:"obj",obj:makeChevron(81*sx, y, 62*sx)});
+      objs.push({kind:"obj",obj:new fabric.Textbox(bt,{left:175*sx,top:y,width:797*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.bodyPx*sx,fill:REF.text,lineHeight:1.3,name:"bullet"+(i+1)})});
     });
   } else if(curFmt==="9:16"){
     // FIX Story (9:16): Headline saß in der oberen Instagram-UI-Zone (~250px) und wirkte abgeschnitten.
     // Balken beginnt bei 0, Text erst unterhalb der Safe-Zone; Bullets mittig in der nutzbaren Zone.
     const sx=W/1080, sy=H/1920;
     objs.push({kind:"obj",obj:new fabric.Rect({left:-1,top:-1,width:W+2,height:560*sy+1,fill:BRAND.navy,name:"headerbar",selectable:false,evented:false})});
-    objs.push({kind:"obj",obj:tHeadline(content.head,{left:108*sx,top:290*sy,width:864*sx,fontSize:50*sx,fontFamily:spec.font})});
+    objs.push({kind:"obj",obj:tHeadline(content.head,{left:108*sx,top:290*sy,width:864*sx,fontSize:spec.h2Px*sx,fontFamily:spec.font})});
     (content.bullets||[]).forEach((bt,i)=>{
       const y=(700+i*280)*sy;
-      objs.push({kind:"obj",obj:new fabric.Triangle({left:81*sx,top:y+6*sy,width:28*sx,height:28*sx,angle:90,fill:"#8fa6c8",name:"marker",selectable:false,evented:false})});
-      objs.push({kind:"obj",obj:new fabric.Textbox(bt,{left:146*sx,top:y,width:826*sx,fontFamily:spec.font,fontWeight:500,fontSize:30*sx,fill:"#333333",lineHeight:1.25,name:"bullet"+(i+1)})});
+      objs.push({kind:"obj",obj:makeChevron(81*sx, y, 62*sx)});
+      objs.push({kind:"obj",obj:new fabric.Textbox(bt,{left:175*sx,top:y,width:797*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.bodyPx*sx,fill:REF.text,lineHeight:1.3,name:"bullet"+(i+1)})});
     });
   } else {
     objs.push({kind:"obj",obj:new fabric.Rect({left:-1,top:-1,width:W+2,height:px(0.255,H)+1,fill:BRAND.navy,name:"headerbar",selectable:false,evented:false})});
     objs.push({kind:"obj",obj:tHeadline(content.head,{left:px(0.06,W),top:px(0.065,H),width:px(0.86,W),fontSize:px(0.056,W),fontFamily:spec.font})});
     (content.bullets||[]).forEach((bt,i)=>{
       const y=0.345+i*0.165;
-      objs.push({kind:"obj",obj:new fabric.Triangle({left:px(0.075,W),top:px(y+0.004,H),width:px(0.026,W),height:px(0.026,W),angle:90,fill:"#8fa6c8",name:"marker",selectable:false,evented:false})});
-      objs.push({kind:"obj",obj:new fabric.Textbox(bt,{left:px(0.135,W),top:px(y,H),width:px(0.80,W),fontFamily:spec.font,fontWeight:500,fontSize:px(0.036,W),fill:"#333333",lineHeight:1.25,name:"bullet"+(i+1)})});
+      objs.push({kind:"obj",obj:makeChevron(px(0.075,W),px(y,H),px(0.055,W))});
+      objs.push({kind:"obj",obj:new fabric.Textbox(bt,{left:px(0.16,W),top:px(y,H),width:px(0.78,W),fontFamily:spec.font,fontWeight:500,fontSize:px(0.036,W),fill:REF.text,lineHeight:1.3,name:"bullet"+(i+1)})});
     });
   }
   return {objs,logoDark:false};
@@ -1412,21 +1437,21 @@ function buildClosing(content){
     // Headline X108 Y595.2 B864 / 50px, Text 30px
     const sx=W/1080, sy=H/1350;
     objs.push({kind:"image",src:content.bg,props:{name:"image",selectable:true,_coverH:517.2*sy}});
-    objs.push({kind:"obj",obj:new fabric.Textbox(content.closeHead||content.head||"Fazit",{left:108*sx,top:595.2*sy,width:864*sx,fontFamily:spec.font,fontWeight:800,fontSize:50*sx,fill:BRAND.navy,name:"headline"})});
-    objs.push({kind:"obj",obj:new fabric.Textbox(content.close,{left:108*sx,top:730*sy,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:30*sx,fill:BRAND.muted,lineHeight:1.35,name:"body"})});
-    objs.push({kind:"obj",obj:new fabric.Text("Quelle: finanzen.net",{left:108*sx,top:H-108*sy-20*sx,fontFamily:spec.font,fontSize:20*sx,fill:BRAND.muted,name:"source"})});
+    objs.push({kind:"obj",obj:new fabric.Textbox(content.closeHead||content.head||"Fazit",{left:108*sx,top:595.2*sy,width:864*sx,fontFamily:spec.font,fontWeight:800,fontSize:spec.h2Px*sx,fill:REF.navy,name:"headline"})});
+    objs.push({kind:"obj",obj:new fabric.Textbox(content.close,{left:108*sx,top:730*sy,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.bodyPx*sx,fill:REF.text,lineHeight:1.3,name:"body"})});
+    objs.push({kind:"obj",obj:new fabric.Text("Quelle: finanzen.net",{left:108*sx,top:H-70*sy-20*sx,fontFamily:spec.font,fontSize:20*sx,fill:REF.text,name:"source"})});
   } else if(curFmt==="9:16"){
     // Story: Safe-Zones beachten (oben ~250px, unten ~310px auf 1920er-Master)
     const sx=W/1080, sy=H/1920;
     objs.push({kind:"image",src:content.bg,props:{name:"image",selectable:true,_coverH:820*sy}});
-    objs.push({kind:"obj",obj:new fabric.Textbox(content.closeHead||content.head||"Fazit",{left:108*sx,top:900*sy,width:864*sx,fontFamily:spec.font,fontWeight:800,fontSize:50*sx,fill:BRAND.navy,name:"headline"})});
-    objs.push({kind:"obj",obj:new fabric.Textbox(content.close,{left:108*sx,top:1110*sy,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:30*sx,fill:BRAND.muted,lineHeight:1.35,name:"body"})});
-    objs.push({kind:"obj",obj:new fabric.Text("Quelle: finanzen.net",{left:108*sx,top:H-310*sy-28*sx,fontFamily:spec.font,fontSize:20*sx,fill:BRAND.muted,name:"source"})});
+    objs.push({kind:"obj",obj:new fabric.Textbox(content.closeHead||content.head||"Fazit",{left:108*sx,top:900*sy,width:864*sx,fontFamily:spec.font,fontWeight:800,fontSize:spec.h2Px*sx,fill:REF.navy,name:"headline"})});
+    objs.push({kind:"obj",obj:new fabric.Textbox(content.close,{left:108*sx,top:1110*sy,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.bodyPx*sx,fill:REF.text,lineHeight:1.3,name:"body"})});
+    objs.push({kind:"obj",obj:new fabric.Text("Quelle: finanzen.net",{left:108*sx,top:H-310*sy-28*sx,fontFamily:spec.font,fontSize:20*sx,fill:REF.text,name:"source"})});
   } else {
     objs.push({kind:"image",src:content.bg,props:{name:"image",selectable:true,_coverH:px(0.50,H)}});
     objs.push({kind:"obj",obj:new fabric.Textbox(content.closeHead||content.head||"Fazit",{left:px(0.06,W),top:px(0.585,H),width:px(0.86,W),fontFamily:spec.font,fontWeight:800,fontSize:px(0.052,W),fill:BRAND.navy,name:"headline"})});
-    objs.push({kind:"obj",obj:new fabric.Textbox(content.close,{left:px(0.06,W),top:px(0.71,H),width:px(0.86,W),fontFamily:spec.font,fontWeight:500,fontSize:px(0.034,W),fill:BRAND.muted,lineHeight:1.35,name:"body"})});
-    objs.push({kind:"obj",obj:new fabric.Text("Quelle: finanzen.net",{left:px(0.06,W),top:px(0.95,H),fontFamily:spec.font,fontSize:px(0.020,W),fill:BRAND.muted,name:"source"})});
+    objs.push({kind:"obj",obj:new fabric.Textbox(content.close,{left:px(0.06,W),top:px(0.71,H),width:px(0.86,W),fontFamily:spec.font,fontWeight:500,fontSize:px(0.034,W),fill:REF.text,lineHeight:1.3,name:"body"})});
+    objs.push({kind:"obj",obj:new fabric.Text("Quelle: finanzen.net",{left:px(0.06,W),top:px(0.95,H),fontFamily:spec.font,fontSize:px(0.020,W),fill:REF.text,name:"source"})});
   }
   return {objs,logoDark:false};
 }
@@ -3097,7 +3122,7 @@ extractSocial = async function(txt){
   var sys="Du bist Social-Media-Redakteur bei "+b.label+" und schreibst professionelles, korrektes Deutsch mit Umlauten. Tonalität: "+b.ton+" Lies den Artikeltext und antworte NUR mit reinem JSON ohne Markdown. Schema: {"+
     "\"head\":\"prägnante Schlagzeile, max 55 Zeichen\","+
     "\"sub\":\"Unterzeile, max 110 Zeichen\","+
-    "\"bullets\":[\"drei Kernaussagen, je max 120 Zeichen\"],"+
+    "\"bullets\":[\"drei Kernaussagen, je max 120 Zeichen. WICHTIG: Die drei Punkte erzählen EINE zusammenhängende Geschichte mit rotem Faden (Was ist passiert -> Warum/Kontext -> Was bedeutet es), bauen aufeinander auf und beziehen sich direkt auf die Schlagzeile — keine zusammengewürfelten Einzelfakten\"],"+
     "\"close\":\"Schluss-Statement, max 140 Zeichen\","+
     "\"closeHead\":\"kurze Headline für die Schluss-Slide, max 40 Zeichen, inhaltlich zum Artikel passend, NICHT generisch\","+
     "\"brand\":\"die zentrale Firma oder Marke, sonst leerer String\","+
