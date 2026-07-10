@@ -1280,11 +1280,16 @@ $("connSave").onclick=async()=>{
    ============================================================ */
 let canvas=null, slides=[], current=-1, DISP={w:0,h:0}, exportMult=1;
 
+function _gcd(a,b){ return b?_gcd(b,a%b):a; }
 function dispDims(fmt){
+  // FIX weißer Rand (Yuki-Bundle): Anzeige-Canvas MUSS exakt im Format-Verhältnis sein.
+  // Vorher wurde die Höhe gerundet (587.5 -> 588), das 4:5-Verhältnis brach und der
+  // Export wurde 2160x2702 statt 2160x2700 -> 1-2px weiße Ränder auf Slide 2+3.
+  // Jetzt: ganzzahlige Maße als exaktes Vielfaches des gekürzten Verhältnisses (z.B. 4:5 -> 468x585).
   const f=FORMATS[fmt]; const maxW=470, maxH=Math.min(640, window.innerHeight-180);
-  const ratio=f.w/f.h; let w=maxW, h=maxW/ratio;
-  if(h>maxH){ h=maxH; w=maxH*ratio; }
-  return { w:Math.round(w), h:Math.round(h) };
+  const g=_gcd(f.w,f.h), rw=f.w/g, rh=f.h/g;
+  const units=Math.max(1, Math.floor(Math.min(maxW/rw, maxH/rh)));
+  return { w:units*rw, h:units*rh };
 }
 function px(p,dim){ return Math.round(p*dim); }
 
@@ -1364,14 +1369,15 @@ function makeBackdrop(bgSrc, zone, mode){
 function buildContent(content){
   const W=DISP.w,H=DISP.h,objs=[];
   const spec=brandSpec();
-  objs.push({kind:"obj",obj:new fabric.Rect({left:0,top:0,width:W,height:H,fill:"#ffffff",name:"bg",selectable:false,evented:false})});
+  // Bleed 1px gegen weiße Haarlinien an den Rändern (Rundung/Antialiasing beim Export)
+  objs.push({kind:"obj",obj:new fabric.Rect({left:-1,top:-1,width:W+2,height:H+2,fill:"#ffffff",name:"bg",selectable:false,evented:false})});
   if(curFmt==="4:5"){
     // Exakte Positionen Slide 2 (Yuki, Master 1080x1350): Balken 1080x319.5, Headline X108 Y108 B864 / 50px, Bullets 30px
     const sx=W/1080, sy=H/1350;
-    objs.push({kind:"obj",obj:new fabric.Rect({left:0,top:0,width:W,height:319.5*sy,fill:BRAND.navy,name:"headerbar",selectable:false,evented:false})});
+    objs.push({kind:"obj",obj:new fabric.Rect({left:-1,top:-1,width:W+2,height:319.5*sy+1,fill:BRAND.navy,name:"headerbar",selectable:false,evented:false})});
     objs.push({kind:"obj",obj:tHeadline(content.head,{left:108*sx,top:108*sy,width:864*sx,fontSize:50*sx,fontFamily:spec.font})});
     (content.bullets||[]).forEach((bt,i)=>{
-      const y=(465+i*225)*sy;
+      const y=(430+i*195)*sy;   // enger: Bullets kompakt unter dem Balken statt weit gestreut
       objs.push({kind:"obj",obj:new fabric.Triangle({left:81*sx,top:y+6*sy,width:28*sx,height:28*sx,angle:90,fill:"#8fa6c8",name:"marker",selectable:false,evented:false})});
       objs.push({kind:"obj",obj:new fabric.Textbox(bt,{left:146*sx,top:y,width:826*sx,fontFamily:spec.font,fontWeight:500,fontSize:30*sx,fill:"#333333",lineHeight:1.25,name:"bullet"+(i+1)})});
     });
@@ -1379,7 +1385,7 @@ function buildContent(content){
     // FIX Story (9:16): Headline saß in der oberen Instagram-UI-Zone (~250px) und wirkte abgeschnitten.
     // Balken beginnt bei 0, Text erst unterhalb der Safe-Zone; Bullets mittig in der nutzbaren Zone.
     const sx=W/1080, sy=H/1920;
-    objs.push({kind:"obj",obj:new fabric.Rect({left:0,top:0,width:W,height:560*sy,fill:BRAND.navy,name:"headerbar",selectable:false,evented:false})});
+    objs.push({kind:"obj",obj:new fabric.Rect({left:-1,top:-1,width:W+2,height:560*sy+1,fill:BRAND.navy,name:"headerbar",selectable:false,evented:false})});
     objs.push({kind:"obj",obj:tHeadline(content.head,{left:108*sx,top:290*sy,width:864*sx,fontSize:50*sx,fontFamily:spec.font})});
     (content.bullets||[]).forEach((bt,i)=>{
       const y=(700+i*280)*sy;
@@ -1387,7 +1393,7 @@ function buildContent(content){
       objs.push({kind:"obj",obj:new fabric.Textbox(bt,{left:146*sx,top:y,width:826*sx,fontFamily:spec.font,fontWeight:500,fontSize:30*sx,fill:"#333333",lineHeight:1.25,name:"bullet"+(i+1)})});
     });
   } else {
-    objs.push({kind:"obj",obj:new fabric.Rect({left:0,top:0,width:W,height:px(0.255,H),fill:BRAND.navy,name:"headerbar",selectable:false,evented:false})});
+    objs.push({kind:"obj",obj:new fabric.Rect({left:-1,top:-1,width:W+2,height:px(0.255,H)+1,fill:BRAND.navy,name:"headerbar",selectable:false,evented:false})});
     objs.push({kind:"obj",obj:tHeadline(content.head,{left:px(0.06,W),top:px(0.065,H),width:px(0.86,W),fontSize:px(0.056,W),fontFamily:spec.font})});
     (content.bullets||[]).forEach((bt,i)=>{
       const y=0.345+i*0.165;
@@ -1400,14 +1406,14 @@ function buildContent(content){
 function buildClosing(content){
   const W=DISP.w,H=DISP.h,objs=[];
   const spec=brandSpec();
-  objs.push({kind:"obj",obj:new fabric.Rect({left:0,top:0,width:W,height:H,fill:"#ffffff",name:"bg2",selectable:false,evented:false})});
+  objs.push({kind:"obj",obj:new fabric.Rect({left:-1,top:-1,width:W+2,height:H+2,fill:"#ffffff",name:"bg2",selectable:false,evented:false})});
   if(curFmt==="4:5"){
     // Exakte Positionen Slide 3 (Yuki, Master 1080x1350): Bild 1080x517.2 oben,
     // Headline X108 Y595.2 B864 / 50px, Text 30px
     const sx=W/1080, sy=H/1350;
     objs.push({kind:"image",src:content.bg,props:{name:"image",selectable:true,_coverH:517.2*sy}});
     objs.push({kind:"obj",obj:new fabric.Textbox(content.closeHead||content.head||"Fazit",{left:108*sx,top:595.2*sy,width:864*sx,fontFamily:spec.font,fontWeight:800,fontSize:50*sx,fill:BRAND.navy,name:"headline"})});
-    objs.push({kind:"obj",obj:new fabric.Textbox(content.close,{left:108*sx,top:790*sy,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:30*sx,fill:BRAND.muted,lineHeight:1.35,name:"body"})});
+    objs.push({kind:"obj",obj:new fabric.Textbox(content.close,{left:108*sx,top:730*sy,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:30*sx,fill:BRAND.muted,lineHeight:1.35,name:"body"})});
     objs.push({kind:"obj",obj:new fabric.Text("Quelle: finanzen.net",{left:108*sx,top:H-108*sy-20*sx,fontFamily:spec.font,fontSize:20*sx,fill:BRAND.muted,name:"source"})});
   } else if(curFmt==="9:16"){
     // Story: Safe-Zones beachten (oben ~250px, unten ~310px auf 1920er-Master)
@@ -1444,12 +1450,15 @@ function loadImageObj(src,props){
 }
 function _placeImageObj(img,props){
   const W=DISP.w,H=DISP.h;
+  // Bleed: Vollflächen-Bilder minimal überdimensionieren, damit beim Export
+  // keine weißen Haarlinien an den Rändern entstehen (Rundungs-/Antialiasing-Effekt).
+  const BL=1;
   if(props._coverH){
-    const t=props._coverH, s=Math.max(W/img.width, t/img.height); img.scale(s);
-    img.set({left:(W-img.getScaledWidth())/2,top:0,name:props.name||"image",selectable:true});
-    img.clipPath=new fabric.Rect({left:0,top:0,width:W,height:t,absolutePositioned:true});
+    const t=props._coverH, s=Math.max((W+2*BL)/img.width, (t+2*BL)/img.height); img.scale(s);
+    img.set({left:(W-img.getScaledWidth())/2,top:-BL,name:props.name||"image",selectable:true});
+    img.clipPath=new fabric.Rect({left:-BL,top:-BL,width:W+2*BL,height:t+2*BL,absolutePositioned:true});
   } else {
-    const s=Math.max(W/img.width,H/img.height); img.scale(s);
+    const s=Math.max((W+2*BL)/img.width,(H+2*BL)/img.height); img.scale(s);
     img.set({left:(W-img.getScaledWidth())/2,top:(H-img.getScaledHeight())/2,name:props.name||"bg",selectable:props.selectable!==false});
   }
 }
