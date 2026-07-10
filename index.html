@@ -1400,12 +1400,27 @@ function buildContent(content){
     const sx=W/1080, sy=H/1350;
     objs.push({kind:"obj",obj:new fabric.Rect({left:-1,top:-1,width:W+2,height:319.5*sy+1,fill:BRAND.navy,name:"headerbar",selectable:false,evented:false})});
     objs.push({kind:"obj",obj:tHeadline(content.head,{left:108*sx,top:108*sy,width:864*sx,fontSize:spec.h2Px*sx,fontFamily:spec.font})});
-    (content.bullets||[]).forEach((bt,i)=>{
-      const y=(430+i*195)*sy;
-      // Chevron-Icon (navy Kreis + weißer Pfeil) wie im Referenzbild, Text schwarz
-      objs.push({kind:"obj",obj:makeChevron(81*sx, y, 62*sx)});
-      objs.push({kind:"obj",obj:new fabric.Textbox(bt,{left:175*sx,top:y,width:797*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.bodyPx*sx,fill:REF.text,lineHeight:1.3,name:"bullet"+(i+1)})});
-    });
+    // FIX Überlagerung: Bullets dynamisch stapeln (gemessene Höhe + Abstand) statt festem 195px-Raster —
+    // 3-4-zeilige Bullets kollidierten sonst. Zusätzlich Schrift verkleinern, wenn es insgesamt nicht passt.
+    {
+      let y=430*sy; const gap=56*sy; const maxBottom=H-140*sy;
+      let fs=spec.bodyPx*sx;
+      const make=(size)=>{
+        return (content.bullets||[]).map((bt,i)=>{
+          const tb=new fabric.Textbox(bt,{left:175*sx,width:797*sx,fontFamily:spec.font,fontWeight:500,fontSize:size,fill:REF.text,lineHeight:1.3,name:"bullet"+(i+1)});
+          tb.initDimensions&&tb.initDimensions(); return tb;
+        });
+      };
+      let boxes=make(fs);
+      const total=(bs)=>bs.reduce((s,b)=>s+Math.max(b.height,62*sx),0)+gap*(bs.length-1);
+      let guard=14;
+      while(430*sy+total(boxes)>maxBottom && fs>spec.bodyPx*sx*0.72 && guard-->0){ fs-=1*sx; boxes=make(fs); }
+      boxes.forEach((tb)=>{
+        objs.push({kind:"obj",obj:makeChevron(81*sx, y, 62*sx)});
+        tb.set("top",y); objs.push({kind:"obj",obj:tb});
+        y+=Math.max(tb.height,62*sx)+gap;
+      });
+    }
   } else if(curFmt==="9:16"){
     // FIX Story (9:16): Headline saß in der oberen Instagram-UI-Zone (~250px) und wirkte abgeschnitten.
     // Balken beginnt bei 0, Text erst unterhalb der Safe-Zone; Bullets mittig in der nutzbaren Zone.
@@ -3229,7 +3244,7 @@ extractSocial = async function(txt){
   var sys="Du bist Social-Media-Redakteur bei "+b.label+" und schreibst professionelles, korrektes Deutsch mit Umlauten. Tonalität: "+b.ton+" Lies den Artikeltext und antworte NUR mit reinem JSON ohne Markdown. Schema: {"+
     "\"head\":\"prägnante Schlagzeile, max 55 Zeichen\","+
     "\"sub\":\"Unterzeile, max 110 Zeichen\","+
-    "\"bullets\":[\"drei Kernaussagen, je max 120 Zeichen. WICHTIG: Die drei Punkte erzählen EINE zusammenhängende Geschichte mit rotem Faden (Was ist passiert -> Warum/Kontext -> Was bedeutet es), bauen aufeinander auf und beziehen sich direkt auf die Schlagzeile — keine zusammengewürfelten Einzelfakten\"],"+
+    "\"bullets\":[\"drei Kernaussagen, je STRIKT max 100 Zeichen (harte Grenze, sonst Layout-Bruch). WICHTIG: Die drei Punkte erzählen EINE zusammenhängende Geschichte mit rotem Faden (Was ist passiert -> Warum/Kontext -> Was bedeutet es), bauen aufeinander auf und beziehen sich direkt auf die Schlagzeile — keine zusammengewürfelten Einzelfakten\"],"+
     "\"close\":\"Schluss-Statement, max 140 Zeichen\","+
     "\"closeHead\":\"kurze Headline für die Schluss-Slide, max 40 Zeichen, inhaltlich zum Artikel passend, NICHT generisch\","+
     "\"brand\":\"die zentrale Firma oder Marke, sonst leerer String\","+
@@ -3247,7 +3262,13 @@ extractSocial = async function(txt){
   var out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,9000)}]));
   if(out.head) $id("fHead").value=out.head;
   if(out.sub) $id("fSub").value=out.sub;
-  if(Array.isArray(out.bullets)){ $id("fB1").value=out.bullets[0]||""; $id("fB2").value=out.bullets[1]||""; $id("fB3").value=out.bullets[2]||""; }
+  // Harte Zeichengrenze pro Bullet (Layout-Schutz): bei Ueberlaenge am letzten Satz-/Wortende kappen
+  function smCap(t,n){ t=(t||"").trim(); if(t.length<=n) return t;
+    var cut=t.slice(0,n); var p=Math.max(cut.lastIndexOf(". "),cut.lastIndexOf(" \u2013 "),cut.lastIndexOf("; "));
+    if(p>n*0.5) return cut.slice(0,p+1).trim();
+    var sp=cut.lastIndexOf(" "); return (sp>n*0.6?cut.slice(0,sp):cut).trim()+" \u2026"; }
+  if(Array.isArray(out.bullets)){ out.bullets=out.bullets.map(function(b){return smCap(b,140);});
+    $id("fB1").value=out.bullets[0]||""; $id("fB2").value=out.bullets[1]||""; $id("fB3").value=out.bullets[2]||""; }
   if(out.close) $id("fClose").value=out.close;
   if(out.closeHead){ window._smCloseHead=out.closeHead; if($id("fCloseHead")) $id("fCloseHead").value=out.closeHead; }
   if(out.brand!=null){ $id("fBrand").value=out.brand; try{ curBrand=out.brand; }catch(e){} }
@@ -3484,6 +3505,44 @@ renderSlideTabs=function(){
     list.appendChild(txtBtn);
   });
 };
+
+/* ---------- Export PNG gruppen-bewusst: aktive Gruppe bestimmt Format & Größe ----------
+   FIX: In der Story-Gruppe exportierte der Button bisher das 4:5-Master (1080x1350 bzw. 1349) —
+   jetzt wird die Slide nativ im Story-Layout gerendert und exakt in Plattform-Größe (1080x1920) geladen. */
+var _exBtn=$id("tExport");
+if(_exBtn){
+  _exBtn.onclick=async function(){
+    try{
+      var isGraphic=(typeof slides!=="undefined")&&slides.length&&slides[0].type==="graphic";
+      var g=window._smActiveGroup;
+      var p=g?SM_PLATFORMS.find(function(x){return x.id===g;}):null;
+      if(isGraphic || !p || typeof canvas==="undefined" || !canvas){ return exportPNG(); }
+      var f=FORMATS[p.master], c=FORMATS[curFmt];
+      var base=(($id("fHead").value||"post").replace(/[^a-z0-9äöüß]+/gi,"_").replace(/^_+|_+$/g,"").slice(0,40))||"post";
+      snapshotCurrent();
+      if(Math.abs(f.w/f.h - c.w/c.h) < 0.01){
+        // gleiches Verhältnis: Master exportieren, exakt auf Plattform-Größe skalieren
+        var hi=canvas.toDataURL({format:"png",multiplier:exportMult});
+        var out=await fitToTarget(hi,p.w,p.h,"image/png");
+        var a=document.createElement("a"); a.href=out; a.download=base+"_slide"+(current+1)+"_"+p.w+"x"+p.h+".png"; a.click();
+        return;
+      }
+      // anderes Verhältnis (z.B. Story): Slide nativ im Zielformat neu rendern
+      var origFmt=curFmt, orig=current;
+      curFmt=p.master; DISP=dispDims(curFmt); exportMult=FORMATS[curFmt].w/DISP.w;
+      canvas.setWidth(DISP.w); canvas.setHeight(DISP.h);
+      await renderTemplate(slides[orig].type, slides[orig].content||window._content);
+      await new Promise(function(r){ setTimeout(r,60); });
+      var hi2=canvas.toDataURL({format:"png",multiplier:exportMult});
+      var out2=await fitToTarget(hi2,p.w,p.h,"image/png");
+      var a2=document.createElement("a"); a2.href=out2; a2.download=base+"_slide"+(orig+1)+"_"+p.w+"x"+p.h+".png"; a2.click();
+      // Master wiederherstellen
+      curFmt=origFmt; DISP=dispDims(curFmt); exportMult=FORMATS[curFmt].w/DISP.w;
+      canvas.setWidth(DISP.w); canvas.setHeight(DISP.h);
+      current=-1; await showSlide(orig>=0?orig:0);
+    }catch(e){ toast("Export fehlgeschlagen: "+e.message,6000); }
+  };
+}
 
 /* Editor-Toolbar-Button "Texte": öffnet jetzt das Center-Panel der aktiven Gruppe (kein Overlay über den Editor-Funktionen) */
 var spacer=document.querySelector("#editorView .toolbar .spacer");
