@@ -896,13 +896,15 @@ const BRAND = { navy:"#0a1f44", accent:"#00935d", text:"#1a1a1a", muted:"#5f6b78
    zero:   Font Plus Jakarta Sans · Headline 50px (3-Zeiler vermeiden) · Subline 30px
            Snapping-Hilfslinien 80px nach innen · Logo 227.7x74.9px @ X772.1/Y80.2 (oben rechts) */
 function brandSpec(){
-  // WICHTIG: Yukis Schriftgrößen sind pt-Angaben -> Master-Pixel = pt * 4/3
-  // (an den Referenz-Slides nachgemessen: Headline ~77px, Subline ~43px auf 1080er-Master).
+  // BESTÄTIGT (Yuki 10.07., Canva-Screenshot): Größen sind Canva-pt -> Master-Pixel = pt * 4/3.
+  // finnet: Headline 60pt=80px (3-Zeiler vermeiden), Subline 32pt≈43px (eine Zeile),
+  //         Slide-2/3-Headline 50pt≈67px, Body/Bullets 30pt=40px.
+  // ZERO:   Headline 50pt≈67px (3-Zeiler vermeiden), Subline 30pt=40px (3-Zeiler vermeiden).
   const zero=(window._smBrand==="zero");
   return zero
     ? { font:"Plus Jakarta Sans", headPx:Math.round(50*4/3), subPx:40, bodyPx:40, h2Px:Math.round(50*4/3), inset:80,
         logo:{ w:227.7, h:74.9, x:772.1, y:80.2 } }
-    : { font:"Poppins", headPx:77, subPx:43, bodyPx:40, h2Px:67, inset:108,
+    : { font:"Poppins", headPx:80, subPx:43, bodyPx:40, h2Px:67, inset:108,
         logo:{ w:216.6, h:26.4, x:755.4, y:1213.5 } };
 }
 /* Referenz-Farben (finnet x Sourcera, nachgemessen) */
@@ -1675,13 +1677,15 @@ async function renderTemplate(type,content){
   // "Kein Logo" => kein Logo zeichnen
   _fitTextLines();  // Vorgabe Yuki: Headline max 2 Zeilen, Subline (Cover) 1 Zeile
 }
-/* Headline auf max. 2 Zeilen, Cover-Subline auf 1 Zeile einschränken:
+/* Zeilen-Regeln (Yuki): Headline max. 2 Zeilen (3-Zeiler vermeiden);
+   Subline finnet = 1 Zeile, ZERO = max. 2 Zeilen (3-Zeiler vermeiden).
    Schriftgröße schrittweise verkleinern (nie unter 70% der Vorgabe). */
 function _fitTextLines(){
   if(!canvas) return;
+  const subMax=(window._smBrand==="zero")?2:1;
   canvas.getObjects().forEach(o=>{
     if(o.type!=="textbox") return;
-    const maxLines = o.name==="headline" ? 2 : (o.name==="subline" ? 1 : 0);
+    const maxLines = o.name==="headline" ? 2 : (o.name==="subline" ? subMax : 0);
     if(!maxLines) return;
     const minFs=Math.round(o.fontSize*0.7);
     let guard=40;
