@@ -1326,17 +1326,15 @@ function buildCover(content){
   objs.push({kind:"image",src:content.bg,props:{name:"bg",selectable:true}});
   objs.push({kind:"backdrop",zone:{top:0.40,height:0.60}});
   if(curFmt==="4:5"){
-    // Positionen aus Referenz "finnet x Sourcera" reverse-engineered (Apple/BMW Slide 1, Master 1080x1350):
-    // Subline-Block Y998–1032 (Unterkante fix ~1032), Headline dar über Y779–935.
-    // => Bottom-Anchoring: Subline-Unterkante fix, Headline wächst nach OBEN (1- wie 2-Zeiler korrekt).
+    // KORRIGIERTE Positionen (Yuki/Christian 10.07., Master 1080x1350):
+    // Headline startet an Hilfslinie X108/Y763 (Box 864x178), Subline startet an X108/Y996.
+    // Beide Werte sind STARTPUNKTE (Oberkante ab Hilfslinie), fest verankert.
     const sx=W/1080, sy=H/1350;
-    const sub=new fabric.Textbox(content.sub,{left:108*sx,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.subPx*sx,fill:"#ffffff",lineHeight:1.25,name:"subline"});
-    sub.initDimensions&&sub.initDimensions();
-    const subBottom=1032*sy;
-    sub.set("top", subBottom - sub.height);
-    const head=tHeadline(content.head,{left:108*sx,width:864*sx,fontSize:spec.headPx*sx,fontFamily:spec.font,lineHeight:1.12});
+    const head=tHeadline(content.head,{left:108*sx,top:763*sy,width:864*sx,fontSize:spec.headPx*sx,fontFamily:spec.font,lineHeight:1.12});
     head.initDimensions&&head.initDimensions();
-    head.set("top", sub.top - 55*sy - head.height);   // Referenz-Lücke Headline-Ende (935) -> Subline-Start (998)
+    // Schutz: 3+-zeilige Headline würde über Y996 laufen -> Schrift minimal verkleinern, bis sie in die 178px+Puffer passt
+    { let g=14; while(head.height>226*sy && head.fontSize>spec.headPx*sx*0.75 && g-->0){ head.set("fontSize",head.fontSize-1); head.initDimensions(); } }
+    const sub=new fabric.Textbox(content.sub,{left:108*sx,top:996*sy,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.subPx*sx,fill:"#ffffff",lineHeight:1.25,name:"subline"});
     objs.push({kind:"obj",obj:head});
     objs.push({kind:"obj",obj:sub});
     objs.push({kind:"obj",obj:new fabric.Text("Bildquelle: KI-generiert",{left:108*sx,top:H-70*sy-18*sx,fontFamily:spec.font,fontSize:18*sx,fill:"rgba(255,255,255,0.72)",name:"credit"})});
@@ -1589,9 +1587,31 @@ const SERIES_MAP={
   z3:[["Cover","cover"],["Zitat","quote"],["Info","textinfo"]],
   d4:[["Cover","cover"],["Kernpunkte","content"],["Info","textinfo"],["Fazit","closing"]]
 };
+const IMG_SLIDE_TYPES=["cover","closing","quote"];  // Slide-Typen, die ein Bild verwenden
 function seriesSlides(content){
   const plan=SERIES_MAP[window._smSeries]||SERIES_MAP.k3;
-  return plan.map(([name,type])=>({name,type,content,json:null,thumb:null,backdrop:(type==="cover"||type==="quote")?"scrim":"clear"}));
+  // Jede Bild-Slide bekommt einen EIGENEN content-Klon (für ihr uniques Bild);
+  // Text-Slides teilen sich das gemeinsame content-Objekt.
+  return plan.map(([name,type])=>{
+    const c=IMG_SLIDE_TYPES.includes(type) ? Object.assign({},content) : content;
+    return {name,type,content:c,json:null,thumb:null,backdrop:(type==="cover"||type==="quote")?"scrim":"clear"};
+  });
+}
+/* Unique Bilder je Bild-Slide: gleiche Bildwelt, aber pro Slide eine andere Szene/Perspektive */
+const SLIDE_IMG_VARIATION={
+  cover:"",
+  quote:" Different scene from the same visual world: focus on a person or human presence related to the topic (e.g. speaker, executive, trader), calm background, NOT the same composition as before.",
+  closing:" Different scene from the same visual world: alternative perspective or detail shot (close-up, interior, product detail), clearly distinct composition from the previous images."
+};
+async function generateSlideImages(content){
+  const imgSlides=slides.filter(s=>IMG_SLIDE_TYPES.includes(s.type));
+  for(let k=0;k<imgSlides.length;k++){
+    const s=imgSlides[k];
+    if(k===0){ s.content.bg=content.bg; continue; }   // Slide 1 nutzt das bereits generierte Bild
+    const varPrompt=(content.prompt||"")+(SLIDE_IMG_VARIATION[s.type]||" Different scene, alternative composition.");
+    try{ s.content.bg=await generateImage(varPrompt,curFmt,Math.floor(Math.random()*99999)+k*7+2,s.type==="quote"?"content":s.type); }
+    catch(e){ s.content.bg=makePlaceholder(curTheme,FORMATS[curFmt].w,FORMATS[curFmt].h,k*31+7,s.type); }
+  }
 }
 
 function loadImageObj(src,props){
@@ -2064,6 +2084,9 @@ $("goStudio").onclick=async()=>{
   canvas.setWidth(DISP.w); canvas.setHeight(DISP.h);
 
   slides=seriesSlides(content);   // Slide-Plan aus der gewählten Serie (k3/k2/z3/d4)
+  // Unique Bilder für weitere Bild-Slides generieren (Slide 1 nutzt das erste Bild)
+  const nImg=slides.filter(s=>IMG_SLIDE_TYPES.includes(s.type)).length;
+  if(nImg>1){ showLoading("Weitere Bilder werden erstellt", nImg-1+" zusätzliche" + (nImg-1===1?"s":"") + " Motiv"+(nImg-1===1?"":"e")+" zum Thema"); await generateSlideImages(content); }
   current=-1; await showSlide(0);
   hideLoading();
   if(genErr && isLive()){ toast("KI-Bild fehlgeschlagen, Platzhalter aktiv. "+genErr, 7000); }
@@ -3328,7 +3351,7 @@ extractSocial = async function(txt){
     "\"prompt\":\"kurzer englischer Bild-Prompt für ein passendes Hintergrundfoto ohne Text und ohne Logos\","+
     "\"formats\":[maximal 3 Vorschlaege, jeweils {\"key\":\"news|quartalszahlen|vergleich|zitat\",\"grund\":\"1 Satz warum dieses Format passt\",\"bildprompt\":\"englischer Bild-Prompt passend zum Format, ohne Text im Bild\"}] sortiert nach Eignung,"+
     "\"captions\":{\"instagram\":\"fertige Instagram-Caption im Markenton mit Absätzen. Der Abschluss ergibt sich aus dem Artikel (Einordnung, Ausblick oder kurze Frage an die Community) — KEIN generischer Standard-CTA\",\"linkedin\":\"fertige LinkedIn-Caption, sachlicher und länger, WICHTIG: vor JEDEM Firmennamen ein @ (z.B. @Apple, @NVIDIA), Frage oder Einordnung am Ende\"},"+
-    "\"story\":{\"text\":\"kurzer knackiger Story-Text, max 200 Zeichen, für ein Text-Overlay auf der Instagram Story\",\"cta\":\"Call-to-Action für die Story, max 60 Zeichen (z.B. Mehr dazu im Link)\",\"link_text\":\"Text für den Link-Sticker, max 30 Zeichen (z.B. Zur Analyse)\",\"umfrage\":\"optionale Idee für einen Umfrage-Sticker als Frage mit 2 Antwortoptionen, sonst leerer String\"},"+
+    "\"story\":{\"text\":\"kurzer knackiger Story-Text, max 200 Zeichen, für ein Text-Overlay auf der Instagram Story — KEIN Call-to-Action, KEIN Link-Hinweis\",\"umfrage\":\"optionale Idee für einen Umfrage-Sticker als Frage mit 2 Antwortoptionen, sonst leerer String\"},"+
     "\"textstyle\":\"hook|trader|info \u2014 der verwendete Textstil\","+
     "\"series\":{\"key\":\"k3|k2|z3|d4 — welche Slide-Serie am besten passt: k3=Karussell klassisch 3 Slides (Standard-News), k2=Kompakt 2 Slides (kurze Meldung, wenig Substanz), z3=Zitat-Story 3 Slides (NUR wenn ein starkes wörtliches Zitat einer Person im Artikel steht), d4=Deep Dive 4 Slides (komplexes Thema mit viel Substanz)\",\"grund\":\"1 kurzer Satz warum\"},"+
     "\"quote\":{\"text\":\"das stärkste wörtliche Zitat aus dem Artikel OHNE Anführungszeichen, max 160 Zeichen, sonst leerer String\",\"name\":\"Person des Zitats\",\"role\":\"Rolle, z.B. CEO von Apple\"},"+
@@ -3531,14 +3554,12 @@ function smShowCenterPanel(groupId){
     tt.textContent="Instagram Story — Bausteine";
     var any=false;
     if(story.text){ smCSection(bd,"Story-Text (Text-Overlay)",story.text); any=true; }
-    if(story.cta){ smCSection(bd,"Call-to-Action",story.cta); any=true; }
-    if(story.link_text){ smCSection(bd,"Link-Sticker-Text",story.link_text); any=true; }
     if(story.umfrage){ smCSection(bd,"Umfrage-Sticker (Idee)",story.umfrage); any=true; }
     if(igTags){ smCSection(bd,"Hashtags (max. 5, als Sticker oder klein platzieren)",igTags); any=true; }
     if(caps.instagram){ smCSection(bd,"Fallback: Insta-Caption (falls Story-Text fehlt)",caps.instagram); any=true; }
     if(!any) none();
     var tip=document.createElement("div"); tip.className="hint"; tip.style.marginTop="6px";
-    tip.textContent="Tipp: Story-Text als Overlay in Instagram setzen, Link-Sticker mit dem Artikel-Link verknüpfen, CTA in die untere Bildhälfte (über der Reply-Zone).";
+    tip.textContent="Tipp: Story-Text als Overlay in Instagram setzen, unterhalb der oberen und oberhalb der unteren UI-Zone platzieren.";
     bd.appendChild(tip);
   }
   cp.classList.add("show");
