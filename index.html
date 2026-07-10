@@ -1461,7 +1461,17 @@ function buildClosing(content){
     const clHead=new fabric.Textbox(content.closeHead||content.head||"Fazit",{left:108*sx,top:595.2*sy,width:864*sx,fontFamily:spec.font,fontWeight:800,fontSize:spec.h2Px*sx,fill:REF.navy,lineHeight:1.12,name:"headline"});
     clHead.initDimensions&&clHead.initDimensions();
     objs.push({kind:"obj",obj:clHead});
-    objs.push({kind:"obj",obj:new fabric.Textbox(content.close,{left:108*sx,top:clHead.top+clHead.height+42*sy,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.bodyPx*sx,fill:REF.text,lineHeight:1.3,name:"body"})});
+    // Overflow-Schutz: Body darf nicht in die Quelle laufen -> erst verkleinern, dann satzweise kürzen
+    {
+      const bodyTop=clHead.top+clHead.height+42*sy, bodyMax=1216*sy-40*sy;
+      let bfs=spec.bodyPx*sx, btxt=content.close||"";
+      const mk=(f,t)=>{ const tb=new fabric.Textbox(t,{left:108*sx,top:bodyTop,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:f,fill:REF.text,lineHeight:1.3,name:"body"}); tb.initDimensions&&tb.initDimensions(); return tb; };
+      let tb=mk(bfs,btxt), guard=12;
+      while(bodyTop+tb.height>bodyMax && bfs>spec.bodyPx*sx*0.75 && guard-->0){ bfs-=1*sx; tb=mk(bfs,btxt); }
+      guard=6;
+      while(bodyTop+tb.height>bodyMax && btxt.length>60 && guard-->0){ btxt=smartShorten(btxt,Math.floor(btxt.length*0.8)); tb=mk(bfs,btxt); }
+      objs.push({kind:"obj",obj:tb});
+    }
     // "Quelle:" auf einer Linie mit der visuellen Unterkante des Logos (Logo Y1213.5 + H26.4 => Unterkante ~1239.9)
     objs.push({kind:"obj",obj:new fabric.Text("Quelle: finanzen.net",{left:108*sx,top:1216*sy,fontFamily:spec.font,fontSize:20*sx,fill:REF.text,name:"source"})});
   } else if(curFmt==="9:16"){
@@ -1505,6 +1515,17 @@ function buildQuote(content){
   return {objs,logoDark:true};
 }
 /* ---------- Info-Slide (Referenz: EZB/BMW/OpenAI Slide 2/3): Headline + Einordnung + Chevron + abgerundete Box ---------- */
+/* Satz-bewusstes Kürzen: schneidet am letzten vollständigen Satz, nie mitten im Wort */
+function smartShorten(t,maxChars){
+  t=(t||"").trim(); if(t.length<=maxChars) return t;
+  const cut=t.slice(0,maxChars);
+  const pEnd=Math.max(cut.lastIndexOf(". "),cut.lastIndexOf("! "),cut.lastIndexOf("? "));
+  if(pEnd>maxChars*0.45) return cut.slice(0,pEnd+1).trim();
+  const pSoft=Math.max(cut.lastIndexOf(" \u2013 "),cut.lastIndexOf("; "),cut.lastIndexOf(", "));
+  if(pSoft>maxChars*0.55) return cut.slice(0,pSoft).trim()+" \u2026";
+  const sp=cut.lastIndexOf(" ");
+  return (sp>maxChars*0.6?cut.slice(0,sp):cut).trim()+" \u2026";
+}
 function buildTextInfo(content){
   const W=DISP.w,H=DISP.h,objs=[];
   const spec=brandSpec(); const sx=W/1080;
@@ -1513,29 +1534,48 @@ function buildTextInfo(content){
   const headTxt=content.closeHead||content.head||"";
   const introTxt=content.intro||bl[0]||"";
   const bulletTxt=bl[1]||content.close||"";
-  const boxTxt=content.box||bl[2]||"";
-  let y=(curFmt==="9:16") ? (250/1920)*H+40*sx : 108*sx;
-  const head=new fabric.Textbox(headTxt,{left:108*sx,top:y,width:864*sx,fontFamily:spec.font,fontWeight:800,fontSize:spec.h2Px*sx,fill:REF.navy,lineHeight:1.12,name:"headline"});
-  head.initDimensions&&head.initDimensions(); objs.push({kind:"obj",obj:head});
-  y+=head.height+46*sx;
-  if(introTxt){
-    const intro=new fabric.Textbox(introTxt,{left:108*sx,top:y,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.bodyPx*sx,fill:REF.text,lineHeight:1.3,name:"intro"});
-    intro.initDimensions&&intro.initDimensions(); objs.push({kind:"obj",obj:intro});
-    y+=intro.height+54*sx;
-  }
-  if(bulletTxt){
-    objs.push({kind:"obj",obj:makeChevron(81*sx,y,62*sx)});
-    const bt=new fabric.Textbox(bulletTxt,{left:175*sx,top:y,width:797*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.bodyPx*sx,fill:REF.text,lineHeight:1.3,name:"bullet1"});
-    bt.initDimensions&&bt.initDimensions(); objs.push({kind:"obj",obj:bt});
-    y+=Math.max(bt.height,62*sx)+54*sx;
-  }
-  if(boxTxt){
-    const btx=new fabric.Textbox(boxTxt,{left:148*sx,top:y+40*sx,width:784*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.bodyPx*sx,fill:REF.text,lineHeight:1.3,name:"boxtext"});
-    btx.initDimensions&&btx.initDimensions();
-    const box=new fabric.Rect({left:108*sx,top:y,width:864*sx,height:btx.height+80*sx,rx:24*sx,ry:24*sx,fill:"#f0f2f6",name:"box",selectable:false,evented:false});
-    objs.push({kind:"obj",obj:box}); objs.push({kind:"obj",obj:btx});
-  }
+  let boxTxt=content.box||bl[2]||"";
+  const topY=(curFmt==="9:16") ? (250/1920)*H+40*sx : 108*sx;
   const srcTop=(curFmt==="9:16") ? H-(310/1920)*H-26*sx : H-136*sx;
+  const maxBottom=srcTop-40*sx;   // Inhalt muss klar OBERHALB der Quelle enden
+  // Layout bei gegebener Schriftgröße aufbauen und Gesamthöhe messen
+  function layout(fs,boxText){
+    const items=[]; let y=topY;
+    const head=new fabric.Textbox(headTxt,{left:108*sx,top:y,width:864*sx,fontFamily:spec.font,fontWeight:800,fontSize:spec.h2Px*sx,fill:REF.navy,lineHeight:1.12,name:"headline"});
+    head.initDimensions&&head.initDimensions(); items.push({kind:"obj",obj:head});
+    y+=head.height+46*sx;
+    if(introTxt){
+      const intro=new fabric.Textbox(introTxt,{left:108*sx,top:y,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:fs,fill:REF.text,lineHeight:1.3,name:"intro"});
+      intro.initDimensions&&intro.initDimensions(); items.push({kind:"obj",obj:intro});
+      y+=intro.height+50*sx;
+    }
+    if(bulletTxt){
+      items.push({kind:"obj",obj:makeChevron(81*sx,y,62*sx)});
+      const bt=new fabric.Textbox(bulletTxt,{left:175*sx,top:y,width:797*sx,fontFamily:spec.font,fontWeight:500,fontSize:fs,fill:REF.text,lineHeight:1.3,name:"bullet1"});
+      bt.initDimensions&&bt.initDimensions(); items.push({kind:"obj",obj:bt});
+      y+=Math.max(bt.height,62*sx)+50*sx;
+    }
+    if(boxText){
+      const btx=new fabric.Textbox(boxText,{left:148*sx,top:y+40*sx,width:784*sx,fontFamily:spec.font,fontWeight:500,fontSize:fs,fill:REF.text,lineHeight:1.3,name:"boxtext"});
+      btx.initDimensions&&btx.initDimensions();
+      const box=new fabric.Rect({left:108*sx,top:y,width:864*sx,height:btx.height+80*sx,rx:24*sx,ry:24*sx,fill:"#f0f2f6",name:"box",selectable:false,evented:false});
+      items.push({kind:"obj",obj:box}); items.push({kind:"obj",obj:btx});
+      y+=btx.height+80*sx;
+    }
+    return {items,bottom:y};
+  }
+  // FIX Überlauf in "Quelle:": erst Schrift schrittweise verkleinern (bis -25%),
+  // reicht das nicht, Box-Text satzweise sinnvoll kürzen (nie hart abschneiden).
+  let fs=spec.bodyPx*sx;
+  let res=layout(fs,boxTxt);
+  let guard=12;
+  while(res.bottom>maxBottom && fs>spec.bodyPx*sx*0.75 && guard-->0){ fs-=1*sx; res=layout(fs,boxTxt); }
+  guard=6;
+  while(res.bottom>maxBottom && boxTxt.length>80 && guard-->0){
+    boxTxt=smartShorten(boxTxt, Math.floor(boxTxt.length*0.8));
+    res=layout(fs,boxTxt);
+  }
+  res.items.forEach(it=>objs.push(it));
   objs.push({kind:"obj",obj:new fabric.Text("Quelle: finanzen.net",{left:108*sx,top:srcTop,fontFamily:spec.font,fontSize:20*sx,fill:REF.text,name:"source"})});
   return {objs,logoDark:false};
 }
@@ -3122,6 +3162,18 @@ if(lock){
    '<span class="hint" style="display:block;margin-top:8px">Steuert Markenfarbe, Logo, Tonalität der Captions und Hashtags.</span>'+
    '</div>');
 }
+/* ---------- Textstil-Auswahl (Hook / Trader / Info) mit Auto-Select + Neu-Generieren ---------- */
+window._smTextStyle="auto";
+window.SM_TEXTSTYLES={
+  auto:{ label:"Auto (Claude w\u00e4hlt)", desc:"Claude w\u00e4hlt den passenden Stil anhand des Artikels.", prompt:"" },
+  hook:{ label:"Hook / Aufmerksamkeit", desc:"Zugespitzt und neugierig machend \u2014 die \u00fcberraschendste Zahl zuerst, Spannungsbogen \u00fcber die Slides.",
+    prompt:"STIL: HOOK. Formuliere zugespitzt und neugierig machend: die \u00fcberraschendste oder gr\u00f6\u00dfte Zahl zuerst, klare Spannung (Gegensatz, Wendung, trotz/obwohl), kurze kraftvolle S\u00e4tze. Kein Clickbait ohne Substanz \u2014 jede Zuspitzung muss durch einen Fakt aus dem Artikel gedeckt sein." },
+  trader:{ label:"Trader / Zahlen-Fokus", desc:"Kurse, Kursziele, Prozentbewegungen, Termine \u2014 maximale Zahlendichte f\u00fcr aktive Anleger.",
+    prompt:"STIL: TRADER. Maximale Zahlendichte f\u00fcr aktive Anleger: Kursbewegungen, Kursziele mit Analystenhaus, Prozentwerte, Bewertungen, konkrete Termine (Earnings, Entscheidungen). Jeder Bullet enth\u00e4lt mindestens zwei konkrete Zahlen/Daten. Marktreaktion und Einordnung zum Kurs zuerst." },
+  info:{ label:"Info / Erkl\u00e4rend", desc:"Ruhig und einordnend \u2014 Hintergr\u00fcnde verst\u00e4ndlich erkl\u00e4rt, auch f\u00fcr Einsteiger.",
+    prompt:"STIL: INFO. Ruhig, einordnend, erkl\u00e4rend: Zusammenh\u00e4nge und Hintergr\u00fcnde so erkl\u00e4ren, dass auch Einsteiger folgen k\u00f6nnen. Fachbegriffe kurz aufl\u00f6sen (z.B. Kontingentierung, also Zuteilung knapper Ware). Ein Fakt pro Bullet reicht, daf\u00fcr sauber eingeordnet." }
+};
+
 /* ---------- Slide-Serien-Auswahl (aus Referenz "finnet x Sourcera" abgeleitet) ---------- */
 window.SM_SERIES_DEF={
   k3:{ label:"Karussell klassisch (3 Slides)", desc:"Cover mit Bild + Kernpunkte-Slide + Fazit mit Bild. Der Standard für News-Themen.", n:3 },
@@ -3172,6 +3224,21 @@ if($id("fClose")){
 }
 var auto=$id("auto-social");
 if(auto){
+  // Textstil-Auswahl: Auto (Claude waehlt) + Hook/Trader/Info, mit Neu-Generieren nach Umwahl
+  var stHtml='<div style="margin-top:14px"><label class="lab" style="margin-top:0">Textstil</label><div class="sm-sug" id="smStyleList" style="grid-template-columns:1fr 1fr">';
+  Object.entries(SM_TEXTSTYLES).forEach(function(e){
+    stHtml+='<div class="sm-sug-card'+(e[0]==="auto"?" on":"")+'" data-style="'+e[0]+'"><div class="t">'+e[1].label+'</div><div class="g">'+e[1].desc+'</div></div>';
+  });
+  stHtml+='</div><div class="row" style="margin-top:10px;display:none" id="smRegenRow"><button class="btn btn-primary" id="smRegen" data-nolock><svg class="ic" viewBox="0 0 24 24" style="color:#fff"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg> Texte mit diesem Stil neu generieren</button><span class="hint" data-nolock>Felder werden mit dem gew\u00e4hlten Stil neu bef\u00fcllt.</span></div></div>';
+  auto.insertAdjacentHTML("beforeend", stHtml);
+  document.querySelectorAll("#smStyleList .sm-sug-card").forEach(function(c){
+    c.addEventListener("click",function(){
+      document.querySelectorAll("#smStyleList .sm-sug-card").forEach(function(x){x.classList.remove("on");});
+      c.classList.add("on"); window._smTextStyle=c.dataset.style;
+      // Nach der ersten Generierung: Umwahl zeigt den Neu-Generieren-Button
+      var rr=$id("smRegenRow"); if(rr && window._smText) rr.style.display="flex";
+    });
+  });
   auto.insertAdjacentHTML("beforeend",
     '<div id="smSug" style="display:none;margin-top:14px">'+
     '<label class="lab" style="margin-top:0">Formatvorschläge — eins auswählen, dann generieren</label>'+
@@ -3246,7 +3313,11 @@ var SM_FORMAT_LABELS={ news:"Klassisches News-Format", quartalszahlen:"Quartalsz
 extractSocial = async function(txt){
   txt=smSanitize(txt);
   var b=SOCIAL_BRANDS[window._smBrand]||SOCIAL_BRANDS.finnet;
-  var sys="Du bist Social-Media-Redakteur bei "+b.label+" und schreibst professionelles, korrektes Deutsch mit Umlauten. Tonalität: "+b.ton+" Lies den Artikeltext und antworte NUR mit reinem JSON ohne Markdown. Schema: {"+
+  var _st=SM_TEXTSTYLES[window._smTextStyle]||SM_TEXTSTYLES.auto;
+  var stylePart = window._smTextStyle==="auto"
+    ? " W\u00e4hle selbst den passenden Textstil f\u00fcr diesen Artikel (hook=zugespitzt/neugierig, trader=maximale Zahlendichte, info=ruhig erkl\u00e4rend) und gib ihn im Feld textstyle zur\u00fcck."
+    : " "+_st.prompt+" Gib im Feld textstyle den Wert '"+window._smTextStyle+"' zur\u00fcck.";
+  var sys="Du bist Social-Media-Redakteur bei "+b.label+" und schreibst professionelles, korrektes Deutsch mit Umlauten. Tonalit\u00e4t: "+b.ton+stylePart+" Lies den Artikeltext und antworte NUR mit reinem JSON ohne Markdown. Schema: {"+
     "\"head\":\"prägnante Schlagzeile, max 55 Zeichen\","+
     "\"sub\":\"Unterzeile, max 110 Zeichen\","+
     "\"bullets\":[\"drei Kernaussagen, je STRIKT max 100 Zeichen (harte Grenze, sonst Layout-Bruch). QUALITÄTS-REGELN (alle Pflicht): (1) Jeder Punkt muss OHNE Vorwissen verständlich sein — ein Follower, der nur diese Slide sieht, versteht sofort, worum es geht und was passiert ist. (2) Jeder Punkt enthält mindestens EINEN konkreten Fakt aus dem Artikel: eine Zahl, einen Prozentwert, einen Betrag, ein Datum oder eine klar benannte Entscheidung — keine vagen Aussagen wie 'Experten sind optimistisch' oder 'Das Umfeld bleibt schwierig'. (3) Die drei Punkte bauen als Story aufeinander auf: Punkt 1 = WAS ist konkret passiert (das Ereignis mit der wichtigsten Zahl), Punkt 2 = WARUM / der Auslöser oder Kontext, Punkt 3 = die KONSEQUENZ: was es für Anleger, das Unternehmen oder den Markt konkret bedeutet. (4) Der wichtigste Fakt des Artikels MUSS in den Bullets vorkommen — frage dich: Was ist die eine Sache, die ein Leser mitnehmen soll? Diese zuerst. (5) Aktive, konkrete Sprache: Subjekt + Verb + Fakt ('Intel hebt die Xeon-Preise um 12 Prozent an'), keine Substantivierungen, keine Füllwörter, kein Behörden-Deutsch. SELBSTTEST vor der Antwort: Lies deine drei Bullets isoliert — versteht ein Laie ohne den Artikel, was passiert ist und warum es wichtig ist? Falls nein, umschreiben\"],"+
@@ -3258,6 +3329,7 @@ extractSocial = async function(txt){
     "\"formats\":[maximal 3 Vorschlaege, jeweils {\"key\":\"news|quartalszahlen|vergleich|zitat\",\"grund\":\"1 Satz warum dieses Format passt\",\"bildprompt\":\"englischer Bild-Prompt passend zum Format, ohne Text im Bild\"}] sortiert nach Eignung,"+
     "\"captions\":{\"instagram\":\"fertige Instagram-Caption im Markenton mit Absätzen. Der Abschluss ergibt sich aus dem Artikel (Einordnung, Ausblick oder kurze Frage an die Community) — KEIN generischer Standard-CTA\",\"linkedin\":\"fertige LinkedIn-Caption, sachlicher und länger, WICHTIG: vor JEDEM Firmennamen ein @ (z.B. @Apple, @NVIDIA), Frage oder Einordnung am Ende\"},"+
     "\"story\":{\"text\":\"kurzer knackiger Story-Text, max 200 Zeichen, für ein Text-Overlay auf der Instagram Story\",\"cta\":\"Call-to-Action für die Story, max 60 Zeichen (z.B. Mehr dazu im Link)\",\"link_text\":\"Text für den Link-Sticker, max 30 Zeichen (z.B. Zur Analyse)\",\"umfrage\":\"optionale Idee für einen Umfrage-Sticker als Frage mit 2 Antwortoptionen, sonst leerer String\"},"+
+    "\"textstyle\":\"hook|trader|info \u2014 der verwendete Textstil\","+
     "\"series\":{\"key\":\"k3|k2|z3|d4 — welche Slide-Serie am besten passt: k3=Karussell klassisch 3 Slides (Standard-News), k2=Kompakt 2 Slides (kurze Meldung, wenig Substanz), z3=Zitat-Story 3 Slides (NUR wenn ein starkes wörtliches Zitat einer Person im Artikel steht), d4=Deep Dive 4 Slides (komplexes Thema mit viel Substanz)\",\"grund\":\"1 kurzer Satz warum\"},"+
     "\"quote\":{\"text\":\"das stärkste wörtliche Zitat aus dem Artikel OHNE Anführungszeichen, max 160 Zeichen, sonst leerer String\",\"name\":\"Person des Zitats\",\"role\":\"Rolle, z.B. CEO von Apple\"},"+
     "\"intro\":\"Einordnungs-Absatz für die Info-Slide, max 220 Zeichen: ordnet das Ereignis für Laien ein (was ist passiert und in welchem Kontext), mit mindestens einem konkreten Fakt\","+
@@ -3294,6 +3366,12 @@ extractSocial = async function(txt){
     });
   }
   window._smText=out;
+  // Bei Auto: den von Claude gewaehlten Stil im UI markieren (Auto-Karte bleibt Auswahlzustand)
+  if(window._smTextStyle==="auto" && out.textstyle && SM_TEXTSTYLES[out.textstyle]){
+    var ac=document.querySelector('#smStyleList .sm-sug-card[data-style="auto"] .g');
+    if(ac) ac.textContent="Claude hat gew\u00e4hlt: "+SM_TEXTSTYLES[out.textstyle].label+". Anderen Stil anklicken und neu generieren, falls gew\u00fcnscht.";
+  }
+  var rr0=$id("smRegenRow"); if(rr0) rr0.style.display="flex";
   // Vorselektion der Slide-Serie aus dem Artikel (nur mit Zitat-Serie, wenn wirklich ein Zitat da ist)
   var sk=(out.series&&out.series.key)||"k3";
   if(sk==="z3" && !(out.quote&&out.quote.text)) sk="k3";
@@ -3652,6 +3730,18 @@ if(tbt){ tbt.onclick=function(){
   var db=$id("smBundle");
   tbt.disabled=true; var oldT=tbt.innerHTML; tbt.textContent="Bundle wird gebaut …";
   Promise.resolve(smDownloadBundle()).finally(function(){ tbt.disabled=false; tbt.innerHTML=oldT; });
+}; }
+
+/* Neu-Generieren mit gewaehltem Textstil: fuellt alle Felder frisch */
+var rgBtn=$id("smRegen");
+if(rgBtn){ rgBtn.onclick=async function(){
+  var src=$id("src-social"); var txt=(src?src.value:"").trim();
+  if(!txt){ toast("Kein Artikeltext im Feld \u2014 bitte oben einf\u00fcgen"); return; }
+  if(genMode()==="demo"){ toast("Daf\u00fcr oben rechts ein KI-Modell verbinden",4000); return; }
+  rgBtn.disabled=true; var old=rgBtn.innerHTML; rgBtn.textContent="Claude schreibt neu \u2026";
+  try{ await extractSocial(txt); toast("Texte neu generiert \u2014 Stil: "+(SM_TEXTSTYLES[window._smTextStyle]||{}).label); }
+  catch(e){ toast("Neu generieren fehlgeschlagen: "+e.message,6500); }
+  rgBtn.disabled=false; rgBtn.innerHTML=old;
 }; }
 
 /* ---------- Init ---------- */
