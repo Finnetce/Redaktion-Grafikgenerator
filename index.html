@@ -3096,6 +3096,7 @@ extractSocial = async function(txt){
     "\"prompt\":\"kurzer englischer Bild-Prompt für ein passendes Hintergrundfoto ohne Text und ohne Logos\","+
     "\"formats\":[maximal 3 Vorschlaege, jeweils {\"key\":\"news|quartalszahlen|vergleich|zitat\",\"grund\":\"1 Satz warum dieses Format passt\",\"bildprompt\":\"englischer Bild-Prompt passend zum Format, ohne Text im Bild\"}] sortiert nach Eignung,"+
     "\"captions\":{\"instagram\":\"fertige Instagram-Caption im Markenton mit Absätzen. Der Abschluss ergibt sich aus dem Artikel (Einordnung, Ausblick oder kurze Frage an die Community) — KEIN generischer Standard-CTA\",\"linkedin\":\"fertige LinkedIn-Caption, sachlicher und länger, WICHTIG: vor JEDEM Firmennamen ein @ (z.B. @Apple, @NVIDIA), Frage oder Einordnung am Ende\"},"+
+    "\"story\":{\"text\":\"kurzer knackiger Story-Text, max 200 Zeichen, für ein Text-Overlay auf der Instagram Story\",\"cta\":\"Call-to-Action für die Story, max 60 Zeichen (z.B. Mehr dazu im Link)\",\"link_text\":\"Text für den Link-Sticker, max 30 Zeichen (z.B. Zur Analyse)\",\"umfrage\":\"optionale Idee für einen Umfrage-Sticker als Frage mit 2 Antwortoptionen, sonst leerer String\"},"+
     "\"hashtags\":{\"instagram\":[\"MAXIMAL 5 deutsche Hashtags (nie mehr als 5!), Mix aus Marke und Thema, klein geschrieben\"],\"linkedin\":[\"3-5 Hashtags\"]}}. "+
     "Sachlich, deskriptiv, keine Kaufempfehlung, keine Kursziele als Empfehlung. Alle Zahlen exakt aus dem Text, nichts erfinden.";
   var out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,9000)}]));
@@ -3202,13 +3203,149 @@ function smOpenDrawer(){ smRenderDrawer(); $id("smDrawer").classList.add("open")
 function smCloseDrawer(){ $id("smDrawer").classList.remove("open"); }
 $id("smDrawerX").onclick=smCloseDrawer;
 
-/* Editor-Toolbar-Button "Texte" */
+/* ============================================================
+   v017: Gruppierte Slide-Liste (pro Plattform) + zentrales
+   Copy-Paste-Text-Panel über der Bühne (statt Drawer-Overlay)
+   ============================================================ */
+window._smActiveGroup=null;
+
+/* Styles für Gruppen + Center-Panel */
+var css2=document.createElement("style");
+css2.textContent=[
+".stage{position:relative}",
+".sm-grp{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;border-radius:10px;margin:10px 0 6px;cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);background:#f1f3f7;border:1.5px solid transparent;transition:.13s}",
+".sm-grp:first-child{margin-top:0}",
+".sm-grp:hover{background:#e9edf3}",
+".sm-grp.on{background:var(--tint);border-color:var(--tint-line);color:var(--tint-ink)}",
+".sm-grp .sz{font-size:10.5px;font-weight:600;color:var(--faint)}",
+".sm-grp-note{font-size:10.5px;color:var(--faint);line-height:1.4;padding:2px 4px 6px}",
+".sm-grp-txt{width:100%;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;font-weight:600;color:var(--tint-ink);padding:8px;border-radius:9px;border:1.5px dashed var(--tint-line);margin:2px 0 6px;transition:.13s;background:none;cursor:pointer}",
+".sm-grp-txt:hover{background:var(--tint)}",
+".sm-cpanel{position:absolute;inset:24px;max-width:640px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-lg);z-index:50;display:none;flex-direction:column;overflow:hidden}",
+".sm-cpanel.show{display:flex}",
+".sm-cpanel .hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line);flex:none}",
+".sm-cpanel .hd h3{font-size:14px;font-weight:800}",
+".sm-cpanel .bd{flex:1;overflow-y:auto;padding:16px 18px}",
+".sm-cpanel textarea.sm-copybox{width:100%;background:#fafbfd;border:1px solid var(--line);border-radius:10px;padding:11px 13px;font-size:12.5px;line-height:1.55;font-family:inherit;resize:vertical;min-height:60px}",
+".sm-cpanel textarea.sm-copybox:focus{outline:none;border-color:var(--tint-ink)}"
+].join("\n");
+document.head.appendChild(css2);
+
+/* ---------- Center-Panel (in der Bühnen-Mitte, verdeckt keine Editor-Funktionen) ---------- */
+var stage=document.getElementById("stage");
+if(stage){
+  var cp=document.createElement("div"); cp.className="sm-cpanel"; cp.id="smCPanel";
+  cp.innerHTML='<div class="hd"><h3 id="smCPanelTitle">Texte</h3><button class="sm-x" id="smCPanelX"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div><div class="bd" id="smCPanelBody"></div>';
+  stage.appendChild(cp);
+  cp.querySelector("#smCPanelX").onclick=function(){ cp.classList.remove("show"); };
+}
+function smCSection(parent,label,text){
+  var s=document.createElement("div"); s.className="sm-sec";
+  var lb=document.createElement("div"); lb.className="lb";
+  var sp=document.createElement("span"); sp.textContent=label; lb.appendChild(sp); lb.appendChild(smCopyBtn(text));
+  var bx=document.createElement("textarea"); bx.className="sm-copybox"; bx.value=text; bx.readOnly=true;
+  bx.rows=Math.min(10,Math.max(2,text.split("\n").length+1));
+  bx.onclick=function(){ bx.select(); };
+  s.appendChild(lb); s.appendChild(bx); parent.appendChild(s);
+}
+function smShowCenterPanel(groupId){
+  var cp=$id("smCPanel"), bd=$id("smCPanelBody"), tt=$id("smCPanelTitle");
+  if(!cp||!bd) return;
+  var t=window._smText||{};
+  var caps=t.captions||{}, tags=t.hashtags||{}, story=t.story||{};
+  var igTags=(tags.instagram||[]).slice(0,5).join(" ");
+  var liTags=(tags.linkedin||[]).join(" ");
+  bd.innerHTML="";
+  var none=function(){ var e=document.createElement("div"); e.className="hint";
+    e.textContent="Noch keine Texte generiert. Im Reiter Social Media „Aus Text befüllen“ nutzen."; bd.appendChild(e); };
+  if(groupId==="ig_feed"){
+    tt.textContent="Instagram Post / Karussell — Texte zum Kopieren";
+    if(!caps.instagram){ none(); }
+    else{
+      smCSection(bd,"Caption",caps.instagram);
+      if(igTags) smCSection(bd,"Hashtags (max. 5)",igTags);
+      smCSection(bd,"Komplett (Caption + Hashtags)",caps.instagram+"\n\n"+igTags);
+    }
+  } else if(groupId==="li_feed"||groupId==="li_quer"){
+    tt.textContent="LinkedIn — Texte zum Kopieren";
+    if(!caps.linkedin){ none(); }
+    else{
+      smCSection(bd,"Caption (@-Tags vor dem Posten prüfen)",caps.linkedin);
+      if(liTags) smCSection(bd,"Hashtags",liTags);
+      smCSection(bd,"Komplett (Caption + Hashtags)",caps.linkedin+"\n\n"+liTags);
+    }
+  } else if(groupId==="ig_story"){
+    tt.textContent="Instagram Story — Bausteine";
+    var any=false;
+    if(story.text){ smCSection(bd,"Story-Text (Text-Overlay)",story.text); any=true; }
+    if(story.cta){ smCSection(bd,"Call-to-Action",story.cta); any=true; }
+    if(story.link_text){ smCSection(bd,"Link-Sticker-Text",story.link_text); any=true; }
+    if(story.umfrage){ smCSection(bd,"Umfrage-Sticker (Idee)",story.umfrage); any=true; }
+    if(igTags){ smCSection(bd,"Hashtags (max. 5, als Sticker oder klein platzieren)",igTags); any=true; }
+    if(caps.instagram){ smCSection(bd,"Fallback: Insta-Caption (falls Story-Text fehlt)",caps.instagram); any=true; }
+    if(!any) none();
+    var tip=document.createElement("div"); tip.className="hint"; tip.style.marginTop="6px";
+    tip.textContent="Tipp: Story-Text als Overlay in Instagram setzen, Link-Sticker mit dem Artikel-Link verknüpfen, CTA in die untere Bildhälfte (über der Reply-Zone).";
+    bd.appendChild(tip);
+  }
+  cp.classList.add("show");
+}
+
+/* ---------- Gruppierte Slide-Liste: pro gewählter Plattform eine Gruppe ---------- */
+var SM_GROUP_SHORT={ig_feed:"Insta Post/Karussell",ig_story:"Insta Story",li_feed:"LinkedIn Post",li_quer:"LinkedIn Quer"};
+var _origRenderSlideTabs=renderSlideTabs;
+renderSlideTabs=function(){
+  var list=$id("slideList"); if(!list) return;
+  var plats=smSelectedPlatforms();
+  // Fallback auf alte Liste: keine Plattformen (z.B. Grafiken-Redaktion-Slide im Editor)
+  var isGraphic = (typeof slides!=="undefined") && slides.length && slides[0].type==="graphic";
+  if(!plats.length || isGraphic || typeof slides==="undefined" || !slides.length){ _origRenderSlideTabs(); return; }
+  if(!window._smActiveGroup || !plats.some(function(p){return p.id===window._smActiveGroup;})) window._smActiveGroup=plats[0].id;
+  list.innerHTML="";
+  plats.forEach(function(p){
+    var on=(window._smActiveGroup===p.id);
+    var head=document.createElement("div");
+    head.className="sm-grp"+(on?" on":"");
+    head.innerHTML='<span>'+(SM_GROUP_SHORT[p.id]||p.label)+'</span><span class="sz">'+p.w+'×'+p.h+'</span>';
+    head.onclick=function(){ window._smActiveGroup=p.id; renderSlideTabs(); };
+    list.appendChild(head);
+    if(!on) return;
+    // Slides der aktiven Gruppe (gemeinsamer Master, Export in Gruppen-Größe)
+    slides.forEach(function(s,i){
+      var t=document.createElement("div");
+      t.className="stab"+(i===current?" on":"");
+      var ratio=FORMATS[curFmt].h/FORMATS[curFmt].w;
+      var thumb=s.thumb
+        ? '<img class="thumb" src="'+s.thumb+'" style="height:'+Math.round(42*ratio)+'px">'
+        : '<div class="thumb ph" style="aspect-ratio:'+FORMATS[curFmt].w+'/'+FORMATS[curFmt].h+'">'+(i+1)+'</div>';
+      t.innerHTML=thumb+'<div class="st-meta"><div class="st-name">'+s.name+'</div><div class="st-i">'+(SM_GROUP_SHORT[p.id]||p.label)+' · Slide '+(i+1)+'</div></div>'+
+        (slides.length>1?'<button class="sx" title="entfernen"><svg class="ic ic-sm" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M6 6l12 12M18 6L6 18"/></svg></button>':'');
+      t.onclick=function(e){ if(e.target.closest(".sx")) return; showSlide(i); };
+      var x=t.querySelector(".sx"); if(x) x.onclick=function(e){ e.stopPropagation(); removeSlide(i); };
+      list.appendChild(t);
+    });
+    if(p.id==="ig_story"){
+      var note=document.createElement("div"); note.className="sm-grp-note";
+      note.textContent="Export als 9:16 ("+(p.w*2)+"×"+(p.h*2)+"): komplettes Motiv, Ränder mit Blur gefüllt — nichts wird abgeschnitten.";
+      list.appendChild(note);
+    }
+    var txtBtn=document.createElement("button"); txtBtn.className="sm-grp-txt";
+    txtBtn.innerHTML='<svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg> Texte für '+(SM_GROUP_SHORT[p.id]||p.label);
+    txtBtn.onclick=function(){ smShowCenterPanel(p.id); };
+    list.appendChild(txtBtn);
+  });
+};
+
+/* Editor-Toolbar-Button "Texte": öffnet jetzt das Center-Panel der aktiven Gruppe (kein Overlay über den Editor-Funktionen) */
 var spacer=document.querySelector("#editorView .toolbar .spacer");
 if(spacer){
   var tb=document.createElement("button"); tb.className="tool"; tb.id="tTexts";
   tb.innerHTML='<svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg> Texte &amp; Hashtags';
   spacer.parentNode.insertBefore(tb,spacer);
-  tb.onclick=smOpenDrawer;
+  tb.onclick=function(){
+    var g=window._smActiveGroup || (smSelectedPlatforms()[0]||{}).id || "ig_feed";
+    smShowCenterPanel(g);
+  };
 }
 
 /* Nach der Generierung Drawer automatisch anbieten */
