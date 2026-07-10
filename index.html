@@ -1399,11 +1399,29 @@ function buildContent(content){
 }
 function buildClosing(content){
   const W=DISP.w,H=DISP.h,objs=[];
+  const spec=brandSpec();
   objs.push({kind:"obj",obj:new fabric.Rect({left:0,top:0,width:W,height:H,fill:"#ffffff",name:"bg2",selectable:false,evented:false})});
-  objs.push({kind:"image",src:content.bg,props:{name:"image",selectable:true,_coverH:px(0.50,H)}});
-  objs.push({kind:"obj",obj:new fabric.Textbox(content.closeHead||content.head||"Fazit",{left:px(0.06,W),top:px(0.585,H),width:px(0.86,W),fontFamily:BRAND.font,fontWeight:800,fontSize:px(0.052,W),fill:BRAND.navy,name:"headline"})});
-  objs.push({kind:"obj",obj:new fabric.Textbox(content.close,{left:px(0.06,W),top:px(0.71,H),width:px(0.86,W),fontFamily:BRAND.font,fontWeight:500,fontSize:px(0.034,W),fill:BRAND.muted,lineHeight:1.35,name:"body"})});
-  objs.push({kind:"obj",obj:new fabric.Text("Quelle: finanzen.net",{left:px(0.06,W),top:px(0.95,H),fontFamily:BRAND.font,fontSize:px(0.020,W),fill:BRAND.muted,name:"source"})});
+  if(curFmt==="4:5"){
+    // Exakte Positionen Slide 3 (Yuki, Master 1080x1350): Bild 1080x517.2 oben,
+    // Headline X108 Y595.2 B864 / 50px, Text 30px
+    const sx=W/1080, sy=H/1350;
+    objs.push({kind:"image",src:content.bg,props:{name:"image",selectable:true,_coverH:517.2*sy}});
+    objs.push({kind:"obj",obj:new fabric.Textbox(content.closeHead||content.head||"Fazit",{left:108*sx,top:595.2*sy,width:864*sx,fontFamily:spec.font,fontWeight:800,fontSize:50*sx,fill:BRAND.navy,name:"headline"})});
+    objs.push({kind:"obj",obj:new fabric.Textbox(content.close,{left:108*sx,top:790*sy,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:30*sx,fill:BRAND.muted,lineHeight:1.35,name:"body"})});
+    objs.push({kind:"obj",obj:new fabric.Text("Quelle: finanzen.net",{left:108*sx,top:H-108*sy-20*sx,fontFamily:spec.font,fontSize:20*sx,fill:BRAND.muted,name:"source"})});
+  } else if(curFmt==="9:16"){
+    // Story: Safe-Zones beachten (oben ~250px, unten ~310px auf 1920er-Master)
+    const sx=W/1080, sy=H/1920;
+    objs.push({kind:"image",src:content.bg,props:{name:"image",selectable:true,_coverH:820*sy}});
+    objs.push({kind:"obj",obj:new fabric.Textbox(content.closeHead||content.head||"Fazit",{left:108*sx,top:900*sy,width:864*sx,fontFamily:spec.font,fontWeight:800,fontSize:50*sx,fill:BRAND.navy,name:"headline"})});
+    objs.push({kind:"obj",obj:new fabric.Textbox(content.close,{left:108*sx,top:1110*sy,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:30*sx,fill:BRAND.muted,lineHeight:1.35,name:"body"})});
+    objs.push({kind:"obj",obj:new fabric.Text("Quelle: finanzen.net",{left:108*sx,top:H-310*sy-28*sx,fontFamily:spec.font,fontSize:20*sx,fill:BRAND.muted,name:"source"})});
+  } else {
+    objs.push({kind:"image",src:content.bg,props:{name:"image",selectable:true,_coverH:px(0.50,H)}});
+    objs.push({kind:"obj",obj:new fabric.Textbox(content.closeHead||content.head||"Fazit",{left:px(0.06,W),top:px(0.585,H),width:px(0.86,W),fontFamily:spec.font,fontWeight:800,fontSize:px(0.052,W),fill:BRAND.navy,name:"headline"})});
+    objs.push({kind:"obj",obj:new fabric.Textbox(content.close,{left:px(0.06,W),top:px(0.71,H),width:px(0.86,W),fontFamily:spec.font,fontWeight:500,fontSize:px(0.034,W),fill:BRAND.muted,lineHeight:1.35,name:"body"})});
+    objs.push({kind:"obj",obj:new fabric.Text("Quelle: finanzen.net",{left:px(0.06,W),top:px(0.95,H),fontFamily:spec.font,fontSize:px(0.020,W),fill:BRAND.muted,name:"source"})});
+  }
   return {objs,logoDark:false};
 }
 const TEMPLATES={cover:buildCover,content:buildContent,closing:buildClosing};
