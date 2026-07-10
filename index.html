@@ -1326,14 +1326,19 @@ function buildCover(content){
   objs.push({kind:"image",src:content.bg,props:{name:"bg",selectable:true}});
   objs.push({kind:"backdrop",zone:{top:0.40,height:0.60}});
   if(curFmt==="4:5"){
-    // Positionen nach Yuki/Referenz (Master 1080x1350): Headline X108 Y864 B864.
-    // Subline dynamisch UNTER der Headline (bei 2-zeiliger Headline würde fixes Y988.5 kollidieren).
+    // Positionen aus Referenz "finnet x Sourcera" reverse-engineered (Apple/BMW Slide 1, Master 1080x1350):
+    // Subline-Block Y998–1032 (Unterkante fix ~1032), Headline dar über Y779–935.
+    // => Bottom-Anchoring: Subline-Unterkante fix, Headline wächst nach OBEN (1- wie 2-Zeiler korrekt).
     const sx=W/1080, sy=H/1350;
-    const head=tHeadline(content.head,{left:108*sx,top:864*sy,width:864*sx,fontSize:spec.headPx*sx,fontFamily:spec.font,lineHeight:1.12});
+    const sub=new fabric.Textbox(content.sub,{left:108*sx,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.subPx*sx,fill:"#ffffff",lineHeight:1.25,name:"subline"});
+    sub.initDimensions&&sub.initDimensions();
+    const subBottom=1032*sy;
+    sub.set("top", subBottom - sub.height);
+    const head=tHeadline(content.head,{left:108*sx,width:864*sx,fontSize:spec.headPx*sx,fontFamily:spec.font,lineHeight:1.12});
     head.initDimensions&&head.initDimensions();
-    const subTop=Math.max(988.5*sy, head.top+head.height+26*sy);
+    head.set("top", sub.top - 55*sy - head.height);   // Referenz-Lücke Headline-Ende (935) -> Subline-Start (998)
     objs.push({kind:"obj",obj:head});
-    objs.push({kind:"obj",obj:new fabric.Textbox(content.sub,{left:108*sx,top:subTop,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.subPx*sx,fill:"#ffffff",name:"subline"})});
+    objs.push({kind:"obj",obj:sub});
     objs.push({kind:"obj",obj:new fabric.Text("Bildquelle: KI-generiert",{left:108*sx,top:H-70*sy-18*sx,fontFamily:spec.font,fontSize:18*sx,fill:"rgba(255,255,255,0.72)",name:"credit"})});
   } else if(curFmt==="9:16"){
     // FIX Story (9:16): Texte lagen zu tief und wurden von der Instagram-UI (Reply-Feld unten,
