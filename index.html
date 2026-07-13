@@ -918,7 +918,8 @@ function makeChevron(cx,cy,d){
     fill:"", stroke:"#ffffff", strokeWidth:Math.max(2,d*0.14), strokeLineCap:"round", strokeLineJoin:"round",
     originX:"center",originY:"center", left:d*0.04, top:0
   });
-  return new fabric.Group([circle,chev],{left:cx,top:cy,originX:"left",originY:"top",name:"marker",selectable:false,evented:false});
+  // FIX (Yuki 13.07.): Pfeil muss im Editor verschiebbar sein -> selectable/evented true
+  return new fabric.Group([circle,chev],{left:cx,top:cy,originX:"left",originY:"top",name:"marker",selectable:true,evented:true});
 }
 /* Logo-Platzierung nach Logo-ID (exakte Master-Koordinaten 1080x1350) */
 const LOGO_PLACE={ zero:{w:227.7,x:772.1,y:80.2}, _default:{w:216.6,x:755.4,y:1213.5} };
@@ -1418,8 +1419,14 @@ function buildContent(content){
       };
       let boxes=make(fs);
       const total=(bs)=>bs.reduce((s,b)=>s+Math.max(b.height,62*sx),0)+gap*(bs.length-1);
-      let guard=14;
-      while(430*sy+total(boxes)>maxBottom && fs>spec.bodyPx*sx*0.72 && guard-->0){ fs-=1*sx; boxes=make(fs); }
+      // FIX (Yuki 13.07.): Schriftgröße bleibt FIX bei 30pt/40px (identisch zu Slide 3) —
+      // bei Überlauf werden die Bullets satzbewusst gekürzt, NICHT die Schrift verkleinert.
+      let guard=10;
+      while(430*sy+total(boxes)>maxBottom && guard-->0){
+        const longest=(content.bullets||[]).reduce((a,b,i)=>((content.bullets[a]||"").length>=(b||"").length?a:i),0);
+        content.bullets[longest]=smartShorten(content.bullets[longest], Math.floor(content.bullets[longest].length*0.85));
+        boxes=make(fs);
+      }
       boxes.forEach((tb)=>{
         objs.push({kind:"obj",obj:makeChevron(81*sx, y, 62*sx)});
         tb.set("top",y); objs.push({kind:"obj",obj:tb});
@@ -1466,10 +1473,9 @@ function buildClosing(content){
       const bodyTop=clHead.top+clHead.height+42*sy, bodyMax=1216*sy-40*sy;
       let bfs=spec.bodyPx*sx, btxt=content.close||"";
       const mk=(f,t)=>{ const tb=new fabric.Textbox(t,{left:108*sx,top:bodyTop,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:f,fill:REF.text,lineHeight:1.3,name:"body"}); tb.initDimensions&&tb.initDimensions(); return tb; };
-      let tb=mk(bfs,btxt), guard=12;
-      while(bodyTop+tb.height>bodyMax && bfs>spec.bodyPx*sx*0.75 && guard-->0){ bfs-=1*sx; tb=mk(bfs,btxt); }
-      guard=6;
-      while(bodyTop+tb.height>bodyMax && btxt.length>60 && guard-->0){ btxt=smartShorten(btxt,Math.floor(btxt.length*0.8)); tb=mk(bfs,btxt); }
+      // FIX (Yuki 13.07.): Schrift bleibt FIX bei 30pt/40px (identisch zu Slide 2) — nur Text kürzen
+      let tb=mk(bfs,btxt), guard=8;
+      while(bodyTop+tb.height>bodyMax && btxt.length>60 && guard-->0){ btxt=smartShorten(btxt,Math.floor(btxt.length*0.85)); tb=mk(bfs,btxt); }
       objs.push({kind:"obj",obj:tb});
     }
     // "Quelle:" auf einer Linie mit der visuellen Unterkante des Logos (Logo Y1213.5 + H26.4 => Unterkante ~1239.9)
@@ -1568,13 +1574,12 @@ function buildTextInfo(content){
   }
   // FIX Überlauf in "Quelle:": erst Schrift schrittweise verkleinern (bis -25%),
   // reicht das nicht, Box-Text satzweise sinnvoll kürzen (nie hart abschneiden).
+  // FIX (Yuki 13.07.): Schrift bleibt FIX bei 30pt/40px (einheitlich auf allen Text-Slides) — nur Text kürzen
   let fs=spec.bodyPx*sx;
   let res=layout(fs,boxTxt);
-  let guard=12;
-  while(res.bottom>maxBottom && fs>spec.bodyPx*sx*0.75 && guard-->0){ fs-=1*sx; res=layout(fs,boxTxt); }
-  guard=6;
+  let guard=8;
   while(res.bottom>maxBottom && boxTxt.length>80 && guard-->0){
-    boxTxt=smartShorten(boxTxt, Math.floor(boxTxt.length*0.8));
+    boxTxt=smartShorten(boxTxt, Math.floor(boxTxt.length*0.85));
     res=layout(fs,boxTxt);
   }
   res.items.forEach(it=>objs.push(it));
@@ -3378,7 +3383,7 @@ extractSocial = async function(txt){
     "\"infoBullet\":\"Chevron-Punkt der Info-Slide, max 100 Zeichen: ein weiterer NEUER Fakt, der weder in bullets noch in intro steht\","+
     "\"box\":\"Kontext/Ausblick für die abgerundete Info-Box, max 200 Zeichen: die konkrete Konsequenz oder der nächste relevante Termin — darf KEINEN Fakt aus bullets, intro oder infoBullet wiederholen\","+
     "\"hashtags\":{\"instagram\":[\"MAXIMAL 5 deutsche Hashtags (nie mehr als 5!), Mix aus Marke und Thema, klein geschrieben\"],\"linkedin\":[\"3-5 Hashtags\"]}}. "+
-    "ANTI-REDUNDANZ (kritisch): Jedes Feld wird auf einer EIGENEN Slide angezeigt. Über ALLE Felder hinweg (head, sub, bullets, infoHead, intro, infoBullet, box, close, closeHead) darf derselbe Fakt NIE zweimal vorkommen — auch nicht umformuliert. Verteile die Fakten des Artikels bewusst: bullets = die 3 wichtigsten Kernfakten; intro/infoBullet/box = weitere Aspekte, Hintergründe, Zahlen oder Termine, die in den bullets NICHT stehen; close = eine echte Schlussfolgerung, kein Fakten-Recap. closeHead und infoHead müssen sich klar von head und voneinander unterscheiden. SELBSTTEST: Lies alle Felder nacheinander wie ein Karussell — wiederholt sich inhaltlich etwas, ersetze es durch einen noch nicht genutzten Fakt aus dem Artikel. Sachlich, deskriptiv, keine Kaufempfehlung, keine Kursziele als Empfehlung. Alle Zahlen exakt aus dem Text, nichts erfinden.";
+    "ANTI-REDUNDANZ (kritisch): Jedes Feld wird auf einer EIGENEN Slide angezeigt. Über ALLE Felder hinweg (head, sub, bullets, infoHead, intro, infoBullet, box, close, closeHead) darf derselbe Fakt NIE zweimal vorkommen — auch nicht umformuliert. Verteile die Fakten des Artikels bewusst: bullets = die 3 wichtigsten Kernfakten; intro/infoBullet/box = weitere Aspekte, Hintergründe, Zahlen oder Termine, die in den bullets NICHT stehen; close = eine echte Schlussfolgerung, kein Fakten-Recap. closeHead und infoHead müssen sich klar von head und voneinander unterscheiden. SELBSTTEST: Lies alle Felder nacheinander wie ein Karussell — wiederholt sich inhaltlich etwas, ersetze es durch einen noch nicht genutzten Fakt aus dem Artikel. GROUNDING (absolut kritisch, Verstoß = unbrauchbar): Verwende AUSSCHLIESSLICH Fakten, Zahlen, Namen, Firmen und Vergleiche, die WÖRTLICH im Artikeltext stehen. Erfinde NIEMALS Vergleiche oder Einordnungen mit Firmen/Werten, die der Artikel nicht nennt (z.B. NICHT 'mehr als Apple wert' schreiben, wenn Apple im Text nicht vorkommt). Kein Weltwissen ergänzen, keine Kontexte aus deinem Training, keine gerundeten oder umgerechneten Zahlen — nur was im Text steht, in der Form, in der es dort steht. SELBSTTEST GROUNDING: Prüfe jedes Feld — kommt jede Zahl, jeder Firmenname und jeder Vergleich darin im Artikeltext vor? Falls nein, ersatzlos streichen oder durch einen belegten Fakt ersetzen. Sachlich, deskriptiv, keine Kaufempfehlung, keine Kursziele als Empfehlung. Alle Zahlen exakt aus dem Text, nichts erfinden.";
   var out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,9000)}]));
   if(out.head) $id("fHead").value=out.head;
   if(out.sub) $id("fSub").value=out.sub;
