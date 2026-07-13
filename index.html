@@ -1551,7 +1551,8 @@ function buildTextInfo(content){
     const items=[]; let y=topY;
     const head=new fabric.Textbox(headTxt,{left:108*sx,top:y,width:864*sx,fontFamily:spec.font,fontWeight:800,fontSize:spec.h2Px*sx,fill:REF.navy,lineHeight:1.12,name:"headline"});
     head.initDimensions&&head.initDimensions(); items.push({kind:"obj",obj:head});
-    y+=head.height+46*sx;
+    // FIX (Yuki 13.07. 10:24): Abstand Headline -> Text war zu groß (46px) -> 24px, wie auf Slide 2
+    y+=head.height+24*sx;
     if(introTxt){
       const intro=new fabric.Textbox(introTxt,{left:108*sx,top:y,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:fs,fill:REF.text,lineHeight:1.3,name:"intro"});
       intro.initDimensions&&intro.initDimensions(); items.push({kind:"obj",obj:intro});
@@ -1564,10 +1565,12 @@ function buildTextInfo(content){
       y+=Math.max(bt.height,62*sx)+50*sx;
     }
     if(boxText){
-      const btx=new fabric.Textbox(boxText,{left:148*sx,top:y+40*sx,width:784*sx,fontFamily:spec.font,fontWeight:500,fontSize:fs,fill:REF.text,lineHeight:1.3,name:"boxtext"});
+      // FIX (Yuki 13.07. 10:24): Kasten + Text als EINE bewegliche Gruppe (wie der Pfeil verschiebbar)
+      const btx=new fabric.Textbox(boxText,{left:40*sx,top:40*sx,width:784*sx,fontFamily:spec.font,fontWeight:500,fontSize:fs,fill:REF.text,lineHeight:1.3,name:"boxtext"});
       btx.initDimensions&&btx.initDimensions();
-      const box=new fabric.Rect({left:108*sx,top:y,width:864*sx,height:btx.height+80*sx,rx:24*sx,ry:24*sx,fill:"#f0f2f6",name:"box",selectable:false,evented:false});
-      items.push({kind:"obj",obj:box}); items.push({kind:"obj",obj:btx});
+      const box=new fabric.Rect({left:0,top:0,width:864*sx,height:btx.height+80*sx,rx:24*sx,ry:24*sx,fill:"#f0f2f6",name:"boxbg"});
+      const grp=new fabric.Group([box,btx],{left:108*sx,top:y,name:"box",selectable:true,evented:true});
+      items.push({kind:"obj",obj:grp});
       y+=btx.height+80*sx;
     }
     return {items,bottom:y};
