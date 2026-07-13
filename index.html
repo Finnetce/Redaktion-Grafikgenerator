@@ -11,6 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet" />
 <style>
   :root{
+    /* finanzen.net CI (v1.2): Navy #09437A als Marken-Primärfarbe, Rot #d70413 als Signal */
     --bg:#f3f5f8;
     --panel:#ffffff;
     --ink:#0f1722;
@@ -19,19 +20,55 @@
     --faint:#98a2b3;
     --line:#e7eaf0;
     --line-2:#f1f3f7;
-    --navy:#0a1f44;
-    --navy-2:#142a55;
-    --accent:#00935d;
-    --accent-2:#00794d;
-    --tint:#eef2fb;
-    --tint-line:#cdd9f4;
-    --tint-ink:#1f3a8a;
+    --navy:#09437A;
+    --navy-2:#0b5498;
+    --accent:#09437A;
+    --accent-2:#0b5498;
+    --fnred:#d70413;
+    --tint:#eaf1f8;
+    --tint-line:#c3d6ea;
+    --tint-ink:#09437A;
     --danger:#d0312d;
+    --appbar-bg:#09437A;
+    --appbar-ink:#ffffff;
+    --appbar-muted:rgba(255,255,255,.72);
     --shadow-sm:0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.05);
     --shadow-md:0 4px 12px rgba(16,24,40,.07), 0 2px 4px rgba(16,24,40,.04);
-    --shadow-lg:0 18px 50px rgba(10,31,68,.16), 0 4px 14px rgba(10,31,68,.08);
+    --shadow-lg:0 18px 50px rgba(9,67,122,.16), 0 4px 14px rgba(9,67,122,.08);
     --r-sm:8px; --r:11px; --r-lg:16px;
   }
+  html[data-theme="dark"]{
+    --bg:#0b1524;
+    --panel:#12203a;
+    --ink:#eef2f7;
+    --ink-2:#cfd9e6;
+    --muted:#8fa2ba;
+    --faint:#63788f;
+    --line:#22344f;
+    --line-2:#1a2a42;
+    --navy:#3b82d1;
+    --navy-2:#5a9adf;
+    --accent:#3b82d1;
+    --accent-2:#5a9adf;
+    --tint:#16294a;
+    --tint-line:#2a4470;
+    --tint-ink:#7fb4ef;
+    --appbar-bg:#081a30;
+    --appbar-ink:#ffffff;
+    --appbar-muted:rgba(255,255,255,.6);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.3);
+    --shadow-md:0 4px 12px rgba(0,0,0,.35);
+    --shadow-lg:0 18px 50px rgba(0,0,0,.5);
+  }
+  html[data-theme="dark"] .stage,html[data-theme="dark"] .mod-stage{background:#0e1a2e;background-image:radial-gradient(circle, rgba(255,255,255,.05) 1px, transparent 1px);background-size:20px 20px}
+  html[data-theme="dark"] .inp,html[data-theme="dark"] .ta,html[data-theme="dark"] .sel,html[data-theme="dark"] .psel,html[data-theme="dark"] .tsel{background:#0f1c33;color:var(--ink);border-color:var(--line)}
+  html[data-theme="dark"] .fld,html[data-theme="dark"] .upzone{background:#0f1c33;border-color:var(--line)}
+  html[data-theme="dark"] .seg,html[data-theme="dark"] .seg-pick{background:#0f1c33;border-color:var(--line)}
+  html[data-theme="dark"] .seg button.on,html[data-theme="dark"] .seg-pick button.on{background:#22406b;color:#fff}
+  html[data-theme="dark"] .tool:hover{background:#1a2a42}
+  html[data-theme="dark"] .fmt,html[data-theme="dark"] .sm-sug-card,html[data-theme="dark"] .sm-plat,html[data-theme="dark"] .tile,html[data-theme="dark"] .toggle,html[data-theme="dark"] .icon-btn{background:var(--panel);border-color:var(--line);color:var(--ink-2)}
+  html[data-theme="dark"] .sm-box,html[data-theme="dark"] .modal-note,html[data-theme="dark"] .wiki-doc code,html[data-theme="dark"] .autobox{background:#0f1c33;border-color:var(--line);color:var(--ink-2)}
+  html[data-theme="dark"] .sm-cpanel textarea.sm-copybox{background:#0f1c33;border-color:var(--line);color:var(--ink)}
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased;font-feature-settings:"cv05","ss01"}
@@ -42,7 +79,16 @@
   .ic-sm{width:15px;height:15px}
 
   /* ---------- App bar ---------- */
-  .appbar{display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 20px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .appbar{display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 20px;background:var(--appbar-bg);border-bottom:3px solid var(--fnred,#d70413)}
+  .appbar .nav a{color:var(--appbar-muted)}
+  .appbar .nav a:hover{background:rgba(255,255,255,.1);color:var(--appbar-ink)}
+  .appbar .nav a.on{background:rgba(255,255,255,.16);color:var(--appbar-ink)}
+  .brand-logos{display:flex;align-items:center;gap:10px}
+  .brand-logos img{height:20px;display:block}
+  .brand-logos .zlogo{height:24px;opacity:.9}
+  .brand-sub{font-size:11px;color:var(--appbar-muted);font-weight:600;letter-spacing:.04em;margin-left:2px}
+  .theme-toggle{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:var(--appbar-ink);background:rgba(255,255,255,.12);transition:.14s}
+  .theme-toggle:hover{background:rgba(255,255,255,.22)}
   .brand{display:flex;align-items:center;gap:11px}
   .brand .mark{width:30px;height:30px;border-radius:9px;background:#093967;
       box-shadow:inset 0 0 0 1px rgba(255,255,255,.14), var(--shadow-sm);position:relative}
@@ -369,8 +415,8 @@
 
 <div class="appbar">
   <div class="brand" id="brandHome" title="Zur Übersicht">
-    <div class="mark"></div>
-    <div><span class="nm">Creative Studio</span><span class="sub">finanzen<span style="color:#d70413;font-weight:800">.</span>net</span></div>
+    <div class="brand-logos"><img id="brandLogoMain" alt="finanzen.net" /><img id="brandLogoZero" class="zlogo" alt="finanzen.net zero" style="display:none" /></div>
+    <span class="brand-sub">CREATIVE STUDIO</span>
   </div>
   <nav class="nav" id="topnav">
     <a data-go="home" class="on">Übersicht</a>
@@ -382,7 +428,8 @@
   </nav>
   <div class="appbar-right">
     <button class="conn-btn" id="connBtn"><svg class="ic ic-sm" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M9 12l2 2 4-4"/><path d="M7.5 7.5a5 5 0 0 0 0 9M16.5 7.5a5 5 0 0 1 0 9"/></svg> <span id="connLabel">GPT Image 2 verbinden</span></button>
-    <span class="badge"><span class="dot"></span> <span id="modeBadge">Demo</span></span>
+    <span class="badge" style="background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.25);color:#fff"><span class="dot"></span> <span id="modeBadge">Demo</span></span>
+    <button class="theme-toggle" id="themeToggle" title="Hell/Dunkel umschalten"><svg class="ic ic-sm" id="themeIcon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
   </div>
 </div>
 
@@ -1203,6 +1250,36 @@ async function generateImage(userPrompt, fmt, seed, slideType){
 const $=(id)=>document.getElementById(id);
 function updateBadge(){ const m=genMode(); const b=$("modeBadge"); b.textContent = m==="direct"?"OpenRouter live":(m==="make"?"Make live":"Demo"); }
 updateBadge();
+
+/* ---------- Theme (hell/dunkel) mit Persistenz ---------- */
+function applyTheme(t){
+  document.documentElement.setAttribute("data-theme", t==="dark"?"dark":"light");
+  const ic=$("themeIcon");
+  if(ic) ic.innerHTML = t==="dark"
+    ? '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'
+    : '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
+  try{ localStorage.setItem("cs_theme", t); }catch(e){}
+}
+(function(){
+  let t="light"; try{ t=localStorage.getItem("cs_theme")||"light"; }catch(e){}
+  applyTheme(t);
+  const btn=$("themeToggle");
+  if(btn) btn.onclick=()=>{ applyTheme(document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark"); };
+})();
+
+/* ---------- Header-Logos + Favicon aus eingebetteten LOGOS (nach loadLogos verfügbar) ---------- */
+function brandHeaderLogos(){
+  try{
+    const main=$("brandLogoMain"), z=$("brandLogoZero");
+    // App-Bar ist navy -> helle (weiße) Logovarianten
+    if(main && LOGOS.finanzen_net) main.src=LOGOS.finanzen_net.data_url_hell||LOGOS.finanzen_net.data_url_dunkel;
+    if(z && LOGOS.zero && LOGOS.zero.data_url_hell){ z.src=LOGOS.zero.data_url_hell; z.style.display="block"; }
+    // Favicon aus dem dunklen finanzen.net-Logo
+    const fav=(LOGOS.favicon&&(LOGOS.favicon.data_url_dunkel||LOGOS.favicon.data_url_hell))||(LOGOS.finanzen_net&&LOGOS.finanzen_net.data_url_dunkel);
+    if(fav){ let l=document.querySelector('link[rel="icon"]'); if(!l){ l=document.createElement("link"); l.rel="icon"; document.head.appendChild(l); } l.href=fav; }
+  }catch(e){}
+}
+window.addEventListener("load",brandHeaderLogos);
 // Im Produktivbetrieb (Make-Webhook konfiguriert) keinen Key-Eingabe-Button zeigen.
 // Der OpenRouter-Key liegt dann serverseitig in Make.
 if(!CONFIG.DEMO_MODE && CONFIG.API_BASE.trim().length>0){
@@ -2998,13 +3075,13 @@ window.addEventListener("load",loadLogos);
 /* ============================================================
    Version / Footer
    ============================================================ */
-const APP_VERSION="1.1 (v017-Fixes)";
-const APP_DATE="10.07.2026";
+const APP_VERSION="1.2";
+const APP_DATE="13.07.2026";
 (function(){
   const f=document.createElement("div");
   f.id="appFooter";
-  f.style.cssText="position:fixed;bottom:0;left:0;right:0;height:26px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px;color:var(--faint);background:rgba(255,255,255,.85);backdrop-filter:blur(4px);border-top:1px solid var(--line);z-index:40;pointer-events:none";
-  f.innerHTML='finanzen<span style="color:#d70413;font-weight:800">.</span>net Creative Studio · v'+APP_VERSION+' · '+APP_DATE;
+  f.style.cssText="position:fixed;bottom:0;left:0;right:0;height:26px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px;color:var(--faint);background:var(--panel);opacity:.92;border-top:1px solid var(--line);z-index:40;pointer-events:none";
+  f.innerHTML='finanzen<span style="color:#d70413;font-weight:800">.</span>net Creative Studio · v'+APP_VERSION+' · Last update '+APP_DATE;
   document.body.appendChild(f);
 })();
 
