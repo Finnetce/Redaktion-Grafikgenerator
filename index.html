@@ -573,10 +573,10 @@
           <label class="lab">Modell</label>
           <div class="selwrap">
             <select class="sel" id="fModel">
-              <option value="openai/gpt-5.4-image-2">GPT Image 2 · OpenAI</option>
-              <option value="openai/gpt-5-image-mini">GPT Image Mini · schnell</option>
+              <option value="google/gemini-3-pro-image" selected>Nano Banana Pro · Google (empfohlen, schnell)</option>
               <option value="google/gemini-2.5-flash-image">Nano Banana · Google</option>
-              <option value="google/gemini-3-pro-image">Nano Banana Pro · Google</option>
+              <option value="openai/gpt-5.4-image-2">GPT Image 2 · OpenAI (aktuell langsam)</option>
+              <option value="openai/gpt-5-image-mini">GPT Image Mini · schnell</option>
             </select>
             <svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
           </div>
@@ -935,7 +935,8 @@ const FORMATS = {
   "3:4":  { w:1080, h:1440, nm:"Hochformat",bw:24, bh:32 },  // Tenbagger 535x725, Screening-Funnel
   "4:3":  { w:1440, h:1080, nm:"Querformat",bw:32, bh:24 },  // Magazin-Artikel 510x364
 };
-let curFmt = "4:5", curTheme = "clean", curModel = "openai/gpt-5.4-image-2", curBrand = "Puma";
+// curModel default: Nano Banana Pro (GPT Image 2 aktuell zu langsam — Christian 13.07.)
+let curFmt = "4:5", curTheme = "clean", curModel = "google/gemini-3-pro-image", curBrand = "Puma";
 
 /* ============================================================
    USE CASES (Redakteurs-Presets, finanzen.net / TraderFox)
@@ -1413,7 +1414,7 @@ function buildContent(content){
       let fs=spec.bodyPx*sx;
       const make=(size)=>{
         return (content.bullets||[]).map((bt,i)=>{
-          const tb=new fabric.Textbox(bt,{left:175*sx,width:797*sx,fontFamily:spec.font,fontWeight:500,fontSize:size,fill:REF.text,lineHeight:1.3,name:"bullet"+(i+1)});
+          const tb=new fabric.Textbox(noWrapUnits(bt),{left:175*sx,width:797*sx,fontFamily:spec.font,fontWeight:500,fontSize:size,fill:REF.text,lineHeight:1.3,name:"bullet"+(i+1)});
           tb.initDimensions&&tb.initDimensions(); return tb;
         });
       };
@@ -1442,7 +1443,7 @@ function buildContent(content){
     (content.bullets||[]).forEach((bt,i)=>{
       const y=(700+i*280)*sy;
       objs.push({kind:"obj",obj:makeChevron(81*sx, y, 62*sx)});
-      objs.push({kind:"obj",obj:new fabric.Textbox(bt,{left:175*sx,top:y,width:797*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.bodyPx*sx,fill:REF.text,lineHeight:1.3,name:"bullet"+(i+1)})});
+      objs.push({kind:"obj",obj:new fabric.Textbox(noWrapUnits(bt),{left:175*sx,top:y,width:797*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.bodyPx*sx,fill:REF.text,lineHeight:1.3,name:"bullet"+(i+1)})});
     });
   } else {
     objs.push({kind:"obj",obj:new fabric.Rect({left:-1,top:-1,width:W+2,height:px(0.255,H)+1,fill:BRAND.navy,name:"headerbar",selectable:false,evented:false})});
@@ -1450,7 +1451,7 @@ function buildContent(content){
     (content.bullets||[]).forEach((bt,i)=>{
       const y=0.345+i*0.165;
       objs.push({kind:"obj",obj:makeChevron(px(0.075,W),px(y,H),px(0.055,W))});
-      objs.push({kind:"obj",obj:new fabric.Textbox(bt,{left:px(0.16,W),top:px(y,H),width:px(0.78,W),fontFamily:spec.font,fontWeight:500,fontSize:px(0.036,W),fill:REF.text,lineHeight:1.3,name:"bullet"+(i+1)})});
+      objs.push({kind:"obj",obj:new fabric.Textbox(noWrapUnits(bt),{left:px(0.16,W),top:px(y,H),width:px(0.78,W),fontFamily:spec.font,fontWeight:500,fontSize:px(0.036,W),fill:REF.text,lineHeight:1.3,name:"bullet"+(i+1)})});
     });
   }
   return {objs,logoDark:false};
@@ -1472,7 +1473,7 @@ function buildClosing(content){
     {
       const bodyTop=clHead.top+clHead.height+42*sy, bodyMax=1216*sy-40*sy;
       let bfs=spec.bodyPx*sx, btxt=content.close||"";
-      const mk=(f,t)=>{ const tb=new fabric.Textbox(t,{left:108*sx,top:bodyTop,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:f,fill:REF.text,lineHeight:1.3,name:"body"}); tb.initDimensions&&tb.initDimensions(); return tb; };
+      const mk=(f,t)=>{ const tb=new fabric.Textbox(noWrapUnits(t),{left:108*sx,top:bodyTop,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:f,fill:REF.text,lineHeight:1.3,name:"body"}); tb.initDimensions&&tb.initDimensions(); return tb; };
       // FIX (Yuki 13.07.): Schrift bleibt FIX bei 30pt/40px (identisch zu Slide 2) — nur Text kürzen
       let tb=mk(bfs,btxt), guard=8;
       while(bodyTop+tb.height>bodyMax && btxt.length>60 && guard-->0){ btxt=smartShorten(btxt,Math.floor(btxt.length*0.85)); tb=mk(bfs,btxt); }
@@ -1521,6 +1522,14 @@ function buildQuote(content){
   return {objs,logoDark:true};
 }
 /* ---------- Info-Slide (Referenz: EZB/BMW/OpenAI Slide 2/3): Headline + Einordnung + Chevron + abgerundete Box ---------- */
+/* Umbruch-Schutz: "%" nie allein in neue Zeile, Klammerinhalte immer in EINER Zeile.
+   Erreicht durch geschützte Leerzeichen (U+00A0), die Fabric nicht umbricht. */
+function noWrapUnits(t){
+  t=(t||"");
+  t=t.replace(/ %/g,"\u00A0%").replace(/ Prozent/g,"\u00A0Prozent");
+  t=t.replace(/\(([^)]{1,40})\)/g,(m,inner)=>"("+inner.replace(/ /g,"\u00A0")+")");
+  return t;
+}
 /* Satz-bewusstes Kürzen: schneidet am letzten vollständigen Satz, nie mitten im Wort */
 function smartShorten(t,maxChars){
   t=(t||"").trim(); if(t.length<=maxChars) return t;
@@ -1554,19 +1563,19 @@ function buildTextInfo(content){
     // FIX (Yuki 13.07. 10:24): Abstand Headline -> Text war zu groß (46px) -> 24px, wie auf Slide 2
     y+=head.height+24*sx;
     if(introTxt){
-      const intro=new fabric.Textbox(introTxt,{left:108*sx,top:y,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:fs,fill:REF.text,lineHeight:1.3,name:"intro"});
+      const intro=new fabric.Textbox(noWrapUnits(introTxt),{left:108*sx,top:y,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:fs,fill:REF.text,lineHeight:1.3,name:"intro"});
       intro.initDimensions&&intro.initDimensions(); items.push({kind:"obj",obj:intro});
       y+=intro.height+50*sx;
     }
     if(bulletTxt){
       items.push({kind:"obj",obj:makeChevron(81*sx,y,62*sx)});
-      const bt=new fabric.Textbox(bulletTxt,{left:175*sx,top:y,width:797*sx,fontFamily:spec.font,fontWeight:500,fontSize:fs,fill:REF.text,lineHeight:1.3,name:"bullet1"});
+      const bt=new fabric.Textbox(noWrapUnits(bulletTxt),{left:175*sx,top:y,width:797*sx,fontFamily:spec.font,fontWeight:500,fontSize:fs,fill:REF.text,lineHeight:1.3,name:"bullet1"});
       bt.initDimensions&&bt.initDimensions(); items.push({kind:"obj",obj:bt});
       y+=Math.max(bt.height,62*sx)+50*sx;
     }
     if(boxText){
       // FIX (Yuki 13.07. 10:24): Kasten + Text als EINE bewegliche Gruppe (wie der Pfeil verschiebbar)
-      const btx=new fabric.Textbox(boxText,{left:40*sx,top:40*sx,width:784*sx,fontFamily:spec.font,fontWeight:500,fontSize:fs,fill:REF.text,lineHeight:1.3,name:"boxtext"});
+      const btx=new fabric.Textbox(noWrapUnits(boxText),{left:40*sx,top:40*sx,width:784*sx,fontFamily:spec.font,fontWeight:500,fontSize:fs,fill:REF.text,lineHeight:1.3,name:"boxtext"});
       btx.initDimensions&&btx.initDimensions();
       const box=new fabric.Rect({left:0,top:0,width:864*sx,height:btx.height+80*sx,rx:24*sx,ry:24*sx,fill:"#f0f2f6",name:"boxbg"});
       const grp=new fabric.Group([box,btx],{left:108*sx,top:y,name:"box",selectable:true,evented:true});
@@ -1789,6 +1798,35 @@ function attachSnapping(c){
   });
   const clear=()=>{ _snapLines=[]; try{ c.clearContext(c.contextTop); }catch(e){} };
   c.on("object:modified",clear); c.on("mouse:up",clear); c.on("selection:cleared",clear);
+}
+
+/* Grauer Kasten (Gruppe): Doppelklick -> Text editieren, danach automatisch wieder gruppieren.
+   (Fabric kann Textboxen IN Gruppen nicht direkt editieren, daher temporäres Entgruppieren.) */
+function attachBoxEdit(c){
+  if(c._boxEditAttached) return; c._boxEditAttached=true;
+  c.on("mouse:dblclick",(e)=>{
+    const g=e.target;
+    if(!g||g.type!=="group"||g.name!=="box") return;
+    const objs=g.destroy().getObjects();       // Positionen werden auf Canvas-Koordinaten zurückgerechnet
+    c.remove(g);
+    const bg=objs.find(o=>o.name==="boxbg");
+    const tb=objs.find(o=>o.type==="textbox");
+    objs.forEach(o=>c.add(o));
+    if(bg){ bg.set({selectable:false,evented:false}); c.sendToBack&&c.bringToFront(bg); }
+    if(tb){ c.bringToFront(tb); c.setActiveObject(tb); tb.enterEditing&&tb.enterEditing();
+      if(!tb.__boxExitHooked){ tb.__boxExitHooked=true;
+        tb.on("editing:exited",()=>{
+          const pad=bg?(bg.width/864*40):(tb.fontSize*1.0);
+          if(bg){ tb.set({left:bg.left+pad,top:bg.top+pad}); tb.initDimensions&&tb.initDimensions();
+            bg.set({height:tb.height+2*pad}); }
+          c.remove(tb); if(bg) c.remove(bg);
+          const grp=new fabric.Group(bg?[bg,tb]:[tb],{name:"box",selectable:true,evented:true});
+          c.add(grp); c.discardActiveObject(); c.renderAll(); pushHistory&&pushHistory();
+        });
+      }
+    }
+    c.renderAll();
+  });
 }
 
 async function showSlide(i){
@@ -2106,6 +2144,7 @@ $("goStudio").onclick=async()=>{
     canvas.on("object:rotating",liveProps);
     attachHistory(canvas);
     attachSnapping(canvas);
+    attachBoxEdit(canvas);
   }
   canvas.setWidth(DISP.w); canvas.setHeight(DISP.h);
 
@@ -2389,6 +2428,7 @@ async function openGraphicInEditor(){
     canvas.on("object:moving",liveProps); canvas.on("object:scaling",liveProps); canvas.on("object:rotating",liveProps);
     attachHistory(canvas);
     attachSnapping(canvas);
+    attachBoxEdit(canvas);
   }
   canvas.setWidth(DISP.w); canvas.setHeight(DISP.h);
   // Nur das Vollbild als Hintergrund, KEINE Social-Maske
