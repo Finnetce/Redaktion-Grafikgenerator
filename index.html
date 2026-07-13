@@ -1188,6 +1188,9 @@ async function generateImage(userPrompt, fmt, seed, slideType){
   params.set("action","generate-image"); params.set("prompt",fullPrompt);
   params.set("format",fmt); params.set("theme",curTheme); params.set("model",curModel);
   params.set("slide",slideType||"cover");
+  // Dashboard-Logging (Leon): Use Case = social_<marke>_<slidetyp>, z.B. social_finnet_cover
+  params.set("use_case","social_"+((window._smBrand)||"finnet")+"_"+(slideType||"cover"));
+  params.set("brand",(window._smBrand)||"finnet");
   const res=await fetch(CONFIG.API_BASE,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:params.toString()});
   const data=await res.json();
   if(!data.ok || !data.image) throw new Error(data.error||"Bildgenerierung fehlgeschlagen");
