@@ -617,6 +617,7 @@
     <div class="tsep"></div>
     <button class="tool" id="tAddText"><svg class="ic" viewBox="0 0 24 24"><path d="M5 6V4h14v2"/><path d="M12 4v16"/><path d="M9 20h6"/></svg> Text</button>
     <button class="tool" id="tAddImage"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2.5"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="m21 15-4.5-4.5a2 2 0 0 0-2.8 0L5 19"/></svg> Bild</button>
+    <button class="tool" id="tGroup" title="Auswahl gruppieren / Gruppe lösen (mehrere Elemente mit Shift-Klick oder Rahmen auswählen)"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/><path d="M11 7h4a2 2 0 0 1 2 2v4"/></svg> Gruppieren</button>
     <select class="sel tsel" id="edLogo" title="Logo aufs Bild einfügen" style="max-width:150px"><option value="">Logo wählen …</option></select>
     <select class="sel tsel" id="edLogoVar" title="Logo-Variante" style="max-width:120px"><option value="">Auto</option><option value="hell">Hell (weiß)</option><option value="dunkel">Dunkel</option></select>
     <button class="tool" id="tLogo"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Logo einfügen</button>
@@ -1341,7 +1342,7 @@ function buildCover(content){
     const sub=new fabric.Textbox(content.sub,{left:108*sx,top:996*sy,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.subPx*sx,fill:"#ffffff",lineHeight:1.25,name:"subline"});
     objs.push({kind:"obj",obj:head});
     objs.push({kind:"obj",obj:sub});
-    objs.push({kind:"obj",obj:new fabric.Text("Bildquelle: KI-generiert",{left:108*sx,top:H-70*sy-18*sx,fontFamily:spec.font,fontSize:18*sx,fill:"rgba(255,255,255,0.72)",name:"credit"})});
+    objs.push({kind:"obj",obj:new fabric.IText("Bildquelle: KI-generiert",{left:108*sx,top:H-70*sy-18*sx,fontFamily:spec.font,fontSize:18*sx,fill:"rgba(255,255,255,0.72)",name:"credit"})});
   } else if(curFmt==="9:16"){
     // FIX Story (9:16): Texte lagen zu tief und wurden von der Instagram-UI (Reply-Feld unten,
     // Profil/Buttons oben) abgeschnitten. Safe-Zone: oben ~250px, unten ~310px (Master 1080x1920).
@@ -1349,11 +1350,11 @@ function buildCover(content){
     const safeBottom=H-310*sy;                     // Unterkante der nutzbaren Zone
     objs.push({kind:"obj",obj:tHeadline(content.head,{left:108*sx,top:safeBottom-330*sy,width:864*sx,fontSize:spec.headPx*sx,fontFamily:spec.font})});
     objs.push({kind:"obj",obj:new fabric.Textbox(content.sub,{left:108*sx,top:safeBottom-150*sy,width:864*sx,fontFamily:spec.font,fontWeight:600,fontSize:spec.subPx*sx,fill:"#ffffff",name:"subline"})});
-    objs.push({kind:"obj",obj:new fabric.Text("Bildquelle: KI-generiert",{left:108*sx,top:safeBottom-40*sy,fontFamily:spec.font,fontSize:18*sx,fill:"rgba(255,255,255,0.72)",name:"credit"})});
+    objs.push({kind:"obj",obj:new fabric.IText("Bildquelle: KI-generiert",{left:108*sx,top:safeBottom-40*sy,fontFamily:spec.font,fontSize:18*sx,fill:"rgba(255,255,255,0.72)",name:"credit"})});
   } else {
     objs.push({kind:"obj",obj:tHeadline(content.head,{left:px(0.06,W),top:px(0.685,H),width:px(0.82,W),fontSize:px(spec.headPx/1080,W),fontFamily:spec.font})});
     objs.push({kind:"obj",obj:new fabric.Textbox(content.sub,{left:px(0.06,W),top:px(0.865,H),width:px(0.66,W),fontFamily:spec.font,fontWeight:600,fontSize:px(spec.subPx/1080,W),fill:"#ffffff",name:"subline"})});
-    objs.push({kind:"obj",obj:new fabric.Text("Bildquelle: KI-generiert",{left:px(0.06,W),top:px(0.955,H),fontFamily:spec.font,fontSize:px(0.018,W),fill:"rgba(255,255,255,0.72)",name:"credit"})});
+    objs.push({kind:"obj",obj:new fabric.IText("Bildquelle: KI-generiert",{left:px(0.06,W),top:px(0.955,H),fontFamily:spec.font,fontSize:px(0.018,W),fill:"rgba(255,255,255,0.72)",name:"credit"})});
   }
   return {objs,logoDark:true};
 }
@@ -1405,7 +1406,7 @@ function buildContent(content){
   if(curFmt==="4:5"){
     // Exakte Positionen Slide 2 (Yuki, Master 1080x1350): Balken 1080x319.5, Headline X108 Y108 B864 / 50px, Bullets 30px
     const sx=W/1080, sy=H/1350;
-    objs.push({kind:"obj",obj:new fabric.Rect({left:-1,top:-1,width:W+2,height:319.5*sy+1,fill:BRAND.navy,name:"headerbar",selectable:false,evented:false})});
+    objs.push({kind:"obj",obj:new fabric.Rect({left:-1,top:-1,width:W+2,height:319.5*sy+1,fill:BRAND.navy,name:"headerbar",selectable:true,evented:true})});
     objs.push({kind:"obj",obj:tHeadline(content.head,{left:108*sx,top:108*sy,width:864*sx,fontSize:spec.h2Px*sx,fontFamily:spec.font})});
     // FIX Überlagerung: Bullets dynamisch stapeln (gemessene Höhe + Abstand) statt festem 195px-Raster —
     // 3-4-zeilige Bullets kollidierten sonst. Zusätzlich Schrift verkleinern, wenn es insgesamt nicht passt.
@@ -1438,7 +1439,7 @@ function buildContent(content){
     // FIX Story (9:16): Headline saß in der oberen Instagram-UI-Zone (~250px) und wirkte abgeschnitten.
     // Balken beginnt bei 0, Text erst unterhalb der Safe-Zone; Bullets mittig in der nutzbaren Zone.
     const sx=W/1080, sy=H/1920;
-    objs.push({kind:"obj",obj:new fabric.Rect({left:-1,top:-1,width:W+2,height:560*sy+1,fill:BRAND.navy,name:"headerbar",selectable:false,evented:false})});
+    objs.push({kind:"obj",obj:new fabric.Rect({left:-1,top:-1,width:W+2,height:560*sy+1,fill:BRAND.navy,name:"headerbar",selectable:true,evented:true})});
     objs.push({kind:"obj",obj:tHeadline(content.head,{left:108*sx,top:290*sy,width:864*sx,fontSize:spec.h2Px*sx,fontFamily:spec.font})});
     (content.bullets||[]).forEach((bt,i)=>{
       const y=(700+i*280)*sy;
@@ -1446,7 +1447,7 @@ function buildContent(content){
       objs.push({kind:"obj",obj:new fabric.Textbox(noWrapUnits(bt),{left:175*sx,top:y,width:797*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.bodyPx*sx,fill:REF.text,lineHeight:1.3,name:"bullet"+(i+1)})});
     });
   } else {
-    objs.push({kind:"obj",obj:new fabric.Rect({left:-1,top:-1,width:W+2,height:px(0.255,H)+1,fill:BRAND.navy,name:"headerbar",selectable:false,evented:false})});
+    objs.push({kind:"obj",obj:new fabric.Rect({left:-1,top:-1,width:W+2,height:px(0.255,H)+1,fill:BRAND.navy,name:"headerbar",selectable:true,evented:true})});
     objs.push({kind:"obj",obj:tHeadline(content.head,{left:px(0.06,W),top:px(0.065,H),width:px(0.86,W),fontSize:px(0.056,W),fontFamily:spec.font})});
     (content.bullets||[]).forEach((bt,i)=>{
       const y=0.345+i*0.165;
@@ -1480,19 +1481,19 @@ function buildClosing(content){
       objs.push({kind:"obj",obj:tb});
     }
     // "Quelle:" auf einer Linie mit der visuellen Unterkante des Logos (Logo Y1213.5 + H26.4 => Unterkante ~1239.9)
-    objs.push({kind:"obj",obj:new fabric.Text("Quelle: finanzen.net",{left:108*sx,top:1216*sy,fontFamily:spec.font,fontSize:20*sx,fill:REF.text,name:"source"})});
+    objs.push({kind:"obj",obj:new fabric.IText("Quelle: finanzen.net",{left:108*sx,top:1216*sy,fontFamily:spec.font,fontSize:20*sx,fill:REF.text,name:"source"})});
   } else if(curFmt==="9:16"){
     // Story: Safe-Zones beachten (oben ~250px, unten ~310px auf 1920er-Master)
     const sx=W/1080, sy=H/1920;
     objs.push({kind:"image",src:content.bg,props:{name:"image",selectable:true,_coverH:820*sy}});
     objs.push({kind:"obj",obj:new fabric.Textbox(content.closeHead||content.head||"Fazit",{left:108*sx,top:900*sy,width:864*sx,fontFamily:spec.font,fontWeight:800,fontSize:spec.h2Px*sx,fill:REF.navy,name:"headline"})});
     objs.push({kind:"obj",obj:new fabric.Textbox(content.close,{left:108*sx,top:1110*sy,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.bodyPx*sx,fill:REF.text,lineHeight:1.3,name:"body"})});
-    objs.push({kind:"obj",obj:new fabric.Text("Quelle: finanzen.net",{left:108*sx,top:H-310*sy-28*sx,fontFamily:spec.font,fontSize:20*sx,fill:REF.text,name:"source"})});
+    objs.push({kind:"obj",obj:new fabric.IText("Quelle: finanzen.net",{left:108*sx,top:H-310*sy-28*sx,fontFamily:spec.font,fontSize:20*sx,fill:REF.text,name:"source"})});
   } else {
     objs.push({kind:"image",src:content.bg,props:{name:"image",selectable:true,_coverH:px(0.50,H)}});
     objs.push({kind:"obj",obj:new fabric.Textbox(content.closeHead||content.head||"Fazit",{left:px(0.06,W),top:px(0.585,H),width:px(0.86,W),fontFamily:spec.font,fontWeight:800,fontSize:px(0.052,W),fill:BRAND.navy,name:"headline"})});
     objs.push({kind:"obj",obj:new fabric.Textbox(content.close,{left:px(0.06,W),top:px(0.71,H),width:px(0.86,W),fontFamily:spec.font,fontWeight:500,fontSize:px(0.034,W),fill:REF.text,lineHeight:1.3,name:"body"})});
-    objs.push({kind:"obj",obj:new fabric.Text("Quelle: finanzen.net",{left:px(0.06,W),top:px(0.95,H),fontFamily:spec.font,fontSize:px(0.020,W),fill:REF.text,name:"source"})});
+    objs.push({kind:"obj",obj:new fabric.IText("Quelle: finanzen.net",{left:px(0.06,W),top:px(0.95,H),fontFamily:spec.font,fontSize:px(0.020,W),fill:REF.text,name:"source"})});
   }
   return {objs,logoDark:false};
 }
@@ -1578,12 +1579,12 @@ function buildTextInfo(content){
       y+=Math.max(bt.height,62*sx)+50*sx;
     }
     if(boxText){
-      // FIX (Yuki 13.07. 10:24): Kasten + Text als EINE bewegliche Gruppe (wie der Pfeil verschiebbar)
-      const btx=new fabric.Textbox(noWrapUnits(boxText),{left:40*sx,top:40*sx,width:784*sx,fontFamily:spec.font,fontWeight:500,fontSize:fs,fill:REF.text,lineHeight:1.3,name:"boxtext"});
+      // FIX (Yuki 13.07. nachm.): Kasten + Text GETRENNT (Text direkt editierbar per Doppelklick),
+      // aber verkoppelt: verschiebt man eines, wandert das andere mit (attachLinkedMove).
+      const btx=new fabric.Textbox(noWrapUnits(boxText),{left:148*sx,top:y+40*sx,width:784*sx,fontFamily:spec.font,fontWeight:500,fontSize:fs,fill:REF.text,lineHeight:1.3,name:"boxtext"});
       btx.initDimensions&&btx.initDimensions();
-      const box=new fabric.Rect({left:0,top:0,width:864*sx,height:btx.height+80*sx,rx:24*sx,ry:24*sx,fill:"#f0f2f6",name:"boxbg"});
-      const grp=new fabric.Group([box,btx],{left:108*sx,top:y,name:"box",selectable:true,evented:true});
-      items.push({kind:"obj",obj:grp});
+      const box=new fabric.Rect({left:108*sx,top:y,width:864*sx,height:btx.height+80*sx,rx:24*sx,ry:24*sx,fill:"#f0f2f6",name:"boxbg",selectable:true,evented:true});
+      items.push({kind:"obj",obj:box}); items.push({kind:"obj",obj:btx});
       y+=btx.height+80*sx;
     }
     return {items,bottom:y};
@@ -1599,7 +1600,7 @@ function buildTextInfo(content){
     res=layout(fs,boxTxt);
   }
   res.items.forEach(it=>objs.push(it));
-  objs.push({kind:"obj",obj:new fabric.Text("Quelle: finanzen.net",{left:108*sx,top:srcTop,fontFamily:spec.font,fontSize:20*sx,fill:REF.text,name:"source"})});
+  objs.push({kind:"obj",obj:new fabric.IText("Quelle: finanzen.net",{left:108*sx,top:srcTop,fontFamily:spec.font,fontSize:20*sx,fill:REF.text,name:"source"})});
   return {objs,logoDark:false};
 }
 const TEMPLATES={cover:buildCover,content:buildContent,closing:buildClosing,quote:buildQuote,textinfo:buildTextInfo};
@@ -1804,32 +1805,38 @@ function attachSnapping(c){
   c.on("object:modified",clear); c.on("mouse:up",clear); c.on("selection:cleared",clear);
 }
 
-/* Grauer Kasten (Gruppe): Doppelklick -> Text editieren, danach automatisch wieder gruppieren.
-   (Fabric kann Textboxen IN Gruppen nicht direkt editieren, daher temporäres Entgruppieren.) */
+/* Verkoppelte Bausteine + Editierbarkeit (Yuki 13.07. nachm.):
+   - Grauer Kasten: Rect + Textbox getrennt (Text per Doppelklick editierbar),
+     beim Verschieben wandern beide zusammen; nach Text-Edit wächst der Kasten mit.
+   - Doppelklick auf selbst erstellte Gruppen (Gruppieren-Button) löst sie zum Bearbeiten. */
 function attachBoxEdit(c){
-  if(c._boxEditAttached) return; c._boxEditAttached=true;
+  if(c._linkedMoveAttached) return; c._linkedMoveAttached=true;
+  const partnerOf=(o)=>{
+    if(!o||!o.name) return null;
+    if(o.name==="boxbg") return c.getObjects().find(x=>x.name==="boxtext");
+    if(o.name==="boxtext") return c.getObjects().find(x=>x.name==="boxbg");
+    return null;
+  };
+  c.on("mouse:down",(e)=>{ const o=e.target; if(o){ o.__lx=o.left; o.__ly=o.top; } });
+  c.on("object:moving",(e)=>{
+    const o=e.target; const p=partnerOf(o); if(!p) return;
+    if(o.__lx===undefined){ o.__lx=o.left; o.__ly=o.top; }
+    const dx=o.left-o.__lx, dy=o.top-o.__ly;
+    if(dx||dy){ p.set({left:p.left+dx,top:p.top+dy}); p.setCoords(); }
+    o.__lx=o.left; o.__ly=o.top;
+  });
+  // Nach Text-Edit im Kasten: Kastenhöhe an neuen Text anpassen
+  c.on("text:editing:exited",(e)=>{
+    const t=e.target; if(!t||t.name!=="boxtext") return;
+    const bg=c.getObjects().find(x=>x.name==="boxbg"); if(!bg) return;
+    const pad=Math.max(10,(t.left-bg.left));
+    t.initDimensions&&t.initDimensions();
+    bg.set({height:t.height+2*pad}); bg.setCoords(); c.renderAll();
+  });
+  // Doppelklick auf selbst erstellte Gruppe -> zum Bearbeiten lösen (Logo/Pfeil bleiben unangetastet)
   c.on("mouse:dblclick",(e)=>{
     const g=e.target;
-    if(!g||g.type!=="group"||g.name!=="box") return;
-    const objs=g.destroy().getObjects();       // Positionen werden auf Canvas-Koordinaten zurückgerechnet
-    c.remove(g);
-    const bg=objs.find(o=>o.name==="boxbg");
-    const tb=objs.find(o=>o.type==="textbox");
-    objs.forEach(o=>c.add(o));
-    if(bg){ bg.set({selectable:false,evented:false}); c.sendToBack&&c.bringToFront(bg); }
-    if(tb){ c.bringToFront(tb); c.setActiveObject(tb); tb.enterEditing&&tb.enterEditing();
-      if(!tb.__boxExitHooked){ tb.__boxExitHooked=true;
-        tb.on("editing:exited",()=>{
-          const pad=bg?(bg.width/864*40):(tb.fontSize*1.0);
-          if(bg){ tb.set({left:bg.left+pad,top:bg.top+pad}); tb.initDimensions&&tb.initDimensions();
-            bg.set({height:tb.height+2*pad}); }
-          c.remove(tb); if(bg) c.remove(bg);
-          const grp=new fabric.Group(bg?[bg,tb]:[tb],{name:"box",selectable:true,evented:true});
-          c.add(grp); c.discardActiveObject(); c.renderAll(); pushHistory&&pushHistory();
-        });
-      }
-    }
-    c.renderAll();
+    if(g && g.type==="group" && g.name==="usergroup" && g.toActiveSelection){ g.toActiveSelection(); c.requestRenderAll(); }
   });
 }
 
@@ -1999,6 +2006,20 @@ $("edTitle").addEventListener("input",()=>{
   const fh=$("fHead"); if(fh) fh.value=v;
 });
 $("tAddImage").onclick=()=>{ fileTarget="add"; $("fileInput").click(); };
+// Gruppieren/Lösen: mehrere Elemente (Shift-Klick/Rahmen) zu einer Gruppe verbinden -> Abstände bleiben fix.
+// Doppelklick auf die Gruppe oder erneut "Gruppieren" löst sie wieder.
+$("tGroup").onclick=()=>{
+  const a=canvas.getActiveObject();
+  if(!a){ toast("Erst Elemente auswählen: Shift-Klick oder Rahmen ziehen"); return; }
+  if(a.type==="group" && a.name==="usergroup"){
+    a.toActiveSelection(); canvas.requestRenderAll(); pushHistory(); toast("Gruppe gelöst"); return;
+  }
+  if(a.type==="activeSelection"){
+    const g=a.toGroup(); g.set({name:"usergroup"}); canvas.requestRenderAll(); pushHistory();
+    toast("Gruppiert — zusammen verschiebbar. Doppelklick oder erneut Gruppieren löst die Gruppe"); return;
+  }
+  toast("Mehrere Elemente auswählen (Shift-Klick), dann gruppieren");
+};
 // Echtes Logo (aus eingebetteten LOGOS) per Klick aufs Bild einfügen — austauschbar über das Dropdown.
 $("tLogo").onclick=async()=>{
   const id=($("edLogo")&&$("edLogo").value)||"";
