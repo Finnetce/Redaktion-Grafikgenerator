@@ -904,7 +904,7 @@ function brandSpec(){
   return zero
     ? { font:"Plus Jakarta Sans", headPx:Math.round(50*4/3), subPx:40, bodyPx:40, h2Px:Math.round(50*4/3), inset:80,
         logo:{ w:227.7, h:74.9, x:772.1, y:80.2 } }
-    : { font:"Poppins", headPx:80, subPx:43, bodyPx:40, h2Px:67, inset:108,
+    : { font:"Poppins", headPx:80, subPx:47, bodyPx:40, h2Px:67, inset:108,
         logo:{ w:216.6, h:26.4, x:755.4, y:1213.5 } };
 }
 /* Referenz-Farben (finnet x Sourcera, nachgemessen) */
@@ -1531,10 +1531,12 @@ function buildTextInfo(content){
   const spec=brandSpec(); const sx=W/1080;
   objs.push({kind:"obj",obj:new fabric.Rect({left:-1,top:-1,width:W+2,height:H+2,fill:"#ffffff",name:"bg2",selectable:false,evented:false})});
   const bl=(content.bullets||[]);
-  const headTxt=content.closeHead||content.head||"";
-  const introTxt=content.intro||bl[0]||"";
-  const bulletTxt=bl[1]||content.close||"";
-  let boxTxt=content.box||bl[2]||"";
+  // FIX Redundanz (Yuki 13.07.): eigene Felder der Info-Slide zuerst; Fallbacks nur auf Inhalte,
+  // die NICHT bereits auf anderen Slides stehen. closeHead/bullets werden hier NICHT mehr recycelt.
+  const headTxt=content.infoHead||"Einordnung";
+  const introTxt=content.intro||"";
+  const bulletTxt=content.infoBullet||"";
+  let boxTxt=content.box||"";
   const topY=(curFmt==="9:16") ? (250/1920)*H+40*sx : 108*sx;
   const srcTop=(curFmt==="9:16") ? H-(310/1920)*H-26*sx : H-136*sx;
   const maxBottom=srcTop-40*sx;   // Inhalt muss klar OBERHALB der Quelle enden
@@ -1636,7 +1638,7 @@ function _placeImageObj(img,props){
   const W=DISP.w,H=DISP.h;
   // Bleed: Vollflächen-Bilder minimal überdimensionieren, damit beim Export
   // keine weißen Haarlinien an den Rändern entstehen (Rundungs-/Antialiasing-Effekt).
-  const BL=1;
+  const BL=2;
   if(props._coverH){
     const t=props._coverH, s=Math.max((W+2*BL)/img.width, (t+2*BL)/img.height); img.scale(s);
     img.set({left:(W-img.getScaledWidth())/2,top:-BL,name:props.name||"image",selectable:true});
@@ -1685,12 +1687,20 @@ function _fitTextLines(){
   const subMax=(window._smBrand==="zero")?2:1;
   canvas.getObjects().forEach(o=>{
     if(o.type!=="textbox") return;
-    const maxLines = o.name==="headline" ? 2 : (o.name==="subline" ? subMax : 0);
+    const isSub=o.name==="subline";
+    const maxLines = o.name==="headline" ? 2 : (isSub ? subMax : 0);
     if(!maxLines) return;
-    const minFs=Math.round(o.fontSize*0.7);
+    // Subline (Yuki): 30-35pt halten! Nur minimal schrumpfen (35pt->30pt = Faktor 0.855),
+    // reicht das nicht für eine Zeile, TEXT satzbewusst kürzen statt Schrift verkleinern.
+    const minFs=Math.round(o.fontSize*(isSub?0.855:0.7));
     let guard=40;
     while(o.textLines && o.textLines.length>maxLines && o.fontSize>minFs && guard-->0){
       o.set("fontSize", o.fontSize-1); o.initDimensions();
+    }
+    if(isSub){ let g2=8;
+      while(o.textLines && o.textLines.length>maxLines && (o.text||"").length>25 && g2-->0){
+        o.set("text", smartShorten(o.text, Math.floor(o.text.length*0.85))); o.initDimensions();
+      }
     }
   });
   canvas.renderAll();
@@ -2030,7 +2040,9 @@ function toast(msg, dur){
 async function exportPNG(){
   snapshotCurrent();
   // volle Canvas-Auflösung rendern
-  const url=canvas.toDataURL({format:"png",multiplier:exportMult});
+  let url=canvas.toDataURL({format:"png",multiplier:exportMult});
+  // FIX weißer Rand: Float-Multiplikator kann 1349/2699px erzeugen -> immer exakt auf Formatgröße bringen
+  try{ const fmz=FORMATS[curFmt]; url=await fitToTarget(url, fmz.w, fmz.h, "image/png"); }catch(e){}
   // Bei Grafiken-Redaktion exakt auf die Veröffentlichungs-Zielgröße bringen
   const tg = (slides[current] && slides[current].type==="graphic") ? GR_TARGET[grUseCase] : null;
   let out=url, suffix="_slide"+(current+1);
@@ -2060,6 +2072,8 @@ $("goStudio").onclick=async()=>{
     // Zusatzfelder für Zitat-/Info-Slides (aus der Claude-Extraktion, falls vorhanden)
     quote:(window._smText&&window._smText.quote)||null,
     intro:(window._smText&&window._smText.intro)||"",
+    infoHead:(window._smText&&window._smText.infoHead)||"",
+    infoBullet:(window._smText&&window._smText.infoBullet)||"",
     box:(window._smText&&window._smText.box)||""
   };
   showLoading("Dein Post wird erstellt", isLive()?(modelLabel()+" generiert dein Bild"):"Platzhalter wird gezeichnet");
@@ -2557,7 +2571,7 @@ async function runFill(view){
 }
 
 async function extractSocial(txt){
-  const sys="Du bist Redakteur bei finanzen.net und schreibst professionelles, korrektes Deutsch mit Umlauten und richtiger Gross- und Kleinschreibung. Lies den Text und fülle Felder für eine Social-Media-Karussell-Grafik. Antworte NUR mit reinem JSON, ohne Markdown, ohne Erklärung. Schema: {\"head\":\"prägnante Schlagzeile, max 55 Zeichen\",\"sub\":\"Unterzeile, max 110 Zeichen\",\"bullets\":[\"drei Kernaussagen, je max 120 Zeichen\"],\"close\":\"Schluss-Statement, max 140 Zeichen\",\"brand\":\"die zentrale Firma oder Marke, sonst leerer String\",\"prompt\":\"kurzer englischer Bild-Prompt für ein passendes Hintergrundfoto ohne Text und ohne Logos\"}. Alles auf Deutsch ausser prompt. Sachlich, deskriptiv, keine Kaufempfehlung.";
+  const sys="Du bist Redakteur bei finanzen.net und schreibst professionelles, korrektes Deutsch mit Umlauten und richtiger Gross- und Kleinschreibung. Lies den Text und fülle Felder für eine Social-Media-Karussell-Grafik. Antworte NUR mit reinem JSON, ohne Markdown, ohne Erklärung. Schema: {\"head\":\"prägnante Schlagzeile, max 55 Zeichen\",\"sub\":\"Unterzeile, STRIKT max 40 Zeichen (muss bei gro\u00dfer Schrift auf EINE Zeile passen), pr\u00e4gnanter Zusatz zur Schlagzeile\",\"bullets\":[\"drei Kernaussagen, je max 120 Zeichen\"],\"close\":\"Schluss-Statement, max 140 Zeichen\",\"brand\":\"die zentrale Firma oder Marke, sonst leerer String\",\"prompt\":\"kurzer englischer Bild-Prompt für ein passendes Hintergrundfoto ohne Text und ohne Logos\"}. Alles auf Deutsch ausser prompt. Sachlich, deskriptiv, keine Kaufempfehlung.";
   const out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,8000)}]));
   if(out.head) $("fHead").value=out.head;
   if(out.sub) $("fSub").value=out.sub;
@@ -3346,7 +3360,7 @@ extractSocial = async function(txt){
     : " "+_st.prompt+" Gib im Feld textstyle den Wert '"+window._smTextStyle+"' zur\u00fcck.";
   var sys="Du bist Social-Media-Redakteur bei "+b.label+" und schreibst professionelles, korrektes Deutsch mit Umlauten. Tonalit\u00e4t: "+b.ton+stylePart+" Lies den Artikeltext und antworte NUR mit reinem JSON ohne Markdown. Schema: {"+
     "\"head\":\"prägnante Schlagzeile, max 55 Zeichen\","+
-    "\"sub\":\"Unterzeile, max 110 Zeichen\","+
+    "\"sub\":\"Unterzeile, STRIKT max 40 Zeichen (muss bei gro\u00dfer Schrift auf EINE Zeile passen), pr\u00e4gnanter Zusatz zur Schlagzeile\","+
     "\"bullets\":[\"drei Kernaussagen, je STRIKT max 100 Zeichen (harte Grenze, sonst Layout-Bruch). QUALITÄTS-REGELN (alle Pflicht): (1) Jeder Punkt muss OHNE Vorwissen verständlich sein — ein Follower, der nur diese Slide sieht, versteht sofort, worum es geht und was passiert ist. (2) Jeder Punkt enthält mindestens EINEN konkreten Fakt aus dem Artikel: eine Zahl, einen Prozentwert, einen Betrag, ein Datum oder eine klar benannte Entscheidung — keine vagen Aussagen wie 'Experten sind optimistisch' oder 'Das Umfeld bleibt schwierig'. (3) Die drei Punkte bauen als Story aufeinander auf: Punkt 1 = WAS ist konkret passiert (das Ereignis mit der wichtigsten Zahl), Punkt 2 = WARUM / der Auslöser oder Kontext, Punkt 3 = die KONSEQUENZ: was es für Anleger, das Unternehmen oder den Markt konkret bedeutet. (4) Der wichtigste Fakt des Artikels MUSS in den Bullets vorkommen — frage dich: Was ist die eine Sache, die ein Leser mitnehmen soll? Diese zuerst. (5) Aktive, konkrete Sprache: Subjekt + Verb + Fakt ('Intel hebt die Xeon-Preise um 12 Prozent an'), keine Substantivierungen, keine Füllwörter, kein Behörden-Deutsch. SELBSTTEST vor der Antwort: Lies deine drei Bullets isoliert — versteht ein Laie ohne den Artikel, was passiert ist und warum es wichtig ist? Falls nein, umschreiben\"],"+
     "\"close\":\"Schluss-Statement, max 140 Zeichen: die konkrete Kernerkenntnis oder der Ausblick mit Substanz (was sollte man im Blick behalten und WARUM) — kein generisches 'Es bleibt spannend'\","+
     "\"closeHead\":\"kurze Headline für die Schluss-Slide, max 40 Zeichen, inhaltlich zum Artikel passend, NICHT generisch\","+
@@ -3359,10 +3373,12 @@ extractSocial = async function(txt){
     "\"textstyle\":\"hook|trader|info \u2014 der verwendete Textstil\","+
     "\"series\":{\"key\":\"k3|k2|z3|d4 — welche Slide-Serie am besten passt: k3=Karussell klassisch 3 Slides (Standard-News), k2=Kompakt 2 Slides (kurze Meldung, wenig Substanz), z3=Zitat-Story 3 Slides (NUR wenn ein starkes wörtliches Zitat einer Person im Artikel steht), d4=Deep Dive 4 Slides (komplexes Thema mit viel Substanz)\",\"grund\":\"1 kurzer Satz warum\"},"+
     "\"quote\":{\"text\":\"das stärkste wörtliche Zitat aus dem Artikel OHNE Anführungszeichen, max 160 Zeichen, sonst leerer String\",\"name\":\"Person des Zitats\",\"role\":\"Rolle, z.B. CEO von Apple\"},"+
-    "\"intro\":\"Einordnungs-Absatz für die Info-Slide, max 220 Zeichen: ordnet das Ereignis für Laien ein (was ist passiert und in welchem Kontext), mit mindestens einem konkreten Fakt\","+
-    "\"box\":\"Kontext/Ausblick für die abgerundete Info-Box, max 200 Zeichen: die konkrete Konsequenz oder der nächste relevante Termin/Meilenstein — etwas, das der Follower mitnehmen kann\","+
+    "\"infoHead\":\"EIGENE Headline für die Info-Slide, max 40 Zeichen — behandelt einen ANDEREN Aspekt als Schlagzeile und Schluss-Headline\","+
+    "\"intro\":\"Einordnungs-Absatz für die Info-Slide, max 220 Zeichen: ein NEUER Aspekt oder Hintergrund, der in den bullets NICHT vorkommt, mit mindestens einem konkreten Fakt\","+
+    "\"infoBullet\":\"Chevron-Punkt der Info-Slide, max 100 Zeichen: ein weiterer NEUER Fakt, der weder in bullets noch in intro steht\","+
+    "\"box\":\"Kontext/Ausblick für die abgerundete Info-Box, max 200 Zeichen: die konkrete Konsequenz oder der nächste relevante Termin — darf KEINEN Fakt aus bullets, intro oder infoBullet wiederholen\","+
     "\"hashtags\":{\"instagram\":[\"MAXIMAL 5 deutsche Hashtags (nie mehr als 5!), Mix aus Marke und Thema, klein geschrieben\"],\"linkedin\":[\"3-5 Hashtags\"]}}. "+
-    "Sachlich, deskriptiv, keine Kaufempfehlung, keine Kursziele als Empfehlung. Alle Zahlen exakt aus dem Text, nichts erfinden.";
+    "ANTI-REDUNDANZ (kritisch): Jedes Feld wird auf einer EIGENEN Slide angezeigt. Über ALLE Felder hinweg (head, sub, bullets, infoHead, intro, infoBullet, box, close, closeHead) darf derselbe Fakt NIE zweimal vorkommen — auch nicht umformuliert. Verteile die Fakten des Artikels bewusst: bullets = die 3 wichtigsten Kernfakten; intro/infoBullet/box = weitere Aspekte, Hintergründe, Zahlen oder Termine, die in den bullets NICHT stehen; close = eine echte Schlussfolgerung, kein Fakten-Recap. closeHead und infoHead müssen sich klar von head und voneinander unterscheiden. SELBSTTEST: Lies alle Felder nacheinander wie ein Karussell — wiederholt sich inhaltlich etwas, ersetze es durch einen noch nicht genutzten Fakt aus dem Artikel. Sachlich, deskriptiv, keine Kaufempfehlung, keine Kursziele als Empfehlung. Alle Zahlen exakt aus dem Text, nichts erfinden.";
   var out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,9000)}]));
   if(out.head) $id("fHead").value=out.head;
   if(out.sub) $id("fSub").value=out.sub;
@@ -3698,6 +3714,10 @@ async function smDownloadBundle(){
       await showSlide(i);
       await new Promise(function(r){ setTimeout(r,60); });
       var hi=canvas.toDataURL({format:"png",multiplier:exportMult*2});
+      // FIX weißer Rand: Float-Multiplikator erzeugt 2699.99->2699px und läßt die letzte Zeile weiß.
+      // Master deshalb IMMER exakt auf Formatgröße x2 bringen (cover-fit schneidet Rundungs-Artefakte weg).
+      var fmx=FORMATS[origFmt];
+      hi=await fitToTarget(hi, fmx.w*2, fmx.h*2, "image/png");
       zip.file(b.id+"/"+base+"_slide"+(i+1)+"_master.png", hi.split(",")[1], {base64:true});
       for(var k=0;k<sameP.length;k++){
         var p=sameP[k];
@@ -3716,6 +3736,8 @@ async function smDownloadBundle(){
         await renderTemplate(slides[i2].type, slides[i2].content||window._content);
         await new Promise(function(r){ setTimeout(r,60); });
         var hi2=canvas.toDataURL({format:"png",multiplier:exportMult*2});
+        var fm2=FORMATS[p2.master];
+        hi2=await fitToTarget(hi2, fm2.w*2, fm2.h*2, "image/png");
         var url2=await fitToTarget(hi2,p2.w*2,p2.h*2,"image/png");
         zip.file(b.id+"/"+p2.id+"/"+base+"_slide"+(i2+1)+"_"+(p2.w*2)+"x"+(p2.h*2)+".png", url2.split(",")[1], {base64:true});
       }
