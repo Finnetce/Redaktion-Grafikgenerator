@@ -1248,7 +1248,7 @@ async function generateImage(userPrompt, fmt, seed, slideType){
    Generator UI
    ============================================================ */
 const $=(id)=>document.getElementById(id);
-function updateBadge(){ const m=genMode(); const b=$("modeBadge"); b.textContent = m==="direct"?"OpenRouter live":(m==="make"?"Make live":"Demo"); }
+function updateBadge(){ const m=genMode(); const b=$("modeBadge"); b.textContent = m==="direct"?"OpenRouter live":(m==="make"?"Engine live":"Demo"); }
 updateBadge();
 
 /* ---------- Theme (hell/dunkel) mit Persistenz ---------- */
