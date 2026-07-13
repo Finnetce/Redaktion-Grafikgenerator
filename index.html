@@ -3354,6 +3354,84 @@ function smSanitize(t){
 }
 window.smSanitize=smSanitize;
 
+/* ============================================================
+   GROUNDING-GATE (v017): 2 Stufen gegen Halluzination
+   Stufe A (deterministisch): alle Zahlen + Firmennamen aus den
+     generierten Feldern per Regex gegen den Artikeltext pruefen.
+   Stufe B (LLM-Pruef-Pass): Sonnet als reiner Pruefer — jede nicht
+     durch den Artikel gedeckte Behauptung wird korrigiert.
+   ============================================================ */
+function _gNorm(t){ return (t||"").toLowerCase().replace(/[\u00A0]/g," ").replace(/\s+/g," "); }
+function _gNumNorm(n){ return n.replace(/\./g,"").replace(/,/g,"."); }
+// Alle Zahlen eines Textes (deutsch formatiert) als normalisierte Menge
+function _gNumbers(t){
+  const out=new Set();
+  (t.match(/\d[\d.,]*/g)||[]).forEach(n=>{ n=n.replace(/[.,]$/,""); out.add(_gNumNorm(n)); });
+  return out;
+}
+// Kandidaten fuer Eigennamen: großgeschriebene Woerter (min 3 Zeichen), keine Satzanfaenge-Heuristik noetig,
+// da wir nur PRUEFEN ob sie im Artikel vorkommen (Satzanfangswoerter kommen dort idR auch vor)
+function _gNames(t){
+  const out=new Set();
+  (t.match(/\b[A-ZÄÖÜ][A-Za-zÄÖÜäöüß&-]{2,}(?:\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß&-]{2,})?/g)||[]).forEach(n=>out.add(n.trim()));
+  return out;
+}
+const G_STOP=new Set(["Der","Die","Das","Ein","Eine","Und","Aber","Nach","Vor","Mit","Ohne","Wie","Was","Wer","Wenn","Auch","Nur","Noch","Schon","Sehr","Mehr","Alle","Beim","Zum","Zur","Ueber","Über","Unter","Diese","Dieser","Dieses","Damit","Dabei","Dazu","Dennoch","Trotz","Denn","Doch","Dort","Hier","Heute","Morgen","Gestern","Prozent","Euro","Dollar","Mrd","Mio","Milliarden","Millionen","Billionen","Anleger","Aktie","Aktien","Kurs","Markt","Fonds","Quartal","Jahr","Woche","Freitag","Montag","Dienstag","Mittwoch","Donnerstag","Samstag","Sonntag","Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"]);
+/* Stufe A: prueft alle Textfelder gegen den Artikel; liefert Liste der Verstoesse */
+function groundingCheck(out, article){
+  const artNorm=_gNorm(article);
+  const artNums=_gNumbers(article);
+  const fields={head:out.head,sub:out.sub,close:out.close,closeHead:out.closeHead,infoHead:out.infoHead,intro:out.intro,infoBullet:out.infoBullet,box:out.box};
+  (out.bullets||[]).forEach((b,i)=>fields["bullet"+(i+1)]=b);
+  if(out.story&&out.story.text) fields.storyText=out.story.text;
+  const issues=[];
+  Object.entries(fields).forEach(([fname,txt])=>{
+    if(!txt) return;
+    // Zahlen pruefen (Jahreszahlen-Toleranz: 4-stellige Zahlen die Teil einer Artikel-Zahl sind, ok)
+    _gNumbers(txt).forEach(n=>{
+      if(n.length<2) return; // einstellige Zahlen ignorieren (Aufzaehlungen etc.)
+      if(!artNums.has(n) && !artNorm.includes(n.replace(".",","))) issues.push({field:fname,type:"Zahl",value:n});
+    });
+    // Namen pruefen
+    _gNames(txt).forEach(nm=>{
+      const first=nm.split(" ")[0];
+      if(G_STOP.has(first)||G_STOP.has(nm)) return;
+      if(!artNorm.includes(nm.toLowerCase()) && !artNorm.includes(first.toLowerCase())) issues.push({field:fname,type:"Name",value:nm});
+    });
+  });
+  return issues;
+}
+/* Stufe B: Sonnet als reiner Pruefer/Korrektor — vergleicht NUR gegen den Artikel */
+async function groundingVerify(out, article){
+  const fields={head:out.head||"",sub:out.sub||"",bullets:out.bullets||[],close:out.close||"",closeHead:out.closeHead||"",infoHead:out.infoHead||"",intro:out.intro||"",infoBullet:out.infoBullet||"",box:out.box||""};
+  const sys="Du bist ein strenger Fakten-Pruefer. Du bekommst einen ARTIKEL und generierte FELDER. Deine EINZIGE Aufgabe: pruefe jede Behauptung, Zahl, jeden Namen und Vergleich in den Feldern gegen den Artikel. Nutze KEIN eigenes Wissen — nur den Artikel. Ist etwas nicht woertlich oder sinngemaess durch den Artikel gedeckt (z.B. ein Vergleich mit einer Firma, die im Artikel nicht vorkommt), korrigiere das Feld: streiche die ungedeckte Aussage ersatzlos oder ersetze sie durch einen belegten Fakt aus dem Artikel. Behalte Stil und Laenge bei. Antworte NUR mit reinem JSON: {\"changed\":true/false,\"fields\":{...alle Felder in gleicher Struktur zurueck...},\"korrekturen\":[\"kurze Notiz je Korrektur\"]}";
+  const user="ARTIKEL:\n"+article.slice(0,8000)+"\n\nFELDER:\n"+JSON.stringify(fields);
+  const res=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:user}]));
+  if(res && res.changed && res.fields){
+    ["head","sub","close","closeHead","infoHead","intro","infoBullet","box"].forEach(k=>{ if(typeof res.fields[k]==="string") out[k]=res.fields[k]; });
+    if(Array.isArray(res.fields.bullets)) out.bullets=res.fields.bullets;
+  }
+  return res||{changed:false,korrekturen:[]};
+}
+/* Ergebnis-Anzeige unter der Autobox */
+function groundingReport(issues, verify){
+  let box=document.getElementById("smGroundBox");
+  if(!box){ box=document.createElement("div"); box.id="smGroundBox";
+    box.style.cssText="margin-top:12px;border-radius:11px;padding:11px 13px;font-size:12.5px;line-height:1.5";
+    const a=document.getElementById("auto-social"); if(a) a.appendChild(box); }
+  const fixes=(verify&&verify.korrekturen)||[];
+  if(!issues.length && !fixes.length){
+    box.style.cssText+=";background:#e8f7f0;border:1px solid #bfe6d4;color:#00794d";
+    box.innerHTML="<b>Fakten-Check bestanden:</b> Alle Zahlen und Namen kommen im Artikeltext vor.";
+  } else {
+    box.style.cssText+=";background:#fdf3e7;border:1px solid #f2d9b0;color:#8a5a19";
+    let h="<b>Fakten-Check:</b> ";
+    if(fixes.length) h+=fixes.length+" Stelle(n) automatisch korrigiert (nicht durch den Artikel gedeckt). ";
+    if(issues.length) h+="Bitte pruefen: "+issues.slice(0,6).map(i=>i.type+" \u201e"+i.value+"\u201c ("+i.field+")").join(", ")+(issues.length>6?" \u2026":"");
+    box.innerHTML=h;
+  }
+}
+
 /* ---------- Erweiterte Extraktion: Felder + Formatvorschlaege + Captions ---------- */
 var SM_FORMAT_LABELS={ news:"Klassisches News-Format", quartalszahlen:"Quartalszahlen-Format", vergleich:"Vergleichsformat", zitat:"Zitate-Format" };
 extractSocial = async function(txt){
@@ -3413,6 +3491,24 @@ extractSocial = async function(txt){
       return m.trim().split(/\s+/).slice(0,5).join(" ");
     });
   }
+  // ===== GROUNDING-GATE: erst pruefen, dann anzeigen =====
+  let _gIssues=[], _gVerify={changed:false,korrekturen:[]};
+  try{
+    _gIssues=groundingCheck(out, txt);
+    // Stufe B nur ausfuehren, wenn Stufe A etwas gefunden hat ODER immer? -> immer, faengt auch semantische Fehler
+    _gVerify=await groundingVerify(out, txt);
+    // Nach Korrektur erneut deterministisch pruefen (final)
+    _gIssues=groundingCheck(out, txt);
+    // Korrigierte Felder zurueck in die Eingabefelder schreiben
+    if(_gVerify.changed){
+      if(out.head) $id("fHead").value=out.head;
+      if(out.sub) $id("fSub").value=out.sub;
+      if(Array.isArray(out.bullets)){ $id("fB1").value=out.bullets[0]||""; $id("fB2").value=out.bullets[1]||""; $id("fB3").value=out.bullets[2]||""; }
+      if(out.close) $id("fClose").value=out.close;
+      if(out.closeHead && $id("fCloseHead")) $id("fCloseHead").value=out.closeHead;
+    }
+  }catch(e){ /* Gate darf die Generierung nie blockieren */ }
+  groundingReport(_gIssues,_gVerify);
   window._smText=out;
   // Bei Auto: den von Claude gewaehlten Stil im UI markieren (Auto-Karte bleibt Auswahlzustand)
   if(window._smTextStyle==="auto" && out.textstyle && SM_TEXTSTYLES[out.textstyle]){
