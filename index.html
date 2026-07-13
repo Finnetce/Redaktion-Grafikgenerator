@@ -1248,7 +1248,7 @@ async function generateImage(userPrompt, fmt, seed, slideType){
    Generator UI
    ============================================================ */
 const $=(id)=>document.getElementById(id);
-function updateBadge(){ const m=genMode(); const b=$("modeBadge"); b.textContent = m==="direct"?"OpenRouter live":(m==="make"?"Engine live":"Demo"); }
+function updateBadge(){ const m=genMode(); const b=$("modeBadge"); b.textContent = m==="direct"?"OpenRouter live":(m==="make"?"Make live":"Demo"); }
 updateBadge();
 
 /* ---------- Theme (hell/dunkel) mit Persistenz ---------- */
@@ -1415,11 +1415,11 @@ function buildCover(content){
     // Headline startet an Hilfslinie X108/Y763 (Box 864x178), Subline startet an X108/Y996.
     // Beide Werte sind STARTPUNKTE (Oberkante ab Hilfslinie), fest verankert.
     const sx=W/1080, sy=H/1350;
-    const head=tHeadline(content.head,{left:108*sx,top:763*sy,width:864*sx,fontSize:spec.headPx*sx,fontFamily:spec.font,lineHeight:1.12});
+    const head=tHeadline(noWrapUnits(content.head),{left:108*sx,top:763*sy,width:864*sx,fontSize:spec.headPx*sx,fontFamily:spec.font,lineHeight:1.12});
     head.initDimensions&&head.initDimensions();
     // Schutz: 3+-zeilige Headline würde über Y996 laufen -> Schrift minimal verkleinern, bis sie in die 178px+Puffer passt
     { let g=14; while(head.height>226*sy && head.fontSize>spec.headPx*sx*0.75 && g-->0){ head.set("fontSize",head.fontSize-1); head.initDimensions(); } }
-    const sub=new fabric.Textbox(content.sub,{left:108*sx,top:996*sy,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.subPx*sx,fill:"#ffffff",lineHeight:1.25,name:"subline"});
+    const sub=new fabric.Textbox(noWrapUnits(content.sub),{left:108*sx,top:996*sy,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.subPx*sx,fill:"#ffffff",lineHeight:1.25,name:"subline"});
     objs.push({kind:"obj",obj:head});
     objs.push({kind:"obj",obj:sub});
     objs.push({kind:"obj",obj:new fabric.IText("Bildquelle: KI-generiert",{left:108*sx,top:H-70*sy-18*sx,fontFamily:spec.font,fontSize:18*sx,fill:"rgba(255,255,255,0.72)",name:"credit"})});
@@ -1791,6 +1791,8 @@ async function renderTemplate(type,content){
   if(_slv&&LOGOS[_slv]){ await _addLogoFabric(_slv,_logoVariantDark("socialLogo",spec.logoDark)); }
   // "Kein Logo" => kein Logo zeichnen
   _fitTextLines();  // Vorgabe Yuki: Headline max 2 Zeilen, Subline (Cover) 1 Zeile
+  // Sicherstellen: ALLE Texte editier- und wählbar (Yuki 13.07.)
+  canvas.getObjects().forEach(o=>{ if(o.type==="textbox"||o.type==="i-text"){ o.editable=true; o.selectable=true; o.evented=true; } });
 }
 /* Zeilen-Regeln (Yuki): Headline max. 2 Zeilen (3-Zeiler vermeiden);
    Subline finnet = 1 Zeile, ZERO = max. 2 Zeilen (3-Zeiler vermeiden).
@@ -1825,14 +1827,21 @@ function makeThumb(){ try{ return canvas.toDataURL({format:"jpeg",quality:0.5,mu
 function snapshotCurrent(){ if(current<0||!canvas) return; slides[current].json=canvas.toJSON(EXTRA); slides[current].thumb=makeThumb(); }
 
 /* ===== Undo-History (Social/Editor): Snapshots des Canvas, Cmd/Strg+Z ===== */
-let _undoStack=[], _undoLock=false;
-function pushHistory(){ if(!canvas||_undoLock) return; try{ const s=JSON.stringify(canvas.toJSON(EXTRA)); if(_undoStack[_undoStack.length-1]!==s){ _undoStack.push(s); if(_undoStack.length>50) _undoStack.shift(); } }catch(e){} }
+let _undoStack=[], _redoStack=[], _undoLock=false;
+function pushHistory(){ if(!canvas||_undoLock) return; try{ const s=JSON.stringify(canvas.toJSON(EXTRA)); if(_undoStack[_undoStack.length-1]!==s){ _undoStack.push(s); if(_undoStack.length>50) _undoStack.shift(); _redoStack=[]; } }catch(e){} }
 function doUndo(){
   if(!canvas||_undoStack.length<2) { toast("Nichts zum Rückgängigmachen"); return; }
-  _undoStack.pop();                              // aktuellen Zustand verwerfen
+  _redoStack.push(_undoStack.pop());             // aktuellen Zustand für Redo aufheben
   const prev=_undoStack[_undoStack.length-1];    // vorherigen wiederherstellen
   _undoLock=true;
   canvas.loadFromJSON(prev,()=>{ canvas.renderAll(); _undoLock=false; });
+}
+function doRedo(){
+  if(!canvas||!_redoStack.length){ toast("Nichts zum Wiederherstellen"); return; }
+  const next=_redoStack.pop();
+  _undoStack.push(next);
+  _undoLock=true;
+  canvas.loadFromJSON(next,()=>{ canvas.renderAll(); _undoLock=false; });
 }
 // Tastatur: Cmd/Strg+Z = Undo; Entf/Backspace = aktives Objekt löschen (wenn nicht in Eingabefeld)
 function _inField(t){ return t && (t.tagName==="INPUT"||t.tagName==="TEXTAREA"||t.isContentEditable); }
@@ -1840,6 +1849,7 @@ window.addEventListener("keydown",(e)=>{
   const editorOpen=$("editorView")&&$("editorView").classList.contains("active");
   if(!editorOpen||!canvas) return;
   if((e.metaKey||e.ctrlKey)&&(e.key==="z"||e.key==="Z")&&!e.shiftKey){ e.preventDefault(); doUndo(); return; }
+  if((e.metaKey||e.ctrlKey)&&((e.key==="z"||e.key==="Z")&&e.shiftKey || e.key==="y"||e.key==="Y")){ e.preventDefault(); doRedo(); return; }
   if((e.key==="Delete"||e.key==="Backspace")&&!_inField(e.target)){
     const objs=canvas.getActiveObjects&&canvas.getActiveObjects();
     if(objs&&objs.length){ e.preventDefault(); objs.forEach(o=>canvas.remove(o)); canvas.discardActiveObject(); clearProps(); canvas.renderAll(); pushHistory(); }
@@ -1927,14 +1937,25 @@ function attachBoxEdit(c){
   // Doppelklick auf selbst erstellte Gruppe -> zum Bearbeiten lösen (Logo/Pfeil bleiben unangetastet)
   c.on("mouse:dblclick",(e)=>{
     const g=e.target;
-    if(g && g.type==="group" && g.name==="usergroup" && g.toActiveSelection){ g.toActiveSelection(); c.requestRenderAll(); }
+    if(g && g.type==="group" && g.name==="usergroup" && g.toActiveSelection){ g.toActiveSelection(); c.requestRenderAll(); return; }
+    // FIX (Yuki 13.07. 15:55): Text war teils nicht editierbar, wenn ein anderes Objekt den
+    // Doppelklick abfing. Fallback: oberste Textbox unter dem Mauszeiger finden und editieren.
+    if(g && (g.type==="textbox"||g.type==="i-text")) return; // normaler Weg funktioniert
+    const p=c.getPointer(e.e);
+    const boxes=c.getObjects().filter(o=>(o.type==="textbox"||o.type==="i-text") && o.containsPoint && o.containsPoint(p));
+    if(boxes.length){
+      const t=boxes[boxes.length-1];
+      t.editable=true; c.setActiveObject(t);
+      t.enterEditing && t.enterEditing(); t.setCursorByClick && t.setCursorByClick(e.e);
+      c.requestRenderAll();
+    }
   });
 }
 
 async function showSlide(i){
   if(i===current) return;
   snapshotCurrent(); current=i; clearProps();
-  _undoStack=[];   // Undo-Historie pro Slide frisch starten
+  _undoStack=[]; _redoStack=[];   // Undo/Redo-Historie pro Slide frisch starten
   if(slides[i].json){ canvas.loadFromJSON(slides[i].json,()=>{canvas.renderAll(); slides[i].thumb=makeThumb(); renderSlideTabs(); pushHistory();}); }
   else { await renderTemplate(slides[i].type,slides[i].content); slides[i].json=canvas.toJSON(EXTRA); slides[i].thumb=makeThumb(); pushHistory(); }
   renderSlideTabs();
@@ -2155,7 +2176,10 @@ $("tGenImg").onclick=async()=>{
   try{
     const src=await generateImage(window._content.prompt,curFmt,Math.floor(Math.random()*9999)+1,stype);
     window._content.bg=src;
-    const old=canvas.getObjects().find(o=>o.name==="bg"||o.name==="image");
+    // FIX doppelte Bilder (Yuki 13.07. 16:05): ALLE alten Bild-Objekte entfernen, nicht nur das erste
+    const olds=canvas.getObjects().filter(o=>o.name==="bg"||o.name==="image");
+    const old=olds[0]||null;
+    olds.slice(1).forEach(o=>canvas.remove(o));
     if(old && old.name==="image"){
       const c=old.clipPath; const img=await loadImageObj(src,{name:"image",selectable:true,_coverH:c?c.height:px(0.5,DISP.h)}); canvas.remove(old); canvas.insertAt(img,0);
     } else if(old){
@@ -3638,7 +3662,7 @@ extractSocial = async function(txt){
     "\"szene\":\"englischer Bild-Prompt: die Story als thematische Szene ohne Logo-Fokus (z.B. trading floor, factory, product in use)\","+
     "\"metapher\":\"englischer Bild-Prompt: visuelle Metapher zur Kernaussage des Artikels, premium editorial style\"},"+
     "\"formats\":[maximal 3 Vorschlaege, jeweils {\"key\":\"news|quartalszahlen|vergleich|zitat\",\"grund\":\"1 Satz warum dieses Format passt\",\"bildprompt\":\"englischer Bild-Prompt passend zum Format, ohne Text im Bild\"}] sortiert nach Eignung,"+
-    "\"captions\":{\"instagram\":\"fertige Instagram-Caption im Markenton mit Absätzen. Der Abschluss ergibt sich aus dem Artikel (Einordnung, Ausblick oder kurze Frage an die Community) — KEIN generischer Standard-CTA\",\"linkedin\":\"fertige LinkedIn-Caption, sachlicher und länger, WICHTIG: vor JEDEM Firmennamen ein @ (z.B. @Apple, @NVIDIA), Frage oder Einordnung am Ende\"},"+
+    "\"captions\":{\"instagram\":\"fertige Instagram-Caption im Markenton mit Absätzen. Der Abschluss ergibt sich aus dem Artikel (Einordnung, Ausblick oder kurze Frage an die Community) — KEIN generischer Standard-CTA\",\"linkedin\":\"fertige LinkedIn-Caption, sachlicher und länger, WICHTIG: jede Firma nur beim ERSTEN Vorkommen mit @ markieren (z.B. @Apple), bei allen weiteren Erwähnungen derselben Firma OHNE @, Frage oder Einordnung am Ende\"},"+
     "\"story\":{\"text\":\"kurzer knackiger Story-Text, max 200 Zeichen, für ein Text-Overlay auf der Instagram Story — KEIN Call-to-Action, KEIN Link-Hinweis\",\"umfrage\":\"optionale Idee für einen Umfrage-Sticker als Frage mit 2 Antwortoptionen, sonst leerer String\"},"+
     "\"textstyle\":\"hook|trader|info \u2014 der verwendete Textstil\","+
     "\"series\":{\"key\":\"k3|k2|z3|d4 — welche Slide-Serie am besten passt: k3=Karussell klassisch 3 Slides (Standard-News), k2=Kompakt 2 Slides (kurze Meldung, wenig Substanz), z3=Zitat-Story 3 Slides (NUR wenn ein starkes wörtliches Zitat einer Person im Artikel steht), d4=Deep Dive 4 Slides (komplexes Thema mit viel Substanz)\",\"grund\":\"1 kurzer Satz warum\"},"+
@@ -3648,7 +3672,7 @@ extractSocial = async function(txt){
     "\"infoBullet\":\"Chevron-Punkt der Info-Slide, max 100 Zeichen: ein weiterer NEUER Fakt, der weder in bullets noch in intro steht\","+
     "\"box\":\"Kontext/Ausblick für die abgerundete Info-Box, max 160 Zeichen und EIN vollständiger, in sich abgeschlossener Satz: die konkrete Konsequenz oder der nächste relevante Termin — darf KEINEN Fakt aus bullets, intro oder infoBullet wiederholen\","+
     "\"hashtags\":{\"instagram\":[\"MAXIMAL 5 deutsche Hashtags (nie mehr als 5!), Mix aus Marke und Thema, klein geschrieben\"],\"linkedin\":[\"3-5 Hashtags\"]}}. "+
-    "ANTI-REDUNDANZ (kritisch): Jedes Feld wird auf einer EIGENEN Slide angezeigt. Über ALLE Felder hinweg (head, sub, bullets, infoHead, intro, infoBullet, box, close, closeHead) darf derselbe Fakt NIE zweimal vorkommen — auch nicht umformuliert. Verteile die Fakten des Artikels bewusst: bullets = die 3 wichtigsten Kernfakten; intro/infoBullet/box = weitere Aspekte, Hintergründe, Zahlen oder Termine, die in den bullets NICHT stehen; close = eine echte Schlussfolgerung, kein Fakten-Recap. closeHead und infoHead müssen sich klar von head und voneinander unterscheiden. SELBSTTEST: Lies alle Felder nacheinander wie ein Karussell — wiederholt sich inhaltlich etwas, ersetze es durch einen noch nicht genutzten Fakt aus dem Artikel. WÄHRUNGS-SCHREIBWEISE (Pflicht in allen Feldern): Entweder Symbol VOR der Zahl ('$ 4.062,60') ODER Kürzel NACH der Zahl ('4.062,60 USD', '145,30 EUR'). NIEMALS das Symbol nach der Zahl ('4.062,60 $' ist FALSCH), kein ausgeschriebenes 'US-Dollar' hinter Zahlen. Innerhalb des Beitrags einheitlich eine Variante verwenden. GROUNDING (absolut kritisch, Verstoß = unbrauchbar): Verwende AUSSCHLIESSLICH Fakten, Zahlen, Namen, Firmen und Vergleiche, die WÖRTLICH im Artikeltext stehen. Erfinde NIEMALS Vergleiche oder Einordnungen mit Firmen/Werten, die der Artikel nicht nennt (z.B. NICHT 'mehr als Apple wert' schreiben, wenn Apple im Text nicht vorkommt). Kein Weltwissen ergänzen, keine Kontexte aus deinem Training, keine gerundeten oder umgerechneten Zahlen — nur was im Text steht, in der Form, in der es dort steht. SELBSTTEST GROUNDING: Prüfe jedes Feld — kommt jede Zahl, jeder Firmenname und jeder Vergleich darin im Artikeltext vor? Falls nein, ersatzlos streichen oder durch einen belegten Fakt ersetzen. Sachlich, deskriptiv, keine Kaufempfehlung, keine Kursziele als Empfehlung. Alle Zahlen exakt aus dem Text, nichts erfinden.";
+    "ANTI-REDUNDANZ (kritisch): Jedes Feld wird auf einer EIGENEN Slide angezeigt. Über ALLE Felder hinweg (head, sub, bullets, infoHead, intro, infoBullet, box, close, closeHead) darf derselbe Fakt NIE zweimal vorkommen — auch nicht umformuliert. Verteile die Fakten des Artikels bewusst: bullets = die 3 wichtigsten Kernfakten; intro/infoBullet/box = weitere Aspekte, Hintergründe, Zahlen oder Termine, die in den bullets NICHT stehen; close = eine echte Schlussfolgerung, kein Fakten-Recap. closeHead und infoHead müssen sich klar von head und voneinander unterscheiden. SELBSTTEST: Lies alle Felder nacheinander wie ein Karussell — wiederholt sich inhaltlich etwas, ersetze es durch einen noch nicht genutzten Fakt aus dem Artikel. LESBARKEIT (Pflicht): Schreibe einfache, klare Sätze wie ein guter Nachrichtenredakteur. Maximal EIN Nebensatz pro Satz, KEINE Schachtelsätze, KEINE Einschübe mit Gedankenstrich am Satzende, keine Relativsatz-Ketten. Lieber zwei kurze Sätze als ein verschachtelter. Negativ-Beispiel (so NICHT): 'Louisiana befreite Ende 2024 Rechenzentren, die vor 2029 gebaut werden, für 20 Jahre von der Umsatzsteuer — gezielt, um Meta ins Land zu holen.' Besser: 'Louisiana befreit neue Rechenzentren für 20 Jahre von der Umsatzsteuer. Das Gesetz von Ende 2024 sollte gezielt Meta ins Land holen.' SELBSTTEST LESBARKEIT: Lies jeden Satz laut — stolpert man oder braucht man zwei Anläufe, in zwei Sätze aufteilen. WÄHRUNGS-SCHREIBWEISE (Pflicht in allen Feldern): Entweder Symbol VOR der Zahl ('$ 4.062,60') ODER Kürzel NACH der Zahl ('4.062,60 USD', '145,30 EUR'). NIEMALS das Symbol nach der Zahl ('4.062,60 $' ist FALSCH), kein ausgeschriebenes 'US-Dollar' hinter Zahlen. Innerhalb des Beitrags einheitlich eine Variante verwenden. GROUNDING (absolut kritisch, Verstoß = unbrauchbar): Verwende AUSSCHLIESSLICH Fakten, Zahlen, Namen, Firmen und Vergleiche, die WÖRTLICH im Artikeltext stehen. Erfinde NIEMALS Vergleiche oder Einordnungen mit Firmen/Werten, die der Artikel nicht nennt (z.B. NICHT 'mehr als Apple wert' schreiben, wenn Apple im Text nicht vorkommt). Kein Weltwissen ergänzen, keine Kontexte aus deinem Training, keine gerundeten oder umgerechneten Zahlen — nur was im Text steht, in der Form, in der es dort steht. SELBSTTEST GROUNDING: Prüfe jedes Feld — kommt jede Zahl, jeder Firmenname und jeder Vergleich darin im Artikeltext vor? Falls nein, ersatzlos streichen oder durch einen belegten Fakt ersetzen. Sachlich, deskriptiv, keine Kaufempfehlung, keine Kursziele als Empfehlung. Alle Zahlen exakt aus dem Text, nichts erfinden.";
   var out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,9000)}]));
   if(out.head) $id("fHead").value=out.head;
   if(out.sub) $id("fSub").value=out.sub;
@@ -3706,6 +3730,30 @@ extractSocial = async function(txt){
     }
   }catch(e){ /* Gate darf die Generierung nie blockieren */ }
   groundingReport(_gIssues,_gVerify);
+  // LinkedIn: @-Markierung pro Firma nur beim ersten Vorkommen (Yuki 13.07.)
+  function dedupeMentions(t){
+    if(!t) return t;
+    const seen=new Set();
+    return t.replace(/@([A-Za-z0-9ÄÖÜäöüß][\w&.-]*(?:\s+[A-Z][\w&.-]*)?)/g, function(m,name){
+      const key=name.trim().toLowerCase();
+      if(seen.has(key)) return name;   // weiteres Vorkommen: @ entfernen
+      seen.add(key); return m;         // erstes Vorkommen: @ behalten
+    });
+  }
+  if(out.captions && out.captions.linkedin) out.captions.linkedin=dedupeMentions(out.captions.linkedin);
+  // Währungs-Normalisierung an der QUELLE: alle Felder inkl. Headline/Subline/Captions/Story
+  try{
+    ["head","sub","close","closeHead","infoHead","intro","infoBullet","box"].forEach(function(k){ if(typeof out[k]==="string") out[k]=fixCurrency(out[k]); });
+    if(Array.isArray(out.bullets)) out.bullets=out.bullets.map(fixCurrency);
+    if(out.captions){ ["instagram","linkedin"].forEach(function(k){ if(out.captions[k]) out.captions[k]=fixCurrency(out.captions[k]); }); }
+    if(out.story&&out.story.text) out.story.text=fixCurrency(out.story.text);
+    if(out.quote&&out.quote.text) out.quote.text=fixCurrency(out.quote.text);
+    // Eingabefelder mit den normalisierten Werten aktualisieren
+    if(out.head) $id("fHead").value=out.head;
+    if(out.sub) $id("fSub").value=out.sub;
+    if(Array.isArray(out.bullets)){ $id("fB1").value=out.bullets[0]||""; $id("fB2").value=out.bullets[1]||""; $id("fB3").value=out.bullets[2]||""; }
+    if(out.close) $id("fClose").value=out.close;
+  }catch(e){}
   window._smText=out;
   // Bei Auto: den von Claude gewaehlten Stil im UI markieren (Auto-Karte bleibt Auswahlzustand)
   if(window._smTextStyle==="auto" && out.textstyle && SM_TEXTSTYLES[out.textstyle]){
