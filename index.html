@@ -1147,7 +1147,7 @@ function buildImagePrompt(userPrompt, fmt, slideType, theme, brand){
     parts.push("Make the connection to "+B+" clearly visible: show authentic, correctly rendered "+B+" branding in the scene, the real "+B+" logo and typical "+B+" products on storefront signage, apparel or packaging, as it would genuinely look in reality. Keep the brand recognizable, but place it in the main upper area so the lower text zone stays calm and uncluttered.");
   }
   parts.push("Look: " + (THEME_LOOK[theme] || THEME_LOOK.clean) + ".");
-  parts.push("Do not invent any headline text, prices, percentages, numbers, charts, tickers or fake captions in the image. Do not add the finanzen.net logo or any news-outlet logo. No watermarks, no UI overlays.");
+  parts.push("Do not invent any headline text, prices, percentages, numbers or fake captions in the image. Do not add the finanzen.net logo or any news-outlet logo. No watermarks, no UI overlays. If a person is depicted, use a generic professional person that fits the role — do NOT recreate the real face of any actual person.");
   parts.push("Realistic high quality photograph, full-bleed, edge to edge.");
   return parts.join(" ");
 }
@@ -3288,6 +3288,16 @@ window.SM_TEXTSTYLES={
     prompt:"STIL: INFO. Ruhig, einordnend, erkl\u00e4rend: Zusammenh\u00e4nge und Hintergr\u00fcnde so erkl\u00e4ren, dass auch Einsteiger folgen k\u00f6nnen. Fachbegriffe kurz aufl\u00f6sen (z.B. Kontingentierung, also Zuteilung knapper Ware). Ein Fakt pro Bullet reicht, daf\u00fcr sauber eingeordnet." }
 };
 
+/* ---------- Bildmotiv-Auswahl (Cover-Varianz, Christian 13.07.) ---------- */
+window._smMotif="auto";
+window.SM_MOTIFS={
+  auto:{ label:"Auto (Claude w\u00e4hlt)", desc:"Claude schl\u00e4gt das passende Motiv anhand des Artikels vor." },
+  person:{ label:"Person im Fokus", desc:"CEO/Schl\u00fcsselperson thematisch im Bild \u2014 z.B. nachdenklich im B\u00fcro, auf der B\u00fchne, vor Ort." },
+  logo:{ label:"Marke / Geb\u00e4ude", desc:"Firmenlogo an Fassade, Store oder Produkt \u2014 der bisherige klassische Look." },
+  szene:{ label:"Thematische Szene", desc:"Die Story als Szene: Trading-Floor, Produktion, Produkt im Einsatz \u2014 ohne Logo-Fokus." },
+  metapher:{ label:"Metapher", desc:"Visuelle Metapher zur Kernaussage \u2014 z.B. Rakete am Boden, W\u00fcrfel, Wegkreuzung." }
+};
+
 /* ---------- Slide-Serien-Auswahl (aus Referenz "finnet x Sourcera" abgeleitet) ---------- */
 window.SM_SERIES_DEF={
   k3:{ label:"Karussell klassisch (3 Slides)", desc:"Cover mit Bild + Kernpunkte-Slide + Fazit mit Bild. Der Standard für News-Themen.", n:3 },
@@ -3343,6 +3353,10 @@ if(auto){
   Object.entries(SM_TEXTSTYLES).forEach(function(e){
     stHtml+='<div class="sm-sug-card'+(e[0]==="auto"?" on":"")+'" data-style="'+e[0]+'"><div class="t">'+e[1].label+'</div><div class="g">'+e[1].desc+'</div></div>';
   });
+  stHtml+='</div><label class="lab" style="margin-top:14px">Bildmotiv (Cover)</label><div class="sm-sug" id="smMotifList" style="grid-template-columns:1fr 1fr">';
+  Object.entries(SM_MOTIFS).forEach(function(e){
+    stHtml+='<div class="sm-sug-card'+(e[0]==="auto"?" on":"")+'" data-motif="'+e[0]+'"><div class="t">'+e[1].label+'</div><div class="g">'+e[1].desc+'</div></div>';
+  });
   stHtml+='</div><div class="row" style="margin-top:10px;display:none" id="smRegenRow"><button class="btn btn-primary" id="smRegen" data-nolock><svg class="ic" viewBox="0 0 24 24" style="color:#fff"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg> Texte mit diesem Stil neu generieren</button><span class="hint" data-nolock>Felder werden mit dem gew\u00e4hlten Stil neu bef\u00fcllt.</span></div></div>';
   auto.insertAdjacentHTML("beforeend", stHtml);
   document.querySelectorAll("#smStyleList .sm-sug-card").forEach(function(c){
@@ -3351,6 +3365,15 @@ if(auto){
       c.classList.add("on"); window._smTextStyle=c.dataset.style;
       // Nach der ersten Generierung: Umwahl zeigt den Neu-Generieren-Button
       var rr=$id("smRegenRow"); if(rr && window._smText) rr.style.display="flex";
+    });
+  });
+  document.querySelectorAll("#smMotifList .sm-sug-card").forEach(function(c){
+    c.addEventListener("click",function(){
+      document.querySelectorAll("#smMotifList .sm-sug-card").forEach(function(x){x.classList.remove("on");});
+      c.classList.add("on"); window._smMotif=c.dataset.motif;
+      // Motiv-Prompt aus der letzten Extraktion direkt ins Prompt-Feld übernehmen
+      var t=window._smText;
+      if(t && t.motive && t.motive[c.dataset.motif] && curUseCase==="frei"){ $id("fPrompt").value=t.motive[c.dataset.motif]; toast("Bildmotiv: "+(SM_MOTIFS[c.dataset.motif]||{}).label); }
     });
   });
   auto.insertAdjacentHTML("beforeend",
@@ -3517,7 +3540,12 @@ extractSocial = async function(txt){
     "\"closeHead\":\"kurze Headline für die Schluss-Slide, max 40 Zeichen, inhaltlich zum Artikel passend, NICHT generisch\","+
     "\"brand\":\"die zentrale Firma oder Marke, sonst leerer String\","+
     "\"companies\":[\"alle im Artikel genannten Firmennamen\"],"+
-    "\"prompt\":\"kurzer englischer Bild-Prompt für ein passendes Hintergrundfoto ohne Text und ohne Logos\","+
+    "\"prompt\":\"kurzer englischer Bild-Prompt für ein passendes Hintergrundfoto ohne Text\","+
+    "\"motive\":{\"empfohlen\":\"person|logo|szene|metapher — welches Cover-Motiv zu diesem Artikel am stärksten ist. WICHTIG für Varianz: nicht immer logo! person wenn eine bekannte Person (CEO, Gründer) im Zentrum steht, szene bei Ereignissen/Prozessen, metapher bei abstrakten Themen (Bewertung, Strategie, Risiko)\","+
+    "\"person\":\"englischer Bild-Prompt: die Schlüsselperson des Artikels thematisch inszeniert (z.B. 'CEO-like businessman looking thoughtfully at falling stock chart'), Stimmung passend zur Nachricht (ernst bei schlechten News, zuversichtlich bei guten), photorealistic, NO text overlays\","+
+    "\"logo\":\"englischer Bild-Prompt: Markenwelt der Firma — Logo an Fassade/Store/Produkt, authentisch\","+
+    "\"szene\":\"englischer Bild-Prompt: die Story als thematische Szene ohne Logo-Fokus (z.B. trading floor, factory, product in use)\","+
+    "\"metapher\":\"englischer Bild-Prompt: visuelle Metapher zur Kernaussage des Artikels, premium editorial style\"},"+
     "\"formats\":[maximal 3 Vorschlaege, jeweils {\"key\":\"news|quartalszahlen|vergleich|zitat\",\"grund\":\"1 Satz warum dieses Format passt\",\"bildprompt\":\"englischer Bild-Prompt passend zum Format, ohne Text im Bild\"}] sortiert nach Eignung,"+
     "\"captions\":{\"instagram\":\"fertige Instagram-Caption im Markenton mit Absätzen. Der Abschluss ergibt sich aus dem Artikel (Einordnung, Ausblick oder kurze Frage an die Community) — KEIN generischer Standard-CTA\",\"linkedin\":\"fertige LinkedIn-Caption, sachlicher und länger, WICHTIG: vor JEDEM Firmennamen ein @ (z.B. @Apple, @NVIDIA), Frage oder Einordnung am Ende\"},"+
     "\"story\":{\"text\":\"kurzer knackiger Story-Text, max 200 Zeichen, für ein Text-Overlay auf der Instagram Story — KEIN Call-to-Action, KEIN Link-Hinweis\",\"umfrage\":\"optionale Idee für einen Umfrage-Sticker als Frage mit 2 Antwortoptionen, sonst leerer String\"},"+
@@ -3543,7 +3571,17 @@ extractSocial = async function(txt){
   if(out.close) $id("fClose").value=out.close;
   if(out.closeHead){ window._smCloseHead=out.closeHead; if($id("fCloseHead")) $id("fCloseHead").value=out.closeHead; }
   if(out.brand!=null){ $id("fBrand").value=out.brand; try{ curBrand=out.brand; }catch(e){} }
-  if(curUseCase==="frei" && out.prompt) $id("fPrompt").value=out.prompt;
+  // Bildmotiv: bei Auto das von Claude empfohlene Motiv anwenden (echte Cover-Varianz),
+  // bei manueller Wahl das gewählte; Fallback auf den generischen prompt.
+  if(curUseCase==="frei"){
+    var mKey=(window._smMotif==="auto") ? ((out.motive&&out.motive.empfohlen)||"") : window._smMotif;
+    var mPrompt=(out.motive&&out.motive[mKey])||"";
+    $id("fPrompt").value = mPrompt || out.prompt || $id("fPrompt").value;
+    if(window._smMotif==="auto" && mKey && SM_MOTIFS[mKey]){
+      var mc=document.querySelector('#smMotifList .sm-sug-card[data-motif="auto"] .g');
+      if(mc) mc.textContent="Claude hat gew\u00e4hlt: "+SM_MOTIFS[mKey].label+". Anderes Motiv anklicken, um es zu \u00fcbernehmen.";
+    }
+  }
   if(b.disclaimer && out.captions){
     ["instagram","linkedin"].forEach(function(k){
       if(out.captions[k] && out.captions[k].indexOf("Verlustrisiken")===-1){
