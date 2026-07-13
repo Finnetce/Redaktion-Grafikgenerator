@@ -1534,10 +1534,14 @@ function noWrapUnits(t){
 function smartShorten(t,maxChars){
   t=(t||"").trim(); if(t.length<=maxChars) return t;
   const cut=t.slice(0,maxChars);
+  // Bevorzugt: am Satzende schneiden (auch aggressiv frueh) -> KEIN "..."
   const pEnd=Math.max(cut.lastIndexOf(". "),cut.lastIndexOf("! "),cut.lastIndexOf("? "));
-  if(pEnd>maxChars*0.45) return cut.slice(0,pEnd+1).trim();
+  if(pEnd>maxChars*0.25) return cut.slice(0,pEnd+1).trim();
+  if(/[.!?]$/.test(t.slice(0,maxChars).trim())) return t.slice(0,maxChars).trim();
+  // Weicher Schnitt (Gedankenstrich/Semikolon/Komma): Rest streichen, Punkt setzen statt "..."
   const pSoft=Math.max(cut.lastIndexOf(" \u2013 "),cut.lastIndexOf("; "),cut.lastIndexOf(", "));
-  if(pSoft>maxChars*0.55) return cut.slice(0,pSoft).trim()+" \u2026";
+  if(pSoft>maxChars*0.4) return cut.slice(0,pSoft).trim().replace(/[,;:\u2013-]+$/,"")+".";
+  // Notfall: am Wortende, dann "..."
   const sp=cut.lastIndexOf(" ");
   return (sp>maxChars*0.6?cut.slice(0,sp):cut).trim()+" \u2026";
 }
@@ -3500,9 +3504,9 @@ extractSocial = async function(txt){
     "\"series\":{\"key\":\"k3|k2|z3|d4 — welche Slide-Serie am besten passt: k3=Karussell klassisch 3 Slides (Standard-News), k2=Kompakt 2 Slides (kurze Meldung, wenig Substanz), z3=Zitat-Story 3 Slides (NUR wenn ein starkes wörtliches Zitat einer Person im Artikel steht), d4=Deep Dive 4 Slides (komplexes Thema mit viel Substanz)\",\"grund\":\"1 kurzer Satz warum\"},"+
     "\"quote\":{\"text\":\"das stärkste wörtliche Zitat aus dem Artikel OHNE Anführungszeichen, max 160 Zeichen, sonst leerer String\",\"name\":\"Person des Zitats\",\"role\":\"Rolle, z.B. CEO von Apple\"},"+
     "\"infoHead\":\"EIGENE Headline für die Info-Slide, max 40 Zeichen — behandelt einen ANDEREN Aspekt als Schlagzeile und Schluss-Headline\","+
-    "\"intro\":\"Einordnungs-Absatz für die Info-Slide, max 220 Zeichen: ein NEUER Aspekt oder Hintergrund, der in den bullets NICHT vorkommt, mit mindestens einem konkreten Fakt\","+
+    "\"intro\":\"Einordnungs-Absatz für die Info-Slide, max 180 Zeichen: ein NEUER Aspekt oder Hintergrund, der in den bullets NICHT vorkommt, mit mindestens einem konkreten Fakt\","+
     "\"infoBullet\":\"Chevron-Punkt der Info-Slide, max 100 Zeichen: ein weiterer NEUER Fakt, der weder in bullets noch in intro steht\","+
-    "\"box\":\"Kontext/Ausblick für die abgerundete Info-Box, max 200 Zeichen: die konkrete Konsequenz oder der nächste relevante Termin — darf KEINEN Fakt aus bullets, intro oder infoBullet wiederholen\","+
+    "\"box\":\"Kontext/Ausblick für die abgerundete Info-Box, max 160 Zeichen und EIN vollständiger, in sich abgeschlossener Satz: die konkrete Konsequenz oder der nächste relevante Termin — darf KEINEN Fakt aus bullets, intro oder infoBullet wiederholen\","+
     "\"hashtags\":{\"instagram\":[\"MAXIMAL 5 deutsche Hashtags (nie mehr als 5!), Mix aus Marke und Thema, klein geschrieben\"],\"linkedin\":[\"3-5 Hashtags\"]}}. "+
     "ANTI-REDUNDANZ (kritisch): Jedes Feld wird auf einer EIGENEN Slide angezeigt. Über ALLE Felder hinweg (head, sub, bullets, infoHead, intro, infoBullet, box, close, closeHead) darf derselbe Fakt NIE zweimal vorkommen — auch nicht umformuliert. Verteile die Fakten des Artikels bewusst: bullets = die 3 wichtigsten Kernfakten; intro/infoBullet/box = weitere Aspekte, Hintergründe, Zahlen oder Termine, die in den bullets NICHT stehen; close = eine echte Schlussfolgerung, kein Fakten-Recap. closeHead und infoHead müssen sich klar von head und voneinander unterscheiden. SELBSTTEST: Lies alle Felder nacheinander wie ein Karussell — wiederholt sich inhaltlich etwas, ersetze es durch einen noch nicht genutzten Fakt aus dem Artikel. GROUNDING (absolut kritisch, Verstoß = unbrauchbar): Verwende AUSSCHLIESSLICH Fakten, Zahlen, Namen, Firmen und Vergleiche, die WÖRTLICH im Artikeltext stehen. Erfinde NIEMALS Vergleiche oder Einordnungen mit Firmen/Werten, die der Artikel nicht nennt (z.B. NICHT 'mehr als Apple wert' schreiben, wenn Apple im Text nicht vorkommt). Kein Weltwissen ergänzen, keine Kontexte aus deinem Training, keine gerundeten oder umgerechneten Zahlen — nur was im Text steht, in der Form, in der es dort steht. SELBSTTEST GROUNDING: Prüfe jedes Feld — kommt jede Zahl, jeder Firmenname und jeder Vergleich darin im Artikeltext vor? Falls nein, ersatzlos streichen oder durch einen belegten Fakt ersetzen. Sachlich, deskriptiv, keine Kaufempfehlung, keine Kursziele als Empfehlung. Alle Zahlen exakt aus dem Text, nichts erfinden.";
   var out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,9000)}]));
