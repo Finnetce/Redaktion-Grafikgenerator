@@ -348,6 +348,17 @@
   @media(max-width:860px){ .wiki-burger{display:inline-flex} }
 
 /* ============ SOCIAL MEDIA (Template-Katalog) ============ */
+.sm-gate{max-width:760px;margin:0 auto;padding:64px 20px 40px;text-align:center}
+.sm-gate h1{font-size:30px;font-weight:800;letter-spacing:-0.03em;margin-top:8px;line-height:1.1}
+.sm-gate p{color:var(--muted);font-size:14.5px;margin-top:8px;line-height:1.5}
+.sm-gate-cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:28px;text-align:left}
+@media(max-width:720px){.sm-gate-cards{grid-template-columns:1fr}}
+.sm-gate-card{padding:22px 22px 18px}
+.sm-gate-card h4{font-size:17px}
+.sm-active-brand{margin-top:12px;display:flex;align-items:center;gap:10px}
+.sm-brand-chip{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1.5px solid var(--line);border-radius:20px;padding:5px 13px;font-size:12.5px;font-weight:700}
+.sm-brand-chip .dot{width:9px;height:9px;border-radius:50%}
+.sm-brand-switch{border:none;background:none;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer;padding:0}
 .sm-brands{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .sm-brand{display:block;text-align:left;border:1.5px solid var(--line);border-radius:var(--r);background:#fff;padding:16px 18px;cursor:pointer;transition:all .15s}
 .sm-brand:hover{border-color:var(--accent);box-shadow:0 4px 14px rgba(10,31,68,.08)}
@@ -643,39 +654,44 @@
 
 <!-- ============ SOCIAL MEDIA (Template-Katalog v1) ============ -->
 <div class="view" id="smView">
-  <div class="gen-wrap">
+
+  <!-- Schritt 0: Marken-Auswahl (zentriertes Gate) -->
+  <div class="sm-gate" id="smGate">
+    <div class="gen-eyebrow">Social Media</div>
+    <h1>Für welche Marke erstellst du?</h1>
+    <p>Die Marke steuert Farbwelt, Logo und das Legal-Profil (Pflicht-Fußzeilen auf der Grafik).</p>
+    <div class="sm-gate-cards" id="smGateCards"></div>
+  </div>
+
+  <!-- Arbeitsbereich (erscheint nach Marken-Wahl) -->
+  <div class="gen-wrap" id="smWork" style="display:none">
     <div class="gen-head">
       <div class="gen-eyebrow">Social Media</div>
       <h1>Vom Template zum fertigen Post.</h1>
-      <p>Marke wählen, Template wählen, Felder füllen. Zahlen, Charts und Pflichttexte werden deterministisch gerendert; Stimmungshintergründe kommen optional aus der Bild-KI (Composite). Formate: 1:1, 4:5, 9:16, 16:9.</p>
+      <p>Template wählen, Felder füllen. Zahlen, Charts und Pflichttexte werden deterministisch gerendert; Stimmungshintergründe kommen optional aus der Bild-KI (Composite). Formate: 1:1, 4:5, 9:16, 16:9.</p>
+      <div class="sm-active-brand" id="smActiveBrand"></div>
     </div>
 
     <div class="card">
-      <div class="card-h"><span class="n">1</span><h3>Marke</h3></div>
-      <div class="sm-brands" id="smBrands"></div>
-      <span class="hint" style="display:block;margin-top:9px">Die Marke steuert Farbwelt, Logo und das Legal-Profil (Pflicht-Fußzeilen). finanzen.net zero = Broker-Kommunikation mit harten Compliance-Slots.</span>
-    </div>
-
-    <div class="card">
-      <div class="card-h"><span class="n">2</span><h3>Template</h3></div>
+      <div class="card-h"><span class="n">1</span><h3>Template</h3></div>
       <div class="sm-tpl-grid" id="smTplGrid"></div>
     </div>
 
     <div class="sm-stage">
       <div>
         <div class="card">
-          <div class="card-h"><span class="n">3</span><h3 id="smFormTitle">Inhalt</h3></div>
+          <div class="card-h"><span class="n">2</span><h3 id="smFormTitle">Inhalt</h3></div>
           <div class="sm-note" id="smTplNote"></div>
           <div class="sm-fields" id="smFields"></div>
           <div class="sm-warn" id="smWarn"></div>
         </div>
         <div class="card">
-          <div class="card-h"><span class="n">4</span><h3>Format</h3></div>
+          <div class="card-h"><span class="n">3</span><h3>Format</h3></div>
           <div class="sm-fmt-grid" id="smFmtGrid"></div>
           <span class="hint" style="display:block;margin-top:8px" id="smFmtHint"></span>
         </div>
         <div class="card" id="smBgCard" style="display:none">
-          <div class="card-h"><span class="n">5</span><h3>KI-Hintergrund (Pfad C)</h3></div>
+          <div class="card-h"><span class="n">4</span><h3>KI-Hintergrund (Pfad C)</h3></div>
           <span class="hint" style="display:block;margin-bottom:9px">Erzeugt einen Stimmungshintergrund ohne Text über die Bild-KI. Text, Zahlen, Logo und Pflichttexte bleiben deterministisch als Ebene darüber.</span>
           <div class="row" style="gap:8px">
             <button class="btn btn-primary" id="smBgGen">KI-Hintergrund generieren</button>
@@ -684,7 +700,7 @@
           <span class="hint" id="smBgStatus" style="display:block;margin-top:8px"></span>
         </div>
         <div class="card">
-          <div class="card-h"><span class="n">6</span><h3>Compliance</h3></div>
+          <div class="card-h"><span class="n">5</span><h3>Compliance</h3></div>
           <div class="sm-legal-box" id="smLegalBox"></div>
         </div>
       </div>
@@ -1370,7 +1386,8 @@ function buildCover(content){
   objs.push({kind:"backdrop",zone:{top:0.40,height:0.60}});
   objs.push({kind:"obj",obj:tHeadline(content.head,{left:px(0.06,W),top:px(0.685,H),width:px(0.82,W),fontSize:px(0.068,W)})});
   objs.push({kind:"obj",obj:new fabric.Textbox(content.sub,{left:px(0.06,W),top:px(0.865,H),width:px(0.66,W),fontFamily:BRAND.font,fontWeight:600,fontSize:px(0.030,W),fill:"#ffffff",name:"subline"})});
-  objs.push({kind:"obj",obj:new fabric.Text("Bildquelle: KI-generiert",{left:px(0.06,W),top:px(0.955,H),fontFamily:BRAND.font,fontSize:px(0.018,W),fill:"rgba(255,255,255,0.72)",name:"credit"})});
+  /* Bildcredit dezent wie Presse-Bildnachweis: klein, 90° gedreht, rechter Rand */
+  objs.push({kind:"obj",obj:new fabric.Text("Bild: KI-generiert",{left:px(0.985,W),top:px(0.30,H),angle:90,originX:"left",originY:"top",fontFamily:BRAND.font,fontSize:Math.max(px(0.012,W),10),fill:"rgba(255,255,255,0.45)",name:"credit"})});
   return {objs,logoDark:true};
 }
 
@@ -2900,11 +2917,23 @@ const SM_TEMPLATES=[
 let smTpl=SM_TEMPLATES[0], smFmt="4:5", smData={}, smSlide=0, smBgImg=null, smBgUrl="";
 
 /* ---------- UI-Aufbau ---------- */
-function smBuildBrands(){
-  $("smBrands").innerHTML=Object.entries(SM_BRANDS).map(([id,b])=>
-    '<button class="sm-brand'+(id===smBrand?" on":"")+'" data-b="'+id+'"><h4>'+b.label+'</h4><p>'+b.sub+'</p>'+
+/* Schritt 0: zentriertes Marken-Gate. Erst nach Wahl erscheint der Arbeitsbereich. */
+function smBuildGate(){
+  $("smGateCards").innerHTML=Object.entries(SM_BRANDS).map(([id,b])=>
+    '<button class="sm-brand sm-gate-card" data-b="'+id+'"><h4>'+b.label+'</h4><p>'+b.sub+'</p>'+
     '<div class="swatches">'+b.swatches.map(c=>'<span class="sw" style="background:'+c+'"></span>').join('')+'</div></button>').join('');
-  $("smBrands").querySelectorAll("[data-b]").forEach(el=>el.onclick=()=>{ smBrand=el.dataset.b; smBuildBrands(); smUpdateLegal(); smRender(); });
+  $("smGateCards").querySelectorAll("[data-b]").forEach(el=>el.onclick=()=>smChooseBrand(el.dataset.b));
+}
+function smChooseBrand(id){
+  smBrand=id;
+  smLogoPreload();
+  $("smGate").style.display="none";
+  $("smWork").style.display="";
+  const b=SM_BRANDS[id];
+  $("smActiveBrand").innerHTML='<span class="sm-brand-chip"><span class="dot" style="background:'+b.accent+'"></span>'+b.label+'</span> <button class="sm-brand-switch" id="smBrandSwitch">Marke wechseln</button>';
+  $("smBrandSwitch").onclick=()=>{ $("smWork").style.display="none"; $("smGate").style.display=""; window.scrollTo(0,0); };
+  smUpdateLegal(); smRender();
+  window.scrollTo(0,0);
 }
 function smBuildTplGrid(){
   $("smTplGrid").innerHTML=SM_TEMPLATES.map(t=>
@@ -3064,21 +3093,56 @@ function smRender(){
     legalLines.forEach((ln,i)=>x.fillText(ln, M, H-safeBot-legalH+M*0.38+legalFS*1.1+i*legalFS*1.38));
   }
 
-  /* Logo oben rechts (Reserved Zone) */
-  smDrawLogo(x,W,H,M,B,safeTop);
+  /* KI-Bildnachweis: dezent, seitlich gedreht am rechten Rand (nur bei KI-Hintergrund) */
+  if(smBgImg) smDrawAiCredit(x,W,H,B,safeTop,safeBot);
+
+  /* Logo unten rechts über der Legal-Zeile (fixer Logo-Vertrag, synchron gezeichnet) */
+  smDrawLogo(x,W,H,B,safeBot,legalH);
 
   smBuildPager();
   $("smExpHint").textContent=F.w+"×"+F.h+" px · "+smTpl.name+(sl.length>1?" · Slide "+(smSlide+1)+"/"+sl.length:"");
 }
 
-function smDrawLogo(x,W,H,M,B,safeTop){
-  const l=LOGOS[B.logo]; if(!l) return;
-  const url=B.dark?(l.data_url_hell||l.data_url_dunkel):(l.data_url_dunkel||l.data_url_hell);
-  const ar=_logoAspect(B.logo,B.dark);
-  const lw=W*0.155, lh=lw*ar;
-  const img=new Image();
-  img.onload=()=>{ const c=$("smCanvas"); if(!c) return; c.getContext("2d").drawImage(img, W-M-lw, safeTop+M*0.8, lw, lh); };
-  img.src=url;
+/* LOGO-VERTRAG (gilt in der GESAMTEN App, identisch zu Social Karussell,
+   Chart, Sankey und Grafiken-Overlay): Logo IMMER unten rechts,
+   Breite = breite_prozent (16 % der Bildbreite), Margin = 3,5 % der Breite.
+   In der SM-Sektion sitzt es direkt ÜBER der Legal-Fußzeile.
+   Synchron im Render-Pass gezeichnet (kein onload-Race, keine Sprünge). */
+const _smLogoCache={};
+function smLogoPreload(){
+  Object.values(SM_BRANDS).forEach(b=>{
+    const l=LOGOS[b.logo]; if(!l) return;
+    ["hell","dunkel"].forEach(v=>{
+      const url=l["data_url_"+v]; if(!url) return;
+      const key=b.logo+"_"+v;
+      if(_smLogoCache[key]) return;
+      const img=new Image();
+      img.onload=()=>{ _smLogoCache[key]=img; try{ smRender(); }catch(e){} };
+      img.src=url;
+    });
+  });
+}
+function smDrawLogo(x,W,H,B,safeBot,legalH){
+  const variant=B.dark?"hell":"dunkel";
+  const img=_smLogoCache[B.logo+"_"+variant]||_smLogoCache[B.logo+"_"+(B.dark?"dunkel":"hell")];
+  if(!img) return;
+  const pct=((LOGOS[B.logo]||{}).breite_prozent||16)/100;
+  const mg=Math.round(W*0.035);                       /* identisch zu _addLogoFabric/_drawLogoCanvas2D */
+  const lw=Math.round(W*pct), lh=Math.round(lw*_logoAspect(B.logo,B.dark));
+  const ly=H - safeBot - legalH - mg - lh;            /* unten rechts, über der Legal-Fußzeile */
+  x.drawImage(img, W-mg-lw, ly, lw, lh);
+}
+/* Dezenter KI-Bildnachweis: klein, 90° gedreht am rechten Rand (wie Presse-Bildcredit) */
+function smDrawAiCredit(x,W,H,B,safeTop,safeBot){
+  const fs=Math.max(Math.round(W*0.0135),14);
+  x.save();
+  x.translate(W-fs*0.6, safeTop+(H-safeTop-safeBot)*0.5);
+  x.rotate(Math.PI/2);
+  x.font="500 "+fs+"px "+BRAND.font;
+  x.fillStyle=B.dark?"rgba(255,255,255,0.42)":"rgba(10,31,68,0.4)";
+  x.textAlign="center";
+  x.fillText("Bild: KI-generiert",0,0);
+  x.restore();
 }
 function smDrawCover(x,img,W,H){
   const s=Math.max(W/img.width,H/img.height), w=img.width*s, h=img.height*s;
@@ -3425,7 +3489,7 @@ async function smExportAll(){
 /* ---------- Init ---------- */
 let _smInit=false;
 function initSocialMedia(){
-  smBuildBrands(); smBuildTplGrid(); smSelectTpl(SM_TEMPLATES[0].id);
+  smBuildGate(); smLogoPreload(); smBuildTplGrid(); smSelectTpl(SM_TEMPLATES[0].id);
   $("smBgGen").onclick=smGenBg;
   $("smBgClear").onclick=()=>{ smBgImg=null; smBgUrl=""; $("smBgClear").style.display="none"; $("smBgStatus").textContent=""; smRender(); };
   $("smExport").onclick=smDoExport;
