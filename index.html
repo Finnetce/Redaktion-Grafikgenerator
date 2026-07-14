@@ -2226,9 +2226,9 @@ function toast(msg, dur){
 async function exportPNG(){
   snapshotCurrent();
   // volle Canvas-Auflösung rendern
-  let url=canvas.toDataURL({format:"png",multiplier:exportMult});
-  // FIX weißer Rand: Float-Multiplikator kann 1349/2699px erzeugen -> immer exakt auf Formatgröße bringen
-  try{ const fmz=FORMATS[curFmt]; url=await fitToTarget(url, fmz.w, fmz.h, "image/png"); }catch(e){}
+  let url=canvas.toDataURL({format:"png",multiplier:exportMult*2});
+  // 2x HQ wie das Bundle + exakte Formatgröße (kein weißer Rand)
+  try{ const fmz=FORMATS[curFmt]; url=await fitToTarget(url, fmz.w*2, fmz.h*2, "image/png"); }catch(e){}
   // Bei Grafiken-Redaktion exakt auf die Veröffentlichungs-Zielgröße bringen
   const tg = (slides[current] && slides[current].type==="graphic") ? GR_TARGET[grUseCase] : null;
   let out=url, suffix="_slide"+(current+1);
@@ -3341,7 +3341,8 @@ window.SM_PLATFORMS=[
   { id:"ig_feed",  label:"Instagram Feed / Karussell", w:1080, h:1350, master:"4:5"  },
   { id:"ig_story", label:"Instagram Story",            w:1080, h:1920, master:"9:16" },
   { id:"li_feed",  label:"LinkedIn Post",              w:1080, h:1350, master:"4:5"  },
-  { id:"li_quer",  label:"LinkedIn Querformat (Link)", w:1200, h:627,  master:"16:9" }
+  { id:"li_quer",  label:"LinkedIn Querformat (Link)", w:1200, h:627,  master:"16:9" },
+  { id:"x_post",   label:"X (Twitter)",                w:1080, h:1350, master:"4:5"  }
 ];
 
 /* ---------- Styles ---------- */
@@ -3662,7 +3663,7 @@ extractSocial = async function(txt){
     "\"szene\":\"englischer Bild-Prompt: die Story als thematische Szene ohne Logo-Fokus (z.B. trading floor, factory, product in use)\","+
     "\"metapher\":\"englischer Bild-Prompt: visuelle Metapher zur Kernaussage des Artikels, premium editorial style\"},"+
     "\"formats\":[maximal 3 Vorschlaege, jeweils {\"key\":\"news|quartalszahlen|vergleich|zitat\",\"grund\":\"1 Satz warum dieses Format passt\",\"bildprompt\":\"englischer Bild-Prompt passend zum Format, ohne Text im Bild\"}] sortiert nach Eignung,"+
-    "\"captions\":{\"instagram\":\"fertige Instagram-Caption im Markenton mit Absätzen. Der Abschluss ergibt sich aus dem Artikel (Einordnung, Ausblick oder kurze Frage an die Community) — KEIN generischer Standard-CTA\",\"linkedin\":\"fertige LinkedIn-Caption, sachlicher und länger, WICHTIG: jede Firma nur beim ERSTEN Vorkommen mit @ markieren (z.B. @Apple), bei allen weiteren Erwähnungen derselben Firma OHNE @, Frage oder Einordnung am Ende\"},"+
+    "\"captions\":{\"instagram\":\"fertige Instagram-Caption im Markenton mit Absätzen. STIL: wie ein erfahrener Redakteur, NICHT wie KI — Information direkt in vollständigen Sätzen, jeder Absatz beginnt anders (mal Zahl, mal Akteur, mal Folge). Der Abschluss ergibt sich aus dem Artikel (Einordnung, Ausblick oder kurze Frage an die Community) — KEIN generischer Standard-CTA\",\"linkedin\":\"fertige LinkedIn-Caption, sachlicher und länger, WICHTIG: jede Firma nur beim ERSTEN Vorkommen mit @ markieren (z.B. @Apple), bei allen weiteren Erwähnungen derselben Firma OHNE @, Frage oder Einordnung am Ende\"},"+
     "\"story\":{\"text\":\"kurzer knackiger Story-Text, max 200 Zeichen, für ein Text-Overlay auf der Instagram Story — KEIN Call-to-Action, KEIN Link-Hinweis\",\"umfrage\":\"optionale Idee für einen Umfrage-Sticker als Frage mit 2 Antwortoptionen, sonst leerer String\"},"+
     "\"textstyle\":\"hook|trader|info \u2014 der verwendete Textstil\","+
     "\"series\":{\"key\":\"k3|k2|z3|d4 — welche Slide-Serie am besten passt: k3=Karussell klassisch 3 Slides (Standard-News), k2=Kompakt 2 Slides (kurze Meldung, wenig Substanz), z3=Zitat-Story 3 Slides (NUR wenn ein starkes wörtliches Zitat einer Person im Artikel steht), d4=Deep Dive 4 Slides (komplexes Thema mit viel Substanz)\",\"grund\":\"1 kurzer Satz warum\"},"+
@@ -3671,8 +3672,9 @@ extractSocial = async function(txt){
     "\"intro\":\"Einordnungs-Absatz für die Info-Slide, max 180 Zeichen: ein NEUER Aspekt oder Hintergrund, der in den bullets NICHT vorkommt, mit mindestens einem konkreten Fakt\","+
     "\"infoBullet\":\"Chevron-Punkt der Info-Slide, max 100 Zeichen: ein weiterer NEUER Fakt, der weder in bullets noch in intro steht\","+
     "\"box\":\"Kontext/Ausblick für die abgerundete Info-Box, max 160 Zeichen und EIN vollständiger, in sich abgeschlossener Satz: die konkrete Konsequenz oder der nächste relevante Termin — darf KEINEN Fakt aus bullets, intro oder infoBullet wiederholen\","+
+    "\"x\":{\"text\":\"Post für X (Twitter), STRIKT max 240 Zeichen (Puffer für Cashtags): macht neugierig auf die Slides und regt zum Durchklicken an (z.B. Kernaussage anteasern, die stärkste Zahl nennen, aber nicht alles verraten). Redakteurs-Ton, keine KI-Floskeln, maximal 1 Emoji\",\"cashtags\":[\"1 bis MAXIMAL 2 Börsenticker der zentralen Aktien des Artikels im Format $AMD, $NVDA — NUR wenn der Ticker sicher bekannt ist, sonst leere Liste\"]},"+
     "\"hashtags\":{\"instagram\":[\"MAXIMAL 5 deutsche Hashtags (nie mehr als 5!), Mix aus Marke und Thema, klein geschrieben\"],\"linkedin\":[\"3-5 Hashtags\"]}}. "+
-    "ANTI-REDUNDANZ (kritisch): Jedes Feld wird auf einer EIGENEN Slide angezeigt. Über ALLE Felder hinweg (head, sub, bullets, infoHead, intro, infoBullet, box, close, closeHead) darf derselbe Fakt NIE zweimal vorkommen — auch nicht umformuliert. Verteile die Fakten des Artikels bewusst: bullets = die 3 wichtigsten Kernfakten; intro/infoBullet/box = weitere Aspekte, Hintergründe, Zahlen oder Termine, die in den bullets NICHT stehen; close = eine echte Schlussfolgerung, kein Fakten-Recap. closeHead und infoHead müssen sich klar von head und voneinander unterscheiden. SELBSTTEST: Lies alle Felder nacheinander wie ein Karussell — wiederholt sich inhaltlich etwas, ersetze es durch einen noch nicht genutzten Fakt aus dem Artikel. LESBARKEIT (Pflicht): Schreibe einfache, klare Sätze wie ein guter Nachrichtenredakteur. Maximal EIN Nebensatz pro Satz, KEINE Schachtelsätze, KEINE Einschübe mit Gedankenstrich am Satzende, keine Relativsatz-Ketten. Lieber zwei kurze Sätze als ein verschachtelter. Negativ-Beispiel (so NICHT): 'Louisiana befreite Ende 2024 Rechenzentren, die vor 2029 gebaut werden, für 20 Jahre von der Umsatzsteuer — gezielt, um Meta ins Land zu holen.' Besser: 'Louisiana befreit neue Rechenzentren für 20 Jahre von der Umsatzsteuer. Das Gesetz von Ende 2024 sollte gezielt Meta ins Land holen.' SELBSTTEST LESBARKEIT: Lies jeden Satz laut — stolpert man oder braucht man zwei Anläufe, in zwei Sätze aufteilen. WÄHRUNGS-SCHREIBWEISE (Pflicht in allen Feldern): Entweder Symbol VOR der Zahl ('$ 4.062,60') ODER Kürzel NACH der Zahl ('4.062,60 USD', '145,30 EUR'). NIEMALS das Symbol nach der Zahl ('4.062,60 $' ist FALSCH), kein ausgeschriebenes 'US-Dollar' hinter Zahlen. Innerhalb des Beitrags einheitlich eine Variante verwenden. GROUNDING (absolut kritisch, Verstoß = unbrauchbar): Verwende AUSSCHLIESSLICH Fakten, Zahlen, Namen, Firmen und Vergleiche, die WÖRTLICH im Artikeltext stehen. Erfinde NIEMALS Vergleiche oder Einordnungen mit Firmen/Werten, die der Artikel nicht nennt (z.B. NICHT 'mehr als Apple wert' schreiben, wenn Apple im Text nicht vorkommt). Kein Weltwissen ergänzen, keine Kontexte aus deinem Training, keine gerundeten oder umgerechneten Zahlen — nur was im Text steht, in der Form, in der es dort steht. SELBSTTEST GROUNDING: Prüfe jedes Feld — kommt jede Zahl, jeder Firmenname und jeder Vergleich darin im Artikeltext vor? Falls nein, ersatzlos streichen oder durch einen belegten Fakt ersetzen. Sachlich, deskriptiv, keine Kaufempfehlung, keine Kursziele als Empfehlung. Alle Zahlen exakt aus dem Text, nichts erfinden.";
+    "ANTI-REDUNDANZ (kritisch): Jedes Feld wird auf einer EIGENEN Slide angezeigt. Über ALLE Felder hinweg (head, sub, bullets, infoHead, intro, infoBullet, box, close, closeHead) darf derselbe Fakt NIE zweimal vorkommen — auch nicht umformuliert. Verteile die Fakten des Artikels bewusst: bullets = die 3 wichtigsten Kernfakten; intro/infoBullet/box = weitere Aspekte, Hintergründe, Zahlen oder Termine, die in den bullets NICHT stehen; close = eine echte Schlussfolgerung, kein Fakten-Recap. closeHead und infoHead müssen sich klar von head und voneinander unterscheiden. SELBSTTEST: Lies alle Felder nacheinander wie ein Karussell — wiederholt sich inhaltlich etwas, ersetze es durch einen noch nicht genutzten Fakt aus dem Artikel. KEIN KI-KLANG (Pflicht für alle Texte): VERBOTEN sind formelhafte Absatz-Einstiege mit Doppelpunkt-Anmoderation wie 'Besonders überraschend:', 'Ein Wermutstropfen bleibt:', 'Besonders bemerkenswert:', 'Interessant dabei:', 'Wichtig zu wissen:', 'Hinzu kommt:', 'Nicht zu vergessen:' und ähnliche Zweiwort-Floskeln. Statt 'Besonders überraschend: International Motors erzielte 115 Mio.' schreibe 'International Motors erzielte 115 Mio. EUR — der Konsens hatte einen Verlust erwartet.' Die Überraschung/Bewertung gehört IN den Satz, nicht davor. Variiere Satzanfänge über alle Absätze. LESBARKEIT (Pflicht): Schreibe einfache, klare Sätze wie ein guter Nachrichtenredakteur. Maximal EIN Nebensatz pro Satz, KEINE Schachtelsätze, KEINE Einschübe mit Gedankenstrich am Satzende, keine Relativsatz-Ketten. Lieber zwei kurze Sätze als ein verschachtelter. Negativ-Beispiel (so NICHT): 'Louisiana befreite Ende 2024 Rechenzentren, die vor 2029 gebaut werden, für 20 Jahre von der Umsatzsteuer — gezielt, um Meta ins Land zu holen.' Besser: 'Louisiana befreit neue Rechenzentren für 20 Jahre von der Umsatzsteuer. Das Gesetz von Ende 2024 sollte gezielt Meta ins Land holen.' SELBSTTEST LESBARKEIT: Lies jeden Satz laut — stolpert man oder braucht man zwei Anläufe, in zwei Sätze aufteilen. WÄHRUNGS-SCHREIBWEISE (Pflicht in allen Feldern): Entweder Symbol VOR der Zahl ('$ 4.062,60') ODER Kürzel NACH der Zahl ('4.062,60 USD', '145,30 EUR'). NIEMALS das Symbol nach der Zahl ('4.062,60 $' ist FALSCH), kein ausgeschriebenes 'US-Dollar' hinter Zahlen. Innerhalb des Beitrags einheitlich eine Variante verwenden. GROUNDING (absolut kritisch, Verstoß = unbrauchbar): Verwende AUSSCHLIESSLICH Fakten, Zahlen, Namen, Firmen und Vergleiche, die WÖRTLICH im Artikeltext stehen. Erfinde NIEMALS Vergleiche oder Einordnungen mit Firmen/Werten, die der Artikel nicht nennt (z.B. NICHT 'mehr als Apple wert' schreiben, wenn Apple im Text nicht vorkommt). Kein Weltwissen ergänzen, keine Kontexte aus deinem Training, keine gerundeten oder umgerechneten Zahlen — nur was im Text steht, in der Form, in der es dort steht. SELBSTTEST GROUNDING: Prüfe jedes Feld — kommt jede Zahl, jeder Firmenname und jeder Vergleich darin im Artikeltext vor? Falls nein, ersatzlos streichen oder durch einen belegten Fakt ersetzen. Sachlich, deskriptiv, keine Kaufempfehlung, keine Kursziele als Empfehlung. Alle Zahlen exakt aus dem Text, nichts erfinden.";
   var out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,9000)}]));
   if(out.head) $id("fHead").value=out.head;
   if(out.sub) $id("fSub").value=out.sub;
@@ -3741,6 +3743,14 @@ extractSocial = async function(txt){
     });
   }
   if(out.captions && out.captions.linkedin) out.captions.linkedin=dedupeMentions(out.captions.linkedin);
+  // X (Twitter): Cashtags normalisieren ($-Präfix, max 2) + Gesamtlänge hart auf 280 begrenzen
+  if(out.x){
+    if(Array.isArray(out.x.cashtags)) out.x.cashtags=out.x.cashtags.slice(0,2).map(function(c){ c=(c||"").trim().toUpperCase().replace(/^\$+/,""); return c?"$"+c:""; }).filter(Boolean);
+    if(out.x.text){
+      var tagLen=((out.x.cashtags||[]).join(" ").length)+2;
+      if(out.x.text.length+tagLen>280) out.x.text=smartShorten(out.x.text, 280-tagLen);
+    }
+  }
   // Währungs-Normalisierung an der QUELLE: alle Felder inkl. Headline/Subline/Captions/Story
   try{
     ["head","sub","close","closeHead","infoHead","intro","infoBullet","box"].forEach(function(k){ if(typeof out[k]==="string") out[k]=fixCurrency(out[k]); });
@@ -3916,6 +3926,19 @@ function smShowCenterPanel(groupId){
       if(liTags) smCSection(bd,"Hashtags",liTags);
       smCSection(bd,"Komplett (Caption + Hashtags)",caps.linkedin+"\n\n"+liTags);
     }
+  } else if(groupId==="x_post"){
+    tt.textContent="X (Twitter) — Text zum Kopieren";
+    var xo=(t.x)||{};
+    var xtags=(Array.isArray(xo.cashtags)?xo.cashtags:[]).slice(0,2).map(function(c){ c=(c||"").trim(); return c? (c[0]==="$"?c:"$"+c):""; }).filter(Boolean).join(" ");
+    if(!xo.text){ none(); }
+    else{
+      var full=(xo.text+(xtags?"\n\n"+xtags:"")).trim();
+      smCSection(bd,"Post (max 280 Zeichen, inkl. Cashtags: "+full.length+")",full);
+      if(xtags) smCSection(bd,"Cashtags",xtags);
+      var tip2=document.createElement("div"); tip2.className="hint"; tip2.style.marginTop="6px";
+      tip2.textContent="Bilder wie bei Instagram anhängen (bis zu 4 Slides pro Post). Cashtags verlinken bei X automatisch zur Aktie.";
+      bd.appendChild(tip2);
+    }
   } else if(groupId==="ig_story"){
     tt.textContent="Instagram Story — Bausteine";
     var any=false;
@@ -3932,7 +3955,7 @@ function smShowCenterPanel(groupId){
 }
 
 /* ---------- Gruppierte Slide-Liste: pro gewählter Plattform eine Gruppe ---------- */
-var SM_GROUP_SHORT={ig_feed:"Insta Post/Karussell",ig_story:"Insta Story",li_feed:"LinkedIn Post",li_quer:"LinkedIn Quer"};
+var SM_GROUP_SHORT={ig_feed:"Insta Post/Karussell",ig_story:"Insta Story",li_feed:"LinkedIn Post",li_quer:"LinkedIn Quer",x_post:"X (Twitter)"};
 var _origRenderSlideTabs=renderSlideTabs;
 renderSlideTabs=function(){
   var list=$id("slideList"); if(!list) return;
@@ -3991,10 +4014,10 @@ if(_exBtn){
       var base=(($id("fHead").value||"post").replace(/[^a-z0-9äöüß]+/gi,"_").replace(/^_+|_+$/g,"").slice(0,40))||"post";
       snapshotCurrent();
       if(Math.abs(f.w/f.h - c.w/c.h) < 0.01){
-        // gleiches Verhältnis: Master exportieren, exakt auf Plattform-Größe skalieren
-        var hi=canvas.toDataURL({format:"png",multiplier:exportMult});
-        var out=await fitToTarget(hi,p.w,p.h,"image/png");
-        var a=document.createElement("a"); a.href=out; a.download=base+"_slide"+(current+1)+"_"+p.w+"x"+p.h+".png"; a.click();
+        // gleiches Verhältnis: Master exportieren, in 2x HQ wie das Bundle (Yuki 14.07.)
+        var hi=canvas.toDataURL({format:"png",multiplier:exportMult*2});
+        var out=await fitToTarget(hi,p.w*2,p.h*2,"image/png");
+        var a=document.createElement("a"); a.href=out; a.download=base+"_slide"+(current+1)+"_"+(p.w*2)+"x"+(p.h*2)+".png"; a.click();
         return;
       }
       // anderes Verhältnis (z.B. Story): Slide nativ im Zielformat neu rendern
@@ -4003,9 +4026,9 @@ if(_exBtn){
       canvas.setWidth(DISP.w); canvas.setHeight(DISP.h);
       await renderTemplate(slides[orig].type, slides[orig].content||window._content);
       await new Promise(function(r){ setTimeout(r,60); });
-      var hi2=canvas.toDataURL({format:"png",multiplier:exportMult});
-      var out2=await fitToTarget(hi2,p.w,p.h,"image/png");
-      var a2=document.createElement("a"); a2.href=out2; a2.download=base+"_slide"+(orig+1)+"_"+p.w+"x"+p.h+".png"; a2.click();
+      var hi2=canvas.toDataURL({format:"png",multiplier:exportMult*2});
+      var out2=await fitToTarget(hi2,p.w*2,p.h*2,"image/png");
+      var a2=document.createElement("a"); a2.href=out2; a2.download=base+"_slide"+(orig+1)+"_"+(p.w*2)+"x"+(p.h*2)+".png"; a2.click();
       // Master wiederherstellen
       curFmt=origFmt; DISP=dispDims(curFmt); exportMult=FORMATS[curFmt].w/DISP.w;
       canvas.setWidth(DISP.w); canvas.setHeight(DISP.h);
@@ -4101,6 +4124,7 @@ async function smDownloadBundle(){
     if(t&&t.captions){
       if(t.captions.instagram){ lines.push("=== INSTAGRAM CAPTION ==="); lines.push(t.captions.instagram); lines.push(""); lines.push("=== INSTAGRAM HASHTAGS ==="); lines.push((t.hashtags&&t.hashtags.instagram||[]).join(" ")); lines.push(""); }
       if(t.captions.linkedin){ lines.push("=== LINKEDIN CAPTION (@-Tags vor dem Posten prüfen) ==="); lines.push(t.captions.linkedin); lines.push(""); lines.push("=== LINKEDIN HASHTAGS ==="); lines.push((t.hashtags&&t.hashtags.linkedin||[]).join(" ")); lines.push(""); }
+      if(t.x&&t.x.text){ lines.push("=== X (TWITTER) — max 280 Zeichen ==="); lines.push((t.x.text+"\n\n"+((t.x.cashtags||[]).join(" "))).trim()); lines.push(""); }
     } else {
       lines.push("(Keine generierten Captions vorhanden — Felder wurden manuell befüllt.)");
     }
