@@ -1791,8 +1791,8 @@ async function renderTemplate(type,content){
   if(_slv&&LOGOS[_slv]){ await _addLogoFabric(_slv,_logoVariantDark("socialLogo",spec.logoDark)); }
   // "Kein Logo" => kein Logo zeichnen
   _fitTextLines();  // Vorgabe Yuki: Headline max 2 Zeilen, Subline (Cover) 1 Zeile
-  // Sicherstellen: ALLE Texte editier- und wählbar (Yuki 13.07.)
-  canvas.getObjects().forEach(o=>{ if(o.type==="textbox"||o.type==="i-text"){ o.editable=true; o.selectable=true; o.evented=true; } });
+  // Sicherstellen: ALLE Texte editier- und wählbar + Klickflächen aktuell (Yuki 13./14.07.)
+  canvas.getObjects().forEach(o=>{ if(o.type==="textbox"||o.type==="i-text"){ o.editable=true; o.selectable=true; o.evented=true; } o.setCoords&&o.setCoords(); });
 }
 /* Zeilen-Regeln (Yuki): Headline max. 2 Zeilen (3-Zeiler vermeiden);
    Subline finnet = 1 Zeile, ZERO = max. 2 Zeilen (3-Zeiler vermeiden).
@@ -1817,6 +1817,7 @@ function _fitTextLines(){
         o.set("text", smartShorten(o.text, Math.floor(o.text.length*0.85))); o.initDimensions();
       }
     }
+    o.setCoords();
   });
   canvas.renderAll();
 }
@@ -1926,13 +1927,20 @@ function attachBoxEdit(c){
     if(dx||dy){ p.set({left:p.left+dx,top:p.top+dy}); p.setCoords(); }
     o.__lx=o.left; o.__ly=o.top;
   });
-  // Nach Text-Edit im Kasten: Kastenhöhe an neuen Text anpassen
+  // Nach JEDEM Text-Edit: Bounding Box aktualisieren + Interaktivität sicherstellen
+  // (FIX Yuki 14.07. 10:32: Feld war nach einmaligem Bearbeiten nicht mehr anklickbar —
+  //  die Klickfläche blieb auf den alten Maßen stehen, weil setCoords fehlte)
   c.on("text:editing:exited",(e)=>{
-    const t=e.target; if(!t||t.name!=="boxtext") return;
-    const bg=c.getObjects().find(x=>x.name==="boxbg"); if(!bg) return;
-    const pad=Math.max(10,(t.left-bg.left));
+    const t=e.target; if(!t) return;
     t.initDimensions&&t.initDimensions();
-    bg.set({height:t.height+2*pad}); bg.setCoords(); c.renderAll();
+    t.set({selectable:true,evented:true,editable:true});
+    t.setCoords();
+    // Kastenhöhe an neuen Text anpassen (grauer Kasten)
+    if(t.name==="boxtext"){
+      const bg=c.getObjects().find(x=>x.name==="boxbg");
+      if(bg){ const pad=Math.max(10,(t.left-bg.left)); bg.set({height:t.height+2*pad}); bg.setCoords(); }
+    }
+    c.requestRenderAll();
   });
   // Doppelklick auf selbst erstellte Gruppe -> zum Bearbeiten lösen (Logo/Pfeil bleiben unangetastet)
   c.on("mouse:dblclick",(e)=>{
@@ -3673,7 +3681,7 @@ extractSocial = async function(txt){
     "\"infoBullet\":\"Chevron-Punkt der Info-Slide, max 100 Zeichen: ein weiterer NEUER Fakt, der weder in bullets noch in intro steht\","+
     "\"box\":\"Kontext/Ausblick für die abgerundete Info-Box, max 160 Zeichen und EIN vollständiger, in sich abgeschlossener Satz: die konkrete Konsequenz oder der nächste relevante Termin — darf KEINEN Fakt aus bullets, intro oder infoBullet wiederholen\","+
     "\"x\":{\"text\":\"Post für X (Twitter), STRIKT max 240 Zeichen (Puffer für Cashtags): macht neugierig auf die Slides und regt zum Durchklicken an (z.B. Kernaussage anteasern, die stärkste Zahl nennen, aber nicht alles verraten). Redakteurs-Ton, keine KI-Floskeln, maximal 1 Emoji\",\"cashtags\":[\"1 bis MAXIMAL 2 Börsenticker der zentralen Aktien des Artikels im Format $AMD, $NVDA — NUR wenn der Ticker sicher bekannt ist, sonst leere Liste\"]},"+
-    "\"hashtags\":{\"instagram\":[\"MAXIMAL 5 deutsche Hashtags (nie mehr als 5!), Mix aus Marke und Thema, klein geschrieben\"],\"linkedin\":[\"3-5 Hashtags\"]}}. "+
+    "\"hashtags\":{\"instagram\":[\"MAXIMAL 5 deutsche Hashtags (nie mehr als 5!), klein geschrieben. AUSWAHL-REGEL: 1x Firmenname + sonst breite, reichweitenstarke Finanz-/Wirtschafts-Hashtags wie #börse, #aktien, #finanzen, #wirtschaft, #investieren, #geldanlage. KEINE Nischen-Hashtags zum Spezialthema (FALSCH: #containerschifffahrt, #prognose, #hamburg, #nutzfahrzeuge — RICHTIG: #hapaglloyd #aktien #börse #wirtschaft #finanzen)\"],\"linkedin\":[\"3-5 Hashtags: 1x Firmenname + breite Wirtschafts-/Finanz-Tags (#Wirtschaft, #Börse, #Finanzen, #Investieren), keine Nischen-Tags\"]}}. "+
     "ANTI-REDUNDANZ (kritisch): Jedes Feld wird auf einer EIGENEN Slide angezeigt. Über ALLE Felder hinweg (head, sub, bullets, infoHead, intro, infoBullet, box, close, closeHead) darf derselbe Fakt NIE zweimal vorkommen — auch nicht umformuliert. Verteile die Fakten des Artikels bewusst: bullets = die 3 wichtigsten Kernfakten; intro/infoBullet/box = weitere Aspekte, Hintergründe, Zahlen oder Termine, die in den bullets NICHT stehen; close = eine echte Schlussfolgerung, kein Fakten-Recap. closeHead und infoHead müssen sich klar von head und voneinander unterscheiden. SELBSTTEST: Lies alle Felder nacheinander wie ein Karussell — wiederholt sich inhaltlich etwas, ersetze es durch einen noch nicht genutzten Fakt aus dem Artikel. KEIN KI-KLANG (Pflicht für alle Texte): VERBOTEN sind formelhafte Absatz-Einstiege mit Doppelpunkt-Anmoderation wie 'Besonders überraschend:', 'Ein Wermutstropfen bleibt:', 'Besonders bemerkenswert:', 'Interessant dabei:', 'Wichtig zu wissen:', 'Hinzu kommt:', 'Nicht zu vergessen:' und ähnliche Zweiwort-Floskeln. Statt 'Besonders überraschend: International Motors erzielte 115 Mio.' schreibe 'International Motors erzielte 115 Mio. EUR — der Konsens hatte einen Verlust erwartet.' Die Überraschung/Bewertung gehört IN den Satz, nicht davor. Variiere Satzanfänge über alle Absätze. LESBARKEIT (Pflicht): Schreibe einfache, klare Sätze wie ein guter Nachrichtenredakteur. Maximal EIN Nebensatz pro Satz, KEINE Schachtelsätze, KEINE Einschübe mit Gedankenstrich am Satzende, keine Relativsatz-Ketten. Lieber zwei kurze Sätze als ein verschachtelter. Negativ-Beispiel (so NICHT): 'Louisiana befreite Ende 2024 Rechenzentren, die vor 2029 gebaut werden, für 20 Jahre von der Umsatzsteuer — gezielt, um Meta ins Land zu holen.' Besser: 'Louisiana befreit neue Rechenzentren für 20 Jahre von der Umsatzsteuer. Das Gesetz von Ende 2024 sollte gezielt Meta ins Land holen.' SELBSTTEST LESBARKEIT: Lies jeden Satz laut — stolpert man oder braucht man zwei Anläufe, in zwei Sätze aufteilen. WÄHRUNGS-SCHREIBWEISE (Pflicht in allen Feldern): Entweder Symbol VOR der Zahl ('$ 4.062,60') ODER Kürzel NACH der Zahl ('4.062,60 USD', '145,30 EUR'). NIEMALS das Symbol nach der Zahl ('4.062,60 $' ist FALSCH), kein ausgeschriebenes 'US-Dollar' hinter Zahlen. Innerhalb des Beitrags einheitlich eine Variante verwenden. GROUNDING (absolut kritisch, Verstoß = unbrauchbar): Verwende AUSSCHLIESSLICH Fakten, Zahlen, Namen, Firmen und Vergleiche, die WÖRTLICH im Artikeltext stehen. Erfinde NIEMALS Vergleiche oder Einordnungen mit Firmen/Werten, die der Artikel nicht nennt (z.B. NICHT 'mehr als Apple wert' schreiben, wenn Apple im Text nicht vorkommt). Kein Weltwissen ergänzen, keine Kontexte aus deinem Training, keine gerundeten oder umgerechneten Zahlen — nur was im Text steht, in der Form, in der es dort steht. SELBSTTEST GROUNDING: Prüfe jedes Feld — kommt jede Zahl, jeder Firmenname und jeder Vergleich darin im Artikeltext vor? Falls nein, ersatzlos streichen oder durch einen belegten Fakt ersetzen. Sachlich, deskriptiv, keine Kaufempfehlung, keine Kursziele als Empfehlung. Alle Zahlen exakt aus dem Text, nichts erfinden.";
   var out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,9000)}]));
   if(out.head) $id("fHead").value=out.head;
