@@ -2382,7 +2382,30 @@ const tGenImgHandler=async()=>{
   window._content.prompt=uPrompt;
   showLoading("KI-Bild wird erzeugt", isLive()?(modelLabel()+" rendert das Bild"):"Platzhalter wird gezeichnet");
   try{
-    const src=await generateImage(window._content.prompt,curFmt,Math.floor(Math.random()*9999)+1,stype);
+    let src;
+    if(sc.origin==="sm" && typeof smRender==="function"){
+      /* zero-Slide: Hintergrund neu generieren und die Slide im Template-Renderer
+         NEU aufbauen — Texte, Zahlen, Legal-Fußzeile und Logo bleiben erhalten. */
+      const theme=($("smTheme")&&$("smTheme").value)||"clean";
+      const model=($("smModel")&&$("smModel").value)||curModel;
+      const fullP=uPrompt+", "+((typeof SM_THEME_TXT!=="undefined"&&SM_THEME_TXT[theme])||"")+", "+(SM_BRANDS[smBrand].dark?"dark navy, near-black, subtle green accent glow":"light, clean tones")+"."+SM_NEG;
+      let raw;
+      if(genMode()==="direct") raw=await generateImageDirect(fullP,smFmt,model,_orKey);
+      else if(genMode()==="make"){
+        const params=new URLSearchParams();
+        params.set("action","generate-image"); params.set("prompt",fullP);
+        params.set("format",smFmt); params.set("theme",theme); params.set("model",model); params.set("slide","background");
+        const res=await fetch(CONFIG.API_BASE,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:params.toString()});
+        const data=await res.json(); if(!data.ok||!data.image) throw new Error(data.error||"Bildgenerierung fehlgeschlagen");
+        raw=data.image;
+      } else raw=await generateImage(uPrompt,curFmt,Math.floor(Math.random()*9999)+1,stype);
+      await new Promise((res2,rej2)=>{ const im=new Image(); im.onload=()=>{ smBgImg=im; res2(); }; im.onerror=()=>rej2(new Error("Bild konnte nicht geladen werden")); im.src=raw; });
+      smSlide=Math.min(current, smSlides().length-1); smRender();
+      await new Promise(r=>setTimeout(r,380));
+      src=$("smCanvas").toDataURL("image/png");
+    } else {
+      src=await generateImage(window._content.prompt,curFmt,Math.floor(Math.random()*9999)+1,stype);
+    }
     window._content.bg=src;
     // FIX doppelte Bilder (Yuki 13.07. 16:05): ALLE alten Bild-Objekte entfernen, nicht nur das erste
     const olds=canvas.getObjects().filter(o=>o.name==="bg"||o.name==="image");
@@ -3786,7 +3809,7 @@ if(fmtCard){
   var platHtml='<div class="sm-card"><div class="card-h"><span class="n">P</span><h3>Plattformen</h3></div>'+
     '<label class="lab">Für welche Plattformen soll der Post generiert werden?</label><div class="sm-plats">';
   SM_PLATFORMS.forEach(function(p){
-    var on=(p.id==="ig_feed"||p.id==="li_feed");
+    var on=true;   /* Yuki: initial ALLE Plattformen angehakt, abwählen optional */
     platHtml+='<label class="sm-plat'+(on?" on":"")+'" data-plat="'+p.id+'">'+
       '<input type="checkbox" '+(on?"checked":"")+'> '+p.label+'<span class="sz">'+p.w+'×'+p.h+'</span></label>';
   });
@@ -4885,17 +4908,17 @@ function smCheckTriggers(){
     w.classList.add("show");
   } else w.classList.remove("show");
 }
-const SM_PLATFORMS={instagram:{l:"Instagram",fmt:"4:5"},instagram_story:{l:"Insta Story",fmt:"9:16"},linkedin:{l:"LinkedIn",fmt:"4:5"},x:{l:"X / Twitter",fmt:"16:9"},tiktok:{l:"TikTok",fmt:"9:16"},youtube:{l:"YouTube",fmt:"16:9"},whatsapp:{l:"WhatsApp",fmt:"9:16"}};
-let smPlats=Object.keys(SM_PLATFORMS);   /* Yuki: initial ALLE angehakt, abwählen optional */
+const SM_ZPLATFORMS={instagram:{l:"Instagram Feed",fmt:"4:5"},instagram_story:{l:"Instagram Story",fmt:"9:16"},linkedin:{l:"LinkedIn Post",fmt:"4:5"},x:{l:"X (Twitter)",fmt:"16:9"},tiktok:{l:"TikTok",fmt:"9:16"},youtube:{l:"YouTube",fmt:"16:9"},whatsapp:{l:"WhatsApp",fmt:"9:16"}};
+let smPlats=Object.keys(SM_ZPLATFORMS);   /* Yuki: initial ALLE angehakt, abwählen optional */
 function smBuildPlats(){
   const el=$("smPlats"); if(!el) return;
-  el.innerHTML=Object.entries(SM_PLATFORMS).map(([id,p])=>'<button class="sm-fmt'+(smPlats.includes(id)?" on":"")+'" data-p="'+id+'">'+(smPlats.includes(id)?"\u2713 ":"")+p.l+'</button>').join('');
+  el.innerHTML=Object.entries(SM_ZPLATFORMS).map(([id,p])=>'<button class="sm-fmt'+(smPlats.includes(id)?" on":"")+'" data-p="'+id+'">'+(smPlats.includes(id)?"\u2713 ":"")+p.l+'</button>').join('');
   el.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{
     const id=b.dataset.p;
     smPlats.includes(id)?smPlats.splice(smPlats.indexOf(id),1):smPlats.push(id);
     smBuildPlats();
     /* Format-Empfehlung: erstes vom Template unterstütztes Plattform-Format */
-    for(const pid of smPlats){ const f=SM_PLATFORMS[pid].fmt; if(smTpl.formats.includes(f)){ smFmt=f; break; } }
+    for(const pid of smPlats){ const f=SM_ZPLATFORMS[pid].fmt; if(smTpl.formats.includes(f)){ smFmt=f; break; } }
     smBuildFmt(); smRender();
   });
 }
