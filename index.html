@@ -709,7 +709,8 @@
         <canvas id="smCanvas" width="1080" height="1350"></canvas>
         <div class="row" style="gap:8px;justify-content:center;margin-top:12px">
           <button class="btn btn-primary" id="smExport">Slide exportieren (PNG)</button>
-          <button class="btn" id="smExportAll" style="display:none">Alle Slides exportieren</button>
+          <button class="btn" id="smExportAll" style="display:none">Alle Slides (PNG)</button>
+          <button class="btn" id="smExportPdf" style="display:none" title="Ein PDF mit allen Slides — LinkedIn rendert es als echtes Karussell (Dokument-Post)">PDF für LinkedIn</button>
         </div>
         <span class="hint" id="smExpHint" style="display:block;margin-top:7px"></span>
       </div>
@@ -735,6 +736,7 @@
     <div class="spacer"></div>
     <button class="tool" id="tBack"><svg class="ic" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Zurück</button>
     <button class="tool-solid" id="tExport"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/></svg> Export PNG</button>
+    <button class="tool-solid" id="tExportPdf" title="Alle Slides als ein PDF — LinkedIn macht daraus ein echtes Karussell (Dokument-Post)"><svg class="ic" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M9 13h6M9 17h6"/></svg> PDF (LinkedIn)</button>
     <button class="tool-pub" id="tPublish"><svg class="ic" viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1-1-7.9A5 5 0 0 1 16 9a3.5 3.5 0 0 1 1 6.9"/><path d="M12 12v7"/><path d="M9 15l3-3 3 3"/></svg> Veröffentlichen</button>
   </div>
 
@@ -966,6 +968,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-sankey/0.12.3/d3-sankey.min.js"></script>
 <script>
@@ -1454,7 +1457,8 @@ function loadImageObj(src,props){
       const W=DISP.w,H=DISP.h;
       if(props._coverH){
         const t=props._coverH, s=Math.max(W/img.width, t/img.height); img.scale(s);
-        img.set({left:(W-img.getScaledWidth())/2,top:0,name:props.name||"image",selectable:true});
+        /* Motiv vertikal im Clip-Fenster ZENTRIEREN (vorher top:0 -> Bild wirkte zu tief und musste manuell hochgezogen werden) */
+        img.set({left:(W-img.getScaledWidth())/2,top:(t-img.getScaledHeight())/2,name:props.name||"image",selectable:true});
         img.clipPath=new fabric.Rect({left:0,top:0,width:W,height:t,absolutePositioned:true});
       } else {
         const s=Math.max(W/img.width,H/img.height); img.scale(s);
@@ -1752,6 +1756,37 @@ async function exportPNG(){
   a.href=out; a.download=`${(window._content.head||grUseCase||"grafik").replace(/[^a-z0-9]+/gi,"_").slice(0,40)}${suffix}.png`; a.click();
 }
 $("tExport").onclick=exportPNG;
+
+/* LinkedIn-Dokument-Export: alle Slides als EIN PDF (LinkedIn rendert PDFs
+   als echtes Karussell mit Blätterfunktion). Optional per Button. */
+async function exportPDF(){
+  if(!slides.length) return;
+  snapshotCurrent();
+  showLoading("PDF wird erstellt","Alle Slides werden in voller Auflösung gerendert …");
+  try{
+    const F=FORMATS[curFmt];
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:F.w>=F.h?"landscape":"portrait",unit:"px",format:[F.w,F.h],compress:true});
+    const keep=current;
+    for(let i=0;i<slides.length;i++){
+      /* Slide in den Canvas laden (gespeicherten Stand nutzen, sonst frisch rendern) */
+      if(i!==current){
+        current=i; clearProps();
+        if(slides[i].json){ await new Promise(r=>canvas.loadFromJSON(slides[i].json,()=>{canvas.renderAll();r();})); }
+        else { await renderTemplate(slides[i].type,slides[i].content); slides[i].json=canvas.toJSON(EXTRA); }
+      }
+      const url=canvas.toDataURL({format:"jpeg",quality:0.92,multiplier:exportMult});
+      if(i>0) pdf.addPage([F.w,F.h],F.w>=F.h?"landscape":"portrait");
+      pdf.addImage(url,"JPEG",0,0,F.w,F.h);
+    }
+    /* Ursprüngliche Slide wiederherstellen */
+    if(keep>=0&&keep!==current){ current=keep; await new Promise(r=>canvas.loadFromJSON(slides[keep].json,()=>{canvas.renderAll();r();})); }
+    renderSlideTabs();
+    pdf.save(((window._content&&window._content.head)||"karussell").replace(/[^a-z0-9]+/gi,"_").slice(0,40)+"_linkedin.pdf");
+  }catch(e){ alert("PDF-Export fehlgeschlagen: "+e.message); }
+  hideLoading();
+}
+$("tExportPdf").onclick=exportPDF;
 $("tPublish").onclick=()=>{ alert("Im Live-Betrieb geht der Post von hier per Make an OneUp und die Social-Kanäle. Im Demo: Export PNG nutzen."); };
 
 function showLoading(t,s){ $("loadTitle").textContent=t; $("loadSub").textContent=s; $("loading").classList.add("show"); }
@@ -2681,7 +2716,7 @@ const SM_BRANDS={
     logo:"fn_zero", swatches:["#0b0e16","#00d264","#ffffff"]
   },
   fnet:{
-    label:"finanzen.net", sub:"Redaktion · redaktionelle Kommunikation. Quelle + Stand pflicht, Hinweis „Keine Anlageberatung“.",
+    label:"finanzen.net", sub:"Redaktion · öffnet den bewährten Social-Karussell-Flow (Cover, Content, Closing — KI-Bild + editierbare Textebene), exakt wie bisher.",
     dark:false, bg1:"#ffffff", bg2:"#f2f5fa", ink:"#0a1f44", muted:"#5f6b78",
     accent:"#00935d", accent2:"#0a1f44", neg:"#d0312d", chip:"rgba(0,147,93,.10)",
     logo:"finanzen_net", swatches:["#ffffff","#0a1f44","#00935d"]
@@ -2925,6 +2960,13 @@ function smBuildGate(){
   $("smGateCards").querySelectorAll("[data-b]").forEach(el=>el.onclick=()=>smChooseBrand(el.dataset.b));
 }
 function smChooseBrand(id){
+  /* finanzen.net -> 1:1 der bewährte Social-Karussell-Flow (gleiche View, gleiche Logik).
+     Nur finanzen.net zero nutzt den neuen Template-Katalog. */
+  if(id==="fnet"){
+    try{ const s=$("socialLogo"); if(s && [...s.options].some(o=>o.value==="finanzen_net")) s.value="finanzen_net"; }catch(e){}
+    showView("social");
+    return;
+  }
   smBrand=id;
   smLogoPreload();
   $("smGate").style.display="none";
@@ -3033,7 +3075,8 @@ function smSlides(){
 }
 function smBuildPager(){
   const sl=smSlides(), p=$("smPager");
-  if(sl.length<=1){ p.innerHTML=""; $("smExportAll").style.display="none"; return; }
+  if(sl.length<=1){ p.innerHTML=""; $("smExportAll").style.display="none"; $("smExportPdf").style.display="none"; return; }
+  $("smExportPdf").style.display="";
   p.innerHTML=sl.map((s,i)=>'<button class="'+(i===smSlide?"on":"")+'" data-s="'+i+'">'+
     (s.t==="cover"?"Cover":s.t==="closing"?"Abschluss":"Karte "+s.i)+'</button>').join('');
   p.querySelectorAll("[data-s]").forEach(el=>el.onclick=()=>{ smSlide=+el.dataset.s; smRender(); });
@@ -3485,6 +3528,22 @@ async function smExportAll(){
   for(let i=0;i<sl.length;i++){ smSlide=i; smRender(); await new Promise(r=>setTimeout(r,350)); smDoExport(); }
   smSlide=keep; smRender();
 }
+/* LinkedIn-Dokument-Export: alle Slides als EIN PDF (echtes LinkedIn-Karussell). */
+async function smExportPdf(){
+  const sl=smSlides(); if(sl.length<2) return;
+  const F=FORMATS[smFmt], keep=smSlide;
+  const {jsPDF}=window.jspdf;
+  const pdf=new jsPDF({orientation:F.w>=F.h?"landscape":"portrait",unit:"px",format:[F.w,F.h],compress:true});
+  for(let i=0;i<sl.length;i++){
+    smSlide=i; smRender();
+    await new Promise(r=>setTimeout(r,350)); /* Logo/Hintergrund sicher gezeichnet */
+    const url=$("smCanvas").toDataURL("image/jpeg",0.92);
+    if(i>0) pdf.addPage([F.w,F.h],F.w>=F.h?"landscape":"portrait");
+    pdf.addImage(url,"JPEG",0,0,F.w,F.h);
+  }
+  smSlide=keep; smRender();
+  pdf.save(smTpl.id+"_"+smFmt.replace(":","x")+"_linkedin.pdf");
+}
 
 /* ---------- Init ---------- */
 let _smInit=false;
@@ -3494,6 +3553,7 @@ function initSocialMedia(){
   $("smBgClear").onclick=()=>{ smBgImg=null; smBgUrl=""; $("smBgClear").style.display="none"; $("smBgStatus").textContent=""; smRender(); };
   $("smExport").onclick=smDoExport;
   $("smExportAll").onclick=smExportAll;
+  $("smExportPdf").onclick=smExportPdf;
 }
 
 </script>
