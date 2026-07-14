@@ -3110,6 +3110,12 @@ async function extractSM(txt,opts){
   });
   schema["bg_prompt"]="kurzer englischer Bild-Prompt für einen thematisch passenden Stimmungshintergrund ohne Text, ohne Zahlen, ohne Logos";
   schema["theme"]="einer von: clean | cinematic | metaphor — passend zur Tonalität des Inhalts";
+  schema["caption_instagram"]="Instagram-Caption im zero-Ton (packende erste Zeile, kurze Absätze, gezielt einzelne Emojis, Engagement-Frage am Ende, KEINE Anlageberatung)";
+  schema["caption_linkedin"]="LinkedIn-Caption: sachlich-analytisch, längerer Fließtext, keine Emojis";
+  schema["x_text"]="X/Twitter-Post, max 260 Zeichen, prägnant";
+  schema["hashtags_instagram"]="Array mit 5 thematischen Hashtags, klein geschrieben";
+  schema["hashtags_linkedin"]="Array mit 3-4 Hashtags";
+  schema["cashtags"]="Array mit 0-2 Cashtags (z.B. $NVDA), nur wenn Einzeltitel Thema ist";
   const sys="Du bist Redakteur bei finanzen.net zero (deutscher Neobroker) und schreibst professionelles, korrektes Deutsch mit Umlauten. Lies den Artikel und fülle die Felder für das Social-Template \""+smTpl.name+"\" ("+smTpl.desc+"). Antworte NUR mit reinem JSON, ohne Markdown. Schema (Feldname: Bedeutung): "+JSON.stringify(schema)+". COMPLIANCE ZWINGEND: keine Kauf- oder Verkaufsempfehlung aus persönlicher Sicht, keine Formulierungen wie 'jetzt kaufen', 'lohnt sich', 'Top-Pick'. Erlaubt: neutrale Fakten, Analysten-Bezug mit Quelle, oder Frage-Framing. Nutze NUR Zahlen, die im Text stehen; erfinde keine. Felder, für die der Text nichts hergibt, als leeren String lassen. Zahlen in deutscher Schreibweise (Komma).";
   const out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,8000)}]));
   smTpl.fields.forEach(f=>{
@@ -3123,6 +3129,16 @@ async function extractSM(txt,opts){
   });
   if(out.theme && $("smTheme") && ["clean","cinematic","metaphor"].includes(out.theme)) $("smTheme").value=out.theme;
   if(out.bg_prompt && $("smBgPrompt")) $("smBgPrompt").value=out.bg_prompt;
+  /* Copy-Paste-Texte für die Plattform-Leiste im Editor (gleiche Struktur wie finanzen.net) */
+  if(out.caption_instagram||out.caption_linkedin||out.x_text){
+    window._smText={
+      captions:{instagram:out.caption_instagram||"",linkedin:out.caption_linkedin||""},
+      hashtags:{instagram:Array.isArray(out.hashtags_instagram)?out.hashtags_instagram:[],linkedin:Array.isArray(out.hashtags_linkedin)?out.hashtags_linkedin:[]},
+      x:{text:out.x_text||"",cashtags:Array.isArray(out.cashtags)?out.cashtags:[]},
+      story:{}
+    };
+  }
+  if(smTpl.carousel) smBuildTplGrid();
   smCheckTriggers(); smUpdateLegal(); smRender();
   /* Schritt 3: KI-Hintergrund automatisch generieren (alle Templates, live-Modus) */
   const info2=$("smAutoInfo");
@@ -4837,12 +4853,18 @@ function smChooseBrand(id){
   smUpdateLegal(); smRender();
   window.scrollTo(0,0);
 }
+function smTplSlideInfo(t){
+  if(!t.carousel) return "1 Slide";
+  if(t.id===smTpl.id){ const n=smSlides().length; return n+" Slides aktuell"; }
+  return "3–7 Slides";
+}
 function smBuildTplGrid(){
   $("smTplGrid").innerHTML=SM_TEMPLATES.map(t=>
     '<button class="sm-tpl'+(t.id===smTpl.id?" on":"")+'" data-t="'+t.id+'"><h4>'+t.name+'</h4><p>'+t.desc+'</p>'+
     '<div class="badges"><span class="sm-badge sm-b-'+t.prio.toLowerCase()+'">'+t.prio+'</span>'+
-    '<span class="sm-badge sm-b-'+(t.path==="A"?"a":"c")+'">'+(t.path==="A"?"Pfad A · deterministisch":"Pfad C · Composite")+'</span>'+
-    (t.carousel?'<span class="sm-badge sm-b-car">Karussell</span>':'')+'</div></button>').join('');
+    '<span class="sm-badge sm-b-car">'+smTplSlideInfo(t)+'</span>'+
+    '<span class="sm-badge sm-b-'+(t.path==="A"?"a":"c")+'">'+(t.path==="A"?"deterministisch":"Composite")+'</span>'+
+    '</div></button>').join('');
   $("smTplGrid").querySelectorAll("[data-t]").forEach(el=>el.onclick=()=>smSelectTpl(el.dataset.t,true));
 }
 function smSelectTpl(id,manual){
@@ -4883,7 +4905,7 @@ function smBuildFields(){
     const f=smTpl.fields.find(x=>x.k===inp.dataset.smk);
     if(f&&f.def!==undefined&&!inp.value) inp.value=f.def;
     smData[inp.dataset.smk]=inp.value||"";
-    inp.addEventListener("input",()=>{ smData[inp.dataset.smk]=inp.value; smUpdateCnt(inp,f); smCheckTriggers(); smRender(); });
+    inp.addEventListener("input",()=>{ smData[inp.dataset.smk]=inp.value; smUpdateCnt(inp,f); smCheckTriggers(); smRender(); if(smTpl.carousel) smBuildTplGrid(); });
     smUpdateCnt(inp,f);
   });
   smCheckTriggers();
@@ -5489,6 +5511,7 @@ async function smOpenInEditor(){
     attachHistory(canvas); attachSnapping(canvas); attachBoxEdit(canvas);
   }
   canvas.setWidth(DISP.w); canvas.setHeight(DISP.h);
+  window._smActiveGroup=window._smActiveGroup||"ig_feed";   /* Plattform-Gruppen links wie bei finanzen.net */
   slides=[]; current=-1;
   /* Jede Slide als Bild-Ebene vor-rendern (json setzen — showSlide darf bei type "graphic" nie renderTemplate treffen) */
   for(let i=0;i<imgs.length;i++){
