@@ -477,7 +477,6 @@
   <nav class="nav" id="topnav">
     <a data-go="home" class="on">Übersicht</a>
     <a data-go="graphic">Grafiken Redaktion</a>
-    <a data-go="social">Social Karussell</a>
     <a data-go="socialmedia">Social Media</a>
     <a data-go="chart">Chart</a>
     <a data-go="sankey">Sankey</a>
@@ -504,12 +503,6 @@
         <h3>Grafiken Redaktion</h3>
         <p>Fertige KI-Infografik aus Artikeltext: ein Voll-Bild inklusive Text und Kennzahlen, im Stil der Redakteurs-Vorlagen. Kein Editor nötig.</p>
         <span class="tag">Voll-KI-Bild</span>
-      </button>
-      <button class="tile" data-go="social">
-        <div class="tic tic-a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="9" r="1.7"/><path d="m21 16-4.5-4.5a2 2 0 0 0-2.8 0L5 20"/></svg></div>
-        <h3>Social Karussell</h3>
-        <p>Cover, Content und Closing als editierbare Slides. KI-Bild als Hintergrund, Text und Logo deterministisch drüber.</p>
-        <span class="tag">KI-Bild + Text</span>
       </button>
       <button class="tile" data-go="socialmedia">
         <div class="tic" style="background:linear-gradient(135deg,#00935d,#0a1f44);color:#fff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></div>
@@ -761,6 +754,13 @@
     <div class="card">
       <div class="card-h"><span class="n">1</span><h3>Template</h3><span class="hint" id="smTplAutoTag" style="margin-left:10px"></span></div>
       <div class="sm-tpl-grid" id="smTplGrid"></div>
+      <div class="row" id="smRefillRow" style="display:none;margin-top:10px;align-items:center;gap:10px">
+        <button class="btn" id="smRefill">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+          Felder für dieses Template neu befüllen
+        </button>
+        <span class="hint">Nutzt den eingefügten Artikel und füllt die Slots des neu gewählten Templates (z.B. mehr Slides beim Karussell).</span>
+      </div>
     </div>
 
     <div class="sm-stage">
@@ -772,7 +772,10 @@
           <div class="sm-warn" id="smWarn"></div>
         </div>
         <div class="card">
-          <div class="card-h"><span class="n">3</span><h3>Format</h3></div>
+          <div class="card-h"><span class="n">3</span><h3>Plattformen &amp; Format</h3></div>
+          <label class="lab" style="margin-top:0">Plattformen (optional, steuert Format-Empfehlung)</label>
+          <div class="sm-fmt-grid" id="smPlats" style="margin-bottom:10px"></div>
+          <label class="lab">Format</label>
           <div class="sm-fmt-grid" id="smFmtGrid"></div>
           <span class="hint" style="display:block;margin-top:8px" id="smFmtHint"></span>
         </div>
@@ -815,7 +818,11 @@
         <div class="sm-pager" id="smPager"></div>
         <canvas id="smCanvas" width="1080" height="1350"></canvas>
         <div class="row" style="gap:8px;justify-content:center;margin-top:12px">
-          <button class="btn btn-primary" id="smExport">Slide exportieren (PNG)</button>
+          <button class="btn btn-primary" id="smOpenEditor" title="Slides als editierbare Ebenen im Studio-Editor öffnen — dort Export PNG / PDF">
+            <svg class="ic" viewBox="0 0 24 24" style="color:#fff"><path d="M12 3l1.6 4.8a2 2 0 0 0 1.3 1.3L19.5 11l-4.6 1.6a2 2 0 0 0-1.3 1.3L12 19l-1.6-4.8a2 2 0 0 0-1.3-1.3L4.5 11l4.6-1.6a2 2 0 0 0 1.3-1.3z"/></svg>
+            Post generieren
+          </button>
+          <button class="btn" id="smExport">Slide exportieren (PNG)</button>
           <button class="btn" id="smExportAll" style="display:none">Alle Slides (PNG)</button>
           <button class="btn" id="smExportPdf" style="display:none" title="Ein PDF mit allen Slides — LinkedIn rendert es als echtes Karussell (Dokument-Post)">PDF für LinkedIn</button>
         </div>
@@ -2440,7 +2447,7 @@ async function exportPDF(){
         if(slides[i].json){ await new Promise(r=>canvas.loadFromJSON(slides[i].json,()=>{canvas.renderAll();r();})); }
         else { await renderTemplate(slides[i].type,slides[i].content); slides[i].json=canvas.toJSON(EXTRA); }
       }
-      const url=canvas.toDataURL({format:"jpeg",quality:0.92,multiplier:exportMult});
+      const url=canvas.toDataURL({format:"jpeg",quality:0.92,multiplier:exportMult*2}); /* 2x: scharfe LinkedIn-PDF-Slides (Yuki) */
       if(i>0) pdf.addPage([F.w,F.h],F.w>=F.h?"landscape":"portrait");
       pdf.addImage(url,"JPEG",0,0,F.w,F.h);
     }
@@ -2998,17 +3005,21 @@ async function smPickTemplate(txt){
 
 /* Auto-Fill für den zero-Template-Katalog: baut das JSON-Schema dynamisch
    aus den Feld-Definitionen des gewählten Templates. */
-async function extractSM(txt){
-  /* Schritt 1: Template + Format automatisch wählen */
-  const info=$("smAutoInfo"); if(info) info.textContent="Claude wählt das Template …";
-  try{
-    const pick=await smPickTemplate(txt);
-    if(pick && pick.template_id && SM_TEMPLATES.some(t=>t.id===pick.template_id)){
-      smSelectTpl(pick.template_id);
-      if(pick.format && smTpl.formats.includes(pick.format)){ smFmt=pick.format; smBuildFmt(); }
-      const tag=$("smTplAutoTag"); if(tag) tag.textContent="Auto-gewählt: "+smTpl.name+(pick.begruendung?(" — "+pick.begruendung):"");
-    }
-  }catch(e){ /* Fallback: aktuelles Template behalten */ }
+async function extractSM(txt,opts){
+  opts=opts||{};
+  /* Schritt 1: Template + Format automatisch wählen (außer bei Neu-Befüllen nach manueller Wahl) */
+  const info=$("smAutoInfo"); 
+  if(!opts.skipPick){
+    if(info) info.textContent="Claude wählt das Template …";
+    try{
+      const pick=await smPickTemplate(txt);
+      if(pick && pick.template_id && SM_TEMPLATES.some(t=>t.id===pick.template_id)){
+        smSelectTpl(pick.template_id);
+        if(pick.format && smTpl.formats.includes(pick.format)){ smFmt=pick.format; smBuildFmt(); }
+        const tag=$("smTplAutoTag"); if(tag) tag.textContent="Auto-gewählt: "+smTpl.name+(pick.begruendung?(" — "+pick.begruendung):"");
+      }
+    }catch(e){ /* Fallback: aktuelles Template behalten */ }
+  }
   if(info) info.textContent="Felder werden gefüllt …";
   if(!smTpl) throw new Error("Kein Template gewählt");
   const schema={};
@@ -4717,9 +4728,13 @@ let smTpl=SM_TEMPLATES[0], smFmt="4:5", smData={}, smSlide=0, smBgImg=null, smBg
 /* ---------- UI-Aufbau ---------- */
 /* Schritt 0: zentriertes Marken-Gate. Erst nach Wahl erscheint der Arbeitsbereich. */
 function smBuildGate(){
-  $("smGateCards").innerHTML=Object.entries(SM_BRANDS).map(([id,b])=>
-    '<button class="sm-brand sm-gate-card" data-b="'+id+'"><h4>'+b.label+'</h4><p>'+b.sub+'</p>'+
-    '<div class="swatches">'+b.swatches.map(c=>'<span class="sw" style="background:'+c+'"></span>').join('')+'</div></button>').join('');
+  $("smGateCards").innerHTML=Object.entries(SM_BRANDS).map(([id,b])=>{
+    const l=LOGOS[b.logo], lu=l?(l.data_url_dunkel||l.data_url_hell):"";
+    return '<button class="sm-brand sm-gate-card" data-b="'+id+'">'+
+      (lu?'<img src="'+lu+'" alt="'+b.label+'" style="height:36px;max-width:82%;object-fit:contain;display:block;margin-bottom:12px">':'<h4>'+b.label+'</h4>')+
+      '<p>'+b.sub+'</p>'+
+      '<div class="swatches">'+b.swatches.map(c=>'<span class="sw" style="background:'+c+'"></span>').join('')+'</div></button>';
+  }).join('');
   $("smGateCards").querySelectorAll("[data-b]").forEach(el=>el.onclick=()=>smChooseBrand(el.dataset.b));
 }
 function smChooseBrand(id){
@@ -4746,10 +4761,14 @@ function smBuildTplGrid(){
     '<div class="badges"><span class="sm-badge sm-b-'+t.prio.toLowerCase()+'">'+t.prio+'</span>'+
     '<span class="sm-badge sm-b-'+(t.path==="A"?"a":"c")+'">'+(t.path==="A"?"Pfad A · deterministisch":"Pfad C · Composite")+'</span>'+
     (t.carousel?'<span class="sm-badge sm-b-car">Karussell</span>':'')+'</div></button>').join('');
-  $("smTplGrid").querySelectorAll("[data-t]").forEach(el=>el.onclick=()=>smSelectTpl(el.dataset.t));
+  $("smTplGrid").querySelectorAll("[data-t]").forEach(el=>el.onclick=()=>smSelectTpl(el.dataset.t,true));
 }
-function smSelectTpl(id){
+function smSelectTpl(id,manual){
   smTpl=SM_TEMPLATES.find(t=>t.id===id)||SM_TEMPLATES[0];
+  /* Manuelle Wahl + Artikel vorhanden -> Neu-Befüllen anbieten (wie finanzen.net: Use-Case-Wechsel + "Felder füllen") */
+  const rr=$("smRefillRow");
+  if(rr) rr.style.display=(manual && $("src-sm") && $("src-sm").value.trim())?"":"none";
+  const tag=$("smTplAutoTag"); if(manual && tag) tag.textContent="";
   smData={}; smSlide=0; smBgImg=null; smBgUrl="";
   smBuildTplGrid(); smBuildFields(); smBuildFmt(); smUpdateLegal();
   /* KI-Hintergrund für ALLE Templates verfügbar; bei Pfad A mit Hinweis (Zahlen bleiben deterministisch) */
@@ -4807,7 +4826,22 @@ function smCheckTriggers(){
     w.classList.add("show");
   } else w.classList.remove("show");
 }
+const SM_PLATFORMS={instagram:{l:"Instagram",fmt:"4:5"},linkedin:{l:"LinkedIn",fmt:"4:5"},x:{l:"X",fmt:"16:9"},tiktok:{l:"TikTok",fmt:"9:16"},youtube:{l:"YouTube",fmt:"16:9"},whatsapp:{l:"WhatsApp",fmt:"9:16"}};
+let smPlats=["instagram","linkedin"];
+function smBuildPlats(){
+  const el=$("smPlats"); if(!el) return;
+  el.innerHTML=Object.entries(SM_PLATFORMS).map(([id,p])=>'<button class="sm-fmt'+(smPlats.includes(id)?" on":"")+'" data-p="'+id+'">'+p.l+'</button>').join('');
+  el.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.p;
+    smPlats.includes(id)?smPlats.splice(smPlats.indexOf(id),1):smPlats.push(id);
+    smBuildPlats();
+    /* Format-Empfehlung: erstes vom Template unterstütztes Plattform-Format */
+    for(const pid of smPlats){ const f=SM_PLATFORMS[pid].fmt; if(smTpl.formats.includes(f)){ smFmt=f; break; } }
+    smBuildFmt(); smRender();
+  });
+}
 function smBuildFmt(){
+  smBuildPlats();
   if(!smTpl.formats.includes(smFmt)) smFmt=smTpl.master;
   $("smFmtGrid").innerHTML=smTpl.formats.map(f=>{
     const F=FORMATS[f];
@@ -4852,15 +4886,16 @@ function smBuildPager(){
 /* ============================================================
    RENDERING (deterministisch, 2D-Canvas in voller Zielauflösung)
    ============================================================ */
+const SM_SCALE=2;  /* Yuki: Render/Export in doppelter Auflösung (4:5 -> 2160x2700), schärfere Anzeige */
 function smRender(){
   const F=FORMATS[smFmt], c=$("smCanvas");
   if(!c) return;
   const sl=smSlides(); if(smSlide>=sl.length) smSlide=0;
-  c.width=F.w; c.height=F.h;
+  c.width=F.w*SM_SCALE; c.height=F.h*SM_SCALE;
   const x=c.getContext("2d"), B=SM_BRANDS[smBrand];
-  const W=F.w, H=F.h;
+  const W=c.width, H=c.height;
   /* Safe Zone: bei 9:16 Inhalt einrücken */
-  const safeTop = smFmt==="9:16" ? 250 : 0, safeBot = smFmt==="9:16" ? 280 : 0;
+  const safeTop = smFmt==="9:16" ? Math.round(H*0.130) : 0, safeBot = smFmt==="9:16" ? Math.round(H*0.146) : 0;
   const M=Math.round(W*0.074);                 /* Außen-Margin ~80px @1080 */
   const legal=smLegalLines();
 
@@ -4885,12 +4920,16 @@ function smRender(){
   /* Inhalt je Template */
   const slide=sl[smSlide];
   const ctx={x,W,H,M,B,top:safeTop+M,bottom:bottomY,slide};
-  smDrawContent(ctx);
+  /* Überlauf-Schutz: Inhalt wird offscreen gemessen und bei Überlauf
+     gleichmäßig verkleinert eingepasst — nie Überlagerung mit Quelle/Legal/Logo. */
+  smDrawContentFitted(ctx);
 
   /* Provenance (Quelle + Stand) direkt über Legal */
   const prov=[smData.source?("Quelle: "+smData.source):"", smData.stand?("Stand: "+smData.stand):""].filter(Boolean).join("  ·  ");
   if(prov && smTpl.id!=="zero_sm_edu_explainer"){
-    x.font="500 "+Math.round(legalFS*1.02)+"px "+BRAND.font; x.fillStyle=B.muted; x.textAlign="left";
+    /* Logo-Zone rechts freihalten (Logo-Vertrag: 16% Breite + 3,5% Margin) */
+    const provMaxW=W - 2*M - W*((((LOGOS[B.logo]||{}).breite_prozent||16)/100)+0.055);
+    smFit(x,prov,"500",Math.round(legalFS*1.02),provMaxW); x.fillStyle=B.muted; x.textAlign="left";
     x.fillText(prov, M, bottomY - legalFS*0.4);
   }
 
@@ -4909,7 +4948,7 @@ function smRender(){
   smDrawLogo(x,W,H,B,safeBot,legalH);
 
   smBuildPager();
-  $("smExpHint").textContent=F.w+"×"+F.h+" px · "+smTpl.name+(sl.length>1?" · Slide "+(smSlide+1)+"/"+sl.length:"");
+  $("smExpHint").textContent=(F.w*SM_SCALE)+"×"+(F.h*SM_SCALE)+" px (2x) · "+smTpl.name+(sl.length>1?" · Slide "+(smSlide+1)+"/"+sl.length:"");
 }
 
 /* LOGO-VERTRAG (gilt in der GESAMTEN App, identisch zu Social Karussell,
@@ -4930,6 +4969,32 @@ function smLogoPreload(){
       img.src=url;
     });
   });
+}
+/* Inhalt zweistufig zeichnen: 1. Pass offscreen mit Y-Tracking, 2. Pass
+   einpassen (zentriert skaliert), falls der Inhalt über die Grenze läuft. */
+function smDrawContentFitted(ctx){
+  const {x,W,H,M}=ctx;
+  const off=document.createElement("canvas");
+  off.width=W; off.height=Math.max(H,Math.round(H*1.9));
+  const ox=off.getContext("2d");
+  let maxY=ctx.top;
+  const fpx=()=>{ const m=/([0-9.]+)px/.exec(ox.font||""); return m?parseFloat(m[1]):16; };
+  const trk=(v)=>{ if(typeof v==="number"&&isFinite(v)&&v>maxY) maxY=v; };
+  const _ft=ox.fillText.bind(ox);   ox.fillText=(t,a,b)=>{ trk(b+fpx()*0.30); return _ft(t,a,b); };
+  const _fr=ox.fillRect.bind(ox);   ox.fillRect=(a,b,w2,h2)=>{ trk(b+h2); return _fr(a,b,w2,h2); };
+  const _lt=ox.lineTo.bind(ox);     ox.lineTo=(a,b)=>{ trk(b); return _lt(a,b); };
+  const _mt=ox.moveTo.bind(ox);     ox.moveTo=(a,b)=>{ trk(b); return _mt(a,b); };
+  const _at=ox.arcTo.bind(ox);      ox.arcTo=(a,b,c2,d2,r)=>{ trk(b); trk(d2); return _at(a,b,c2,d2,r); };
+  const _ar=ox.arc.bind(ox);        ox.arc=(a,b,r,s0,s1)=>{ trk(b+r); return _ar(a,b,r,s0,s1); };
+  smDrawContent(Object.assign({},ctx,{x:ox}));
+  const avail=ctx.bottom - Math.round(M*0.25);
+  if(maxY>avail && maxY>ctx.top+10){
+    const s=Math.max((avail-ctx.top)/(maxY-ctx.top),0.5);
+    const srcH=Math.min(maxY-ctx.top, off.height-ctx.top);
+    x.drawImage(off, 0, ctx.top, W, srcH, Math.round((W-W*s)/2), ctx.top, Math.round(W*s), Math.round(srcH*s));
+  } else {
+    x.drawImage(off,0,0);
+  }
 }
 function smDrawLogo(x,W,H,B,safeBot,legalH){
   const variant=B.dark?"hell":"dunkel";
@@ -4961,6 +5026,12 @@ function smWrap(x,text,maxW){
   const words=(text||"").split(/\s+/).filter(Boolean), lines=[]; let cur="";
   words.forEach(w=>{ const t=cur?cur+" "+w:w; if(x.measureText(t).width>maxW&&cur){lines.push(cur);cur=w;} else cur=t; });
   if(cur) lines.push(cur); return lines;
+}
+/* Einzeilige Texte auf verfügbare Breite einpassen (verhindert Überlagerungen wie "17,2 Mrd. USD"+"+1 %") */
+function smFit(x,text,weight,baseFS,maxW){
+  let fs=baseFS; x.font=weight+" "+fs+"px "+BRAND.font;
+  while(fs>10 && x.measureText(text||"").width>maxW){ fs-=1; x.font=weight+" "+fs+"px "+BRAND.font; }
+  return fs;
 }
 function smText(x,text,X,Y,fs,weight,color,maxW,lh){
   x.font=(weight||"400")+" "+fs+"px "+BRAND.font; x.fillStyle=color; x.textAlign="left";
@@ -5051,10 +5122,11 @@ function smDrawContent(ctx){
     y=smKicker(ctx,d.kicker);
     y=smText(x,d.label||"Was wird gemessen?",M,y+headFS*0.9,headFS*0.62,"700",B.dark?"rgba(255,255,255,.9)":B.ink,W-2*M,headFS*0.8);
     const v=(d.value||"–")+(d.unit?" "+d.unit:"");
-    x.font="800 "+bigFS+"px "+BRAND.font; x.fillStyle=smChangeColor(d.value,B)===B.neg?B.neg:B.accent;
+    const bfs=smFit(x,v,"800",bigFS,W-2*M);
+    x.fillStyle=smChangeColor(d.value,B)===B.neg?B.neg:B.accent;
     if(!/^[+\-−]/.test(d.value||"")) x.fillStyle=B.accent;
-    x.textAlign="left"; x.fillText(v, M-W*0.005, y+bigFS*1.05);
-    y+=bigFS*1.25;
+    x.textAlign="left"; x.fillText(v, M-W*0.005, y+bfs*1.05);
+    y+=bfs*1.25;
     y=smText(x,d.context||"",M,y+W*0.02,bodyFS*1.12,"400",B.dark?"rgba(255,255,255,.85)":B.ink,W-2*M,bodyFS*1.62);
     if(d.compare){ x.fillStyle=B.chip; const fs2=bodyFS; x.font="600 "+fs2+"px "+BRAND.font;
       const cw=x.measureText(d.compare).width; smRound(x,M,y+W*0.03,cw+fs2*1.8,fs2*2.15,fs2); x.fill();
@@ -5071,13 +5143,14 @@ function smDrawContent(ctx){
       const ry=y+i*rh;
       x.fillStyle=i%2?(B.dark?"rgba(255,255,255,0.035)":"rgba(10,31,68,0.03)"):"rgba(0,0,0,0)";
       x.fillRect(M-W*0.015,ry,W-2*M+W*0.03,rh);
-      x.font="700 "+bodyFS*1.15+"px "+BRAND.font; x.fillStyle=B.ink; x.textAlign="left";
+      const avail=W-2*M;
+      smFit(x,r.l,"700",bodyFS*1.15,avail*0.40); x.fillStyle=B.ink; x.textAlign="left";
       x.fillText(r.l, M, ry+rh*0.62);
-      x.font="600 "+bodyFS*1.15+"px "+BRAND.font; x.textAlign="right"; x.fillStyle=B.dark?"rgba(255,255,255,.9)":B.ink;
+      smFit(x,r.v||"","600",bodyFS*1.15,avail*0.26); x.textAlign="right"; x.fillStyle=B.dark?"rgba(255,255,255,.9)":B.ink;
       x.fillText(r.v||"", W-M-W*0.17, ry+rh*0.62);
-      const cc=smChangeColor(r.c,B);
-      x.fillStyle=cc; x.font="800 "+bodyFS*1.15+"px "+BRAND.font;
-      x.fillText(smArrow(r.c)+" "+smFmtPct(r.c), W-M, ry+rh*0.62);
+      const cc=smChangeColor(r.c,B), chTxt=smArrow(r.c)+" "+smFmtPct(r.c);
+      smFit(x,chTxt,"800",bodyFS*1.15,W*0.16); x.fillStyle=cc;
+      x.fillText(chTxt, W-M, ry+rh*0.62);
     });
     x.textAlign="left";
 
@@ -5092,9 +5165,9 @@ function smDrawContent(ctx){
       x.fillStyle=B.chip; smRound(x,M,ry+rh*0.12,rh*0.68,rh*0.68,rh*0.16); x.fill();
       x.font="800 "+bodyFS*1.25+"px "+BRAND.font; x.fillStyle=B.accent; x.textAlign="center";
       x.fillText(""+(i+1), M+rh*0.34, ry+rh*0.12+rh*0.48);
-      x.textAlign="left"; x.font="700 "+bodyFS*1.15+"px "+BRAND.font; x.fillStyle=B.ink;
+      x.textAlign="left"; smFit(x,r.l,"700",bodyFS*1.15,(W-2*M)*0.52); x.fillStyle=B.ink;
       x.fillText(r.l, M+rh*0.95, ry+rh*0.56);
-      x.textAlign="right"; x.font="800 "+bodyFS*1.15+"px "+BRAND.font; x.fillStyle=smChangeColor(r.v,B);
+      x.textAlign="right"; smFit(x,r.v||"","800",bodyFS*1.15,(W-2*M)*0.28); x.fillStyle=smChangeColor(r.v,B);
       x.fillText(r.v||"", W-M, ry+rh*0.56); x.textAlign="left";
     });
     if(d.methodology){ y=y+rows.length*rh+W*0.035;
@@ -5109,11 +5182,12 @@ function smDrawContent(ctx){
     kpis.forEach((k,i)=>{
       const kx=M+i*(colW+W*0.025);
       x.fillStyle=B.chip; smRound(x,kx,y,colW,W*0.21,W*0.018); x.fill();
-      x.font="600 "+bodyFS*0.9+"px "+BRAND.font; x.fillStyle=B.muted; x.textAlign="left";
+      const kMaxW=colW-W*0.048;
+      smFit(x,k.l,"600",bodyFS*0.9,kMaxW-(k.e?W*0.11:0)); x.fillStyle=B.muted; x.textAlign="left";
       x.fillText(k.l,kx+W*0.024,y+W*0.048);
-      x.font="800 "+bodyFS*1.5+"px "+BRAND.font; x.fillStyle=B.ink;
+      smFit(x,k.a,"800",bodyFS*1.5,kMaxW); x.fillStyle=B.ink;
       x.fillText(k.a,kx+W*0.024,y+W*0.115);
-      if(k.e){ x.font="500 "+bodyFS*0.82+"px "+BRAND.font; x.fillStyle=B.muted;
+      if(k.e){ smFit(x,"Erwartet: "+k.e,"500",bodyFS*0.82,kMaxW); x.fillStyle=B.muted;
         x.fillText("Erwartet: "+k.e,kx+W*0.024,y+W*0.165);
         const beat=smBeat(k.a,k.e); if(beat!==null){ x.font="800 "+bodyFS*0.82+"px "+BRAND.font; x.fillStyle=beat?B.accent:B.neg;
           x.fillText(beat?"✓ BEAT":"✗ MISS",kx+colW-W*0.115,y+W*0.048); } }
@@ -5133,10 +5207,11 @@ function smDrawContent(ctx){
     y=smText(x,d.headline||((d.iname||"Instrument")+" im Überblick"),M,y+headFS*0.9,headFS*0.75,"800",B.ink,W-2*M,headFS*0.94);
     if(d.isin){ x.font="600 "+bodyFS*0.85+"px "+BRAND.font; x.fillStyle=B.muted; x.fillText((d.iname?d.iname+" · ":"")+d.isin, M, y+W*0.032); y+=W*0.045; }
     /* Kurszeile */
-    x.font="800 "+bodyFS*2.3+"px "+BRAND.font; x.fillStyle=B.ink; x.fillText(d.quote||"–", M, y+bodyFS*2.6);
+    smFit(x,d.quote||"–","800",bodyFS*2.3,(W-2*M)*0.52); x.fillStyle=B.ink; x.fillText(d.quote||"–", M, y+bodyFS*2.6);
     const qw=x.measureText(d.quote||"–").width;
-    x.font="800 "+bodyFS*1.2+"px "+BRAND.font; x.fillStyle=smChangeColor(d.change,B);
-    x.fillText(smArrow(d.change)+" "+smFmtPct(d.change)+(d.cperiod?" ("+d.cperiod+")":""), M+qw+W*0.03, y+bodyFS*2.55);
+    const chS=smArrow(d.change)+" "+smFmtPct(d.change)+(d.cperiod?" ("+d.cperiod+")":"");
+    smFit(x,chS,"800",bodyFS*1.2,(W-M)-(M+qw+W*0.03)); x.fillStyle=smChangeColor(d.change,B);
+    x.fillText(chS, M+qw+W*0.03, y+bodyFS*2.55);
     x.font="500 "+bodyFS*0.8+"px "+BRAND.font; x.fillStyle=B.muted;
     x.fillText((d.exchange||"")+(d.stand?" · "+d.stand:""), M, y+bodyFS*3.7);
     y+=bodyFS*4.6;
@@ -5290,6 +5365,43 @@ async function smGenBg(){
   }catch(e){ st.textContent="Fehler: "+e.message; }
 }
 
+/* ---------- Editor-Übergabe: gerenderte Slides als Bild-Ebenen in den Fabric-Editor ---------- */
+async function smOpenInEditor(){
+  const sl=smSlides(), keep=smSlide, imgs=[];
+  for(let i=0;i<sl.length;i++){
+    smSlide=i; smRender();
+    await new Promise(r=>setTimeout(r,360));  /* Logo/Hintergrund sicher gezeichnet */
+    imgs.push($("smCanvas").toDataURL("image/png"));
+  }
+  smSlide=keep;
+  curFmt=smFmt;
+  window._content={ head:smData.headline||smData.term||smTpl.name, sub:"", bullets:[], close:"", closeHead:"", prompt:"", brand:"", bg:imgs[0] };
+  DISP=dispDims(curFmt); exportMult=FORMATS[curFmt].w/DISP.w;
+  showView("home"); $("homeView").classList.remove("active");
+  $("editorView").classList.add("active");
+  await document.fonts.ready;
+  if(!canvas){
+    canvas=new fabric.Canvas("c",{preserveObjectStacking:true,backgroundColor:"#ffffff"});
+    canvas.on("selection:created",updateProps); canvas.on("selection:updated",updateProps);
+    canvas.on("selection:cleared",clearProps); canvas.on("object:modified",updateProps);
+    canvas.on("object:moving",liveProps); canvas.on("object:scaling",liveProps); canvas.on("object:rotating",liveProps);
+    attachHistory(canvas); attachSnapping(canvas); attachBoxEdit(canvas);
+  }
+  canvas.setWidth(DISP.w); canvas.setHeight(DISP.h);
+  slides=[]; current=-1;
+  /* Jede Slide als Bild-Ebene vor-rendern (json setzen — showSlide darf bei type "graphic" nie renderTemplate treffen) */
+  for(let i=0;i<imgs.length;i++){
+    canvas.clear(); canvas.backgroundColor="#ffffff";
+    const img=await loadImageObj(imgs[i],{name:"bg",selectable:true});
+    canvas.add(img); canvas.sendToBack(img); canvas.renderAll();
+    current=i;
+    slides.push({name:imgs.length>1?("Slide "+(i+1)):smTpl.name,type:"graphic",content:Object.assign({},window._content,{bg:imgs[i]}),json:canvas.toJSON(EXTRA),thumb:makeThumb(),backdrop:"clear"});
+  }
+  current=imgs.length-1;
+  await showSlide(0);
+  renderSlideTabs();
+}
+
 /* ---------- Export ---------- */
 function smDoExport(){
   const a=document.createElement("a");
@@ -5327,6 +5439,16 @@ function initSocialMedia(){
   $("smBgGen").onclick=smGenBg;
   $("smBgClear").onclick=()=>{ smBgImg=null; smBgUrl=""; $("smBgClear").style.display="none"; $("smBgStatus").textContent=""; smRender(); };
   $("smExport").onclick=smDoExport;
+  $("smOpenEditor").onclick=smOpenInEditor;
+  $("smRefill").onclick=async()=>{
+    const txt=($("src-sm")&&$("src-sm").value.trim())||"";
+    if(!txt){ toast("Bitte zuerst oben einen Artikel einfügen"); return; }
+    if(genMode()==="demo"){ toast("Dafür oben rechts ein KI-Modell verbinden",4000); return; }
+    const b=$("smRefill"), old=b.innerHTML; b.disabled=true; b.textContent="Claude füllt neu …";
+    try{ await extractSM(txt,{skipPick:true}); toast("Felder für "+smTpl.name+" gefüllt"); }
+    catch(e){ toast("Konnte nicht füllen: "+e.message,6000); }
+    b.disabled=false; b.innerHTML=old;
+  };
   $("smExportAll").onclick=smExportAll;
   $("smExportPdf").onclick=smExportPdf;
 }
