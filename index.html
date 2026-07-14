@@ -739,27 +739,28 @@
       <div class="sm-active-brand" id="smActiveBrand"></div>
     </div>
 
-    <div class="card">
-      <div class="card-h"><span class="n">1</span><h3>Template</h3></div>
-      <div class="sm-tpl-grid" id="smTplGrid"></div>
-    </div>
-
     <div class="fillbar">
       <div class="seg-pick fillmode" data-view="sm">
         <button class="on" data-m="auto">Aus Text befüllen</button>
         <button data-m="manual">Manuell ausfüllen</button>
       </div>
-      <span class="hint">Artikel einwerfen — Claude Sonnet füllt alle Felder des gewählten Templates und wählt Bild-Stil automatisch. Compliance-Regeln (keine Kaufempfehlung) werden dabei erzwungen.</span>
+      <span class="hint">Artikel einwerfen — Claude wählt Template, Format und Bild-Stil automatisch, füllt alle Felder und generiert den KI-Hintergrund. Compliance-Regeln (keine Kaufempfehlung) werden erzwungen.</span>
     </div>
     <div class="autobox" id="auto-sm" hidden>
       <label class="lab">Artikel oder Rohtext einfügen</label>
-      <textarea class="ta" id="src-sm" data-nolock style="min-height:120px" placeholder="Ganzen Artikel oder Notizen einfügen. Claude zieht daraus die Inhalte für das gewählte Template (Headline, Zahlen, Kernpunkte, Quelle …) und schlägt Bild-Prompt und Stil vor."></textarea>
-      <div class="row">
+      <textarea class="ta" id="src-sm" data-nolock style="min-height:120px" placeholder="Ganzen Artikel oder Notizen einfügen. Claude wählt das passende Template (Earnings, Zahl des Tages, Erklär-Karussell …), Format und Stil, füllt alle Felder und erzeugt das Hintergrund-Bild."></textarea>
+      <div class="row" style="align-items:center;gap:12px">
         <button class="btn btn-primary" data-fill="sm" data-nolock>
           <svg class="ic" viewBox="0 0 24 24" style="color:#fff"><path d="M12 3l1.6 4.8a2 2 0 0 0 1.3 1.3L19.5 11l-4.6 1.6a2 2 0 0 0-1.3 1.3L12 19l-1.6-4.8a2 2 0 0 0-1.3-1.3L4.5 11l4.6-1.6a2 2 0 0 0 1.3-1.3z"/></svg>
-          Felder füllen
+          Template wählen + Felder füllen
         </button>
+        <span class="hint" id="smAutoInfo" data-nolock></span>
       </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><span class="n">1</span><h3>Template</h3><span class="hint" id="smTplAutoTag" style="margin-left:10px"></span></div>
+      <div class="sm-tpl-grid" id="smTplGrid"></div>
     </div>
 
     <div class="sm-stage">
@@ -776,8 +777,8 @@
           <span class="hint" style="display:block;margin-top:8px" id="smFmtHint"></span>
         </div>
         <div class="card" id="smBgCard" style="display:none">
-          <div class="card-h"><span class="n">4</span><h3>KI-Hintergrund (Pfad C)</h3></div>
-          <span class="hint" style="display:block;margin-bottom:9px">Erzeugt einen Stimmungshintergrund ohne Text über die Bild-KI. Text, Zahlen, Logo und Pflichttexte bleiben deterministisch als Ebene darüber.</span>
+          <div class="card-h"><span class="n">4</span><h3>KI-Hintergrund</h3></div>
+          <span class="hint" style="display:block;margin-bottom:9px">Erzeugt einen Stimmungshintergrund ohne Text über die Bild-KI (wird beim Auto-Fill automatisch mitgeneriert). Text, Zahlen, Charts, Logo und Pflichttexte bleiben deterministisch als Ebene darüber.</span>
           <div class="sm-row2" style="margin-bottom:9px">
             <div>
               <label class="lab" style="margin-top:0">Modell</label>
@@ -1593,7 +1594,7 @@ function buildCover(content){
     const sub=new fabric.Textbox(noWrapUnits(content.sub),{left:108*sx,top:996*sy,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.subPx*sx,fill:"#ffffff",lineHeight:1.25,name:"subline"});
     objs.push({kind:"obj",obj:head});
     objs.push({kind:"obj",obj:sub});
-    objs.push({kind:"obj",obj:new fabric.IText("Bild: KI-generiert",{left:W-8*sx,top:H*0.30,angle:90,fontFamily:spec.font,fontSize:13*sx,fill:"rgba(255,255,255,0.45)",name:"credit"})});
+    objs.push({kind:"obj",obj:new fabric.IText("Bildquelle: KI generiert",{left:W-10*sx,top:H*0.30,angle:90,fontFamily:spec.font,fontSize:17*sx,fill:"rgba(255,255,255,0.62)",name:"credit"})});
   } else if(curFmt==="9:16"){
     // FIX Story (9:16): Texte lagen zu tief und wurden von der Instagram-UI (Reply-Feld unten,
     // Profil/Buttons oben) abgeschnitten. Safe-Zone: oben ~250px, unten ~310px (Master 1080x1920).
@@ -1601,11 +1602,11 @@ function buildCover(content){
     const safeBottom=H-310*sy;                     // Unterkante der nutzbaren Zone
     objs.push({kind:"obj",obj:tHeadline(content.head,{left:108*sx,top:safeBottom-330*sy,width:864*sx,fontSize:spec.headPx*sx,fontFamily:spec.font})});
     objs.push({kind:"obj",obj:new fabric.Textbox(content.sub,{left:108*sx,top:safeBottom-150*sy,width:864*sx,fontFamily:spec.font,fontWeight:600,fontSize:spec.subPx*sx,fill:"#ffffff",name:"subline"})});
-    objs.push({kind:"obj",obj:new fabric.IText("Bild: KI-generiert",{left:W-8*sx,top:H*0.32,angle:90,fontFamily:spec.font,fontSize:13*sx,fill:"rgba(255,255,255,0.45)",name:"credit"})});
+    objs.push({kind:"obj",obj:new fabric.IText("Bildquelle: KI generiert",{left:W-10*sx,top:H*0.32,angle:90,fontFamily:spec.font,fontSize:17*sx,fill:"rgba(255,255,255,0.62)",name:"credit"})});
   } else {
     objs.push({kind:"obj",obj:tHeadline(content.head,{left:px(0.06,W),top:px(0.685,H),width:px(0.82,W),fontSize:px(spec.headPx/1080,W),fontFamily:spec.font})});
     objs.push({kind:"obj",obj:new fabric.Textbox(content.sub,{left:px(0.06,W),top:px(0.865,H),width:px(0.66,W),fontFamily:spec.font,fontWeight:600,fontSize:px(spec.subPx/1080,W),fill:"#ffffff",name:"subline"})});
-    objs.push({kind:"obj",obj:new fabric.IText("Bild: KI-generiert",{left:px(0.993,W),top:px(0.30,H),angle:90,fontFamily:spec.font,fontSize:Math.max(px(0.012,W),10),fill:"rgba(255,255,255,0.45)",name:"credit"})});
+    objs.push({kind:"obj",obj:new fabric.IText("Bildquelle: KI generiert",{left:px(0.991,W),top:px(0.30,H),angle:90,fontFamily:spec.font,fontSize:Math.max(px(0.016,W),13),fill:"rgba(255,255,255,0.62)",name:"credit"})});
   }
   return {objs,logoDark:true};
 }
@@ -2986,9 +2987,29 @@ async function extractSocial(txt){
   }
 }
 
+/* Schritt 1 (zero Auto-Pilot): Claude wählt das passende Template + Format
+   aus dem Artikel. Danach Schritt 2: Felder füllen + Stil + Auto-Bild. */
+async function smPickTemplate(txt){
+  const list=SM_TEMPLATES.map(t=>t.id+" = "+t.name+" ("+t.desc+" Formate: "+t.formats.join(",")+")").join("; ");
+  const sys="Du bist Social-Media-Redakteur bei finanzen.net zero (deutscher Neobroker). Wähle für den Artikel das am besten passende Grafik-Template und das beste Format. Antworte NUR mit reinem JSON: {\"template_id\":\"...\",\"format\":\"...\",\"begruendung\":\"max 90 Zeichen, deutsch\"}. Verfügbare Templates: "+list+". Regeln: Quartalszahlen/Earnings -> zero_sm_company_earnings. Eine markante Einzelzahl -> zero_sm_data_number_of_day. Kursverlauf/Zeitreihe mit mehreren Werten im Text -> zero_sm_data_chart_story. Marktüberblick mehrerer Indizes -> zero_sm_market_pulse. Begriffs-/Konzept-Erklärung -> zero_sm_edu_explainer. Rangliste -> zero_sm_data_ranking. Einzelnes Wertpapier-Porträt -> zero_sm_instrument_snapshot. Sparplan/Zinseszins -> zero_sm_investing_savings_calc. Zitat als Kern -> zero_sm_editorial_quote. Umfrage -> zero_sm_community_poll_result. Termin/Event -> zero_sm_event_announcement. Produkt-/Feature-News von zero selbst -> zero_sm_brand_product_announcement. Format: 4:5 ist Standard (Feed), 9:16 nur wenn explizit Story gewünscht, 16:9 nur für X/Twitter-lastige Chart-Themen.";
+  const out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,6000)}]));
+  return out;
+}
+
 /* Auto-Fill für den zero-Template-Katalog: baut das JSON-Schema dynamisch
    aus den Feld-Definitionen des gewählten Templates. */
 async function extractSM(txt){
+  /* Schritt 1: Template + Format automatisch wählen */
+  const info=$("smAutoInfo"); if(info) info.textContent="Claude wählt das Template …";
+  try{
+    const pick=await smPickTemplate(txt);
+    if(pick && pick.template_id && SM_TEMPLATES.some(t=>t.id===pick.template_id)){
+      smSelectTpl(pick.template_id);
+      if(pick.format && smTpl.formats.includes(pick.format)){ smFmt=pick.format; smBuildFmt(); }
+      const tag=$("smTplAutoTag"); if(tag) tag.textContent="Auto-gewählt: "+smTpl.name+(pick.begruendung?(" — "+pick.begruendung):"");
+    }
+  }catch(e){ /* Fallback: aktuelles Template behalten */ }
+  if(info) info.textContent="Felder werden gefüllt …";
   if(!smTpl) throw new Error("Kein Template gewählt");
   const schema={};
   smTpl.fields.forEach(f=>{
@@ -3008,8 +3029,15 @@ async function extractSM(txt){
     smUpdateCnt(inp,f);
   });
   if(out.theme && $("smTheme") && ["clean","cinematic","metaphor"].includes(out.theme)) $("smTheme").value=out.theme;
-  if(out.bg_prompt && smTpl.path==="C" && $("smBgPrompt")) $("smBgPrompt").value=out.bg_prompt;
+  if(out.bg_prompt && $("smBgPrompt")) $("smBgPrompt").value=out.bg_prompt;
   smCheckTriggers(); smUpdateLegal(); smRender();
+  /* Schritt 3: KI-Hintergrund automatisch generieren (alle Templates, live-Modus) */
+  const info2=$("smAutoInfo");
+  if(genMode()!=="demo"){
+    if(info2) info2.textContent="KI-Hintergrund wird generiert …";
+    try{ await smGenBg(); if(info2) info2.textContent="Fertig: Template, Felder, Stil und Bild gesetzt."; }
+    catch(e){ if(info2) info2.textContent="Felder gefüllt — Bild bitte manuell generieren."; }
+  } else if(info2) info2.textContent="Felder gefüllt (Demo-Modus: kein Live-Bild).";
 }
 
 async function extractChart(txt){
@@ -4724,9 +4752,11 @@ function smSelectTpl(id){
   smTpl=SM_TEMPLATES.find(t=>t.id===id)||SM_TEMPLATES[0];
   smData={}; smSlide=0; smBgImg=null; smBgUrl="";
   smBuildTplGrid(); smBuildFields(); smBuildFmt(); smUpdateLegal();
-  $("smBgCard").style.display = smTpl.path==="C" ? "" : "none";
-  if($("smBgPrompt")) $("smBgPrompt").value=smTpl.bgPrompt||"";
-  $("smBgStatus").textContent=""; $("smBgClear").style.display="none";
+  /* KI-Hintergrund für ALLE Templates verfügbar; bei Pfad A mit Hinweis (Zahlen bleiben deterministisch) */
+  $("smBgCard").style.display="";
+  if($("smBgPrompt")) $("smBgPrompt").value=smTpl.bgPrompt||"Abstract premium fintech background, subtle depth, soft gradient, atmospheric glow, generous negative space";
+  $("smBgStatus").textContent = smTpl.path==="A" ? "Hinweis: Bei diesem Daten-Template wird das Bild abgedunkelt hinterlegt — Zahlen, Chart und Pflichttexte bleiben deterministisch." : "";
+  $("smBgClear").style.display="none";
   smRender();
 }
 function smBuildFields(){
@@ -4913,14 +4943,14 @@ function smDrawLogo(x,W,H,B,safeBot,legalH){
 }
 /* Dezenter KI-Bildnachweis: klein, 90° gedreht am rechten Rand (wie Presse-Bildcredit) */
 function smDrawAiCredit(x,W,H,B,safeTop,safeBot){
-  const fs=Math.max(Math.round(W*0.0135),14);
+  const fs=Math.max(Math.round(W*0.016),15);
   x.save();
   x.translate(W-fs*0.6, safeTop+(H-safeTop-safeBot)*0.5);
   x.rotate(Math.PI/2);
   x.font="500 "+fs+"px "+BRAND.font;
-  x.fillStyle=B.dark?"rgba(255,255,255,0.42)":"rgba(10,31,68,0.4)";
+  x.fillStyle=B.dark?"rgba(255,255,255,0.62)":"rgba(10,31,68,0.55)";
   x.textAlign="center";
-  x.fillText("Bild: KI-generiert",0,0);
+  x.fillText("Bildquelle: KI generiert",0,0);
   x.restore();
 }
 function smDrawCover(x,img,W,H){
