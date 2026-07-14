@@ -677,8 +677,26 @@
       <div class="sm-tpl-grid" id="smTplGrid"></div>
     </div>
 
+    <div class="fillbar">
+      <div class="seg-pick fillmode" data-view="sm">
+        <button class="on" data-m="auto">Aus Text befüllen</button>
+        <button data-m="manual">Manuell ausfüllen</button>
+      </div>
+      <span class="hint">Artikel einwerfen — Claude Sonnet füllt alle Felder des gewählten Templates und wählt Bild-Stil automatisch. Compliance-Regeln (keine Kaufempfehlung) werden dabei erzwungen.</span>
+    </div>
+    <div class="autobox" id="auto-sm" hidden>
+      <label class="lab">Artikel oder Rohtext einfügen</label>
+      <textarea class="ta" id="src-sm" data-nolock style="min-height:120px" placeholder="Ganzen Artikel oder Notizen einfügen. Claude zieht daraus die Inhalte für das gewählte Template (Headline, Zahlen, Kernpunkte, Quelle …) und schlägt Bild-Prompt und Stil vor."></textarea>
+      <div class="row">
+        <button class="btn btn-primary" data-fill="sm" data-nolock>
+          <svg class="ic" viewBox="0 0 24 24" style="color:#fff"><path d="M12 3l1.6 4.8a2 2 0 0 0 1.3 1.3L19.5 11l-4.6 1.6a2 2 0 0 0-1.3 1.3L12 19l-1.6-4.8a2 2 0 0 0-1.3-1.3L4.5 11l4.6-1.6a2 2 0 0 0 1.3-1.3z"/></svg>
+          Felder füllen
+        </button>
+      </div>
+    </div>
+
     <div class="sm-stage">
-      <div>
+      <div class="lockable" id="lock-sm">
         <div class="card">
           <div class="card-h"><span class="n">2</span><h3 id="smFormTitle">Inhalt</h3></div>
           <div class="sm-note" id="smTplNote"></div>
@@ -693,7 +711,28 @@
         <div class="card" id="smBgCard" style="display:none">
           <div class="card-h"><span class="n">4</span><h3>KI-Hintergrund (Pfad C)</h3></div>
           <span class="hint" style="display:block;margin-bottom:9px">Erzeugt einen Stimmungshintergrund ohne Text über die Bild-KI. Text, Zahlen, Logo und Pflichttexte bleiben deterministisch als Ebene darüber.</span>
-          <div class="row" style="gap:8px">
+          <div class="sm-row2" style="margin-bottom:9px">
+            <div>
+              <label class="lab" style="margin-top:0">Modell</label>
+              <div class="selwrap"><select class="sel" id="smModel">
+                <option value="openai/gpt-5.4-image-2">GPT Image 2 · OpenAI</option>
+                <option value="openai/gpt-5-image-mini">GPT Image Mini · schnell</option>
+                <option value="google/gemini-2.5-flash-image">Nano Banana · Google</option>
+                <option value="google/gemini-3-pro-image" selected>Nano Banana Pro · Google</option>
+              </select><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+            </div>
+            <div>
+              <label class="lab" style="margin-top:0">Stil</label>
+              <div class="selwrap"><select class="sel" id="smTheme">
+                <option value="clean" selected>Clean · ruhig, präzise</option>
+                <option value="cinematic">Cinematic · dramatisch</option>
+                <option value="metaphor">Metaphorisch · illustrativ</option>
+              </select><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+            </div>
+          </div>
+          <label class="lab">Bild-Prompt (automatisch aus Template + Artikel, frei editierbar)</label>
+          <textarea class="ta" id="smBgPrompt" style="min-height:64px"></textarea>
+          <div class="row" style="gap:8px;margin-top:9px">
             <button class="btn btn-primary" id="smBgGen">KI-Hintergrund generieren</button>
             <button class="btn" id="smBgClear" style="display:none">Hintergrund entfernen</button>
           </div>
@@ -2148,6 +2187,7 @@ async function runFill(view){
   const btn=document.querySelector('[data-fill="'+view+'"]'); const old=btn.innerHTML; btn.disabled=true; btn.textContent="Claude liest ...";
   try{
     if(view==="social") await extractSocial(txt);
+    else if(view==="sm") await extractSM(txt);
     else if(view==="chart") await extractChart(txt);
     else if(view==="sankey") await extractSankey(txt);
     lockView(view, false);
@@ -2169,6 +2209,32 @@ async function extractSocial(txt){
   if(curUseCase==="frei"){
     if(out.prompt) $("fPrompt").value=out.prompt;
   }
+}
+
+/* Auto-Fill für den zero-Template-Katalog: baut das JSON-Schema dynamisch
+   aus den Feld-Definitionen des gewählten Templates. */
+async function extractSM(txt){
+  if(!smTpl) throw new Error("Kein Template gewählt");
+  const schema={};
+  smTpl.fields.forEach(f=>{
+    schema[f.k]=f.l+(f.max?(" (max "+f.max+" Zeichen)"):"")+(f.type==="sel"?(" — exakt einer dieser Werte: "+f.opts.join(" | ")):"")+(f.type==="num"?" — nur Zahl":"");
+  });
+  schema["bg_prompt"]="kurzer englischer Bild-Prompt für einen thematisch passenden Stimmungshintergrund ohne Text, ohne Zahlen, ohne Logos";
+  schema["theme"]="einer von: clean | cinematic | metaphor — passend zur Tonalität des Inhalts";
+  const sys="Du bist Redakteur bei finanzen.net zero (deutscher Neobroker) und schreibst professionelles, korrektes Deutsch mit Umlauten. Lies den Artikel und fülle die Felder für das Social-Template \""+smTpl.name+"\" ("+smTpl.desc+"). Antworte NUR mit reinem JSON, ohne Markdown. Schema (Feldname: Bedeutung): "+JSON.stringify(schema)+". COMPLIANCE ZWINGEND: keine Kauf- oder Verkaufsempfehlung aus persönlicher Sicht, keine Formulierungen wie 'jetzt kaufen', 'lohnt sich', 'Top-Pick'. Erlaubt: neutrale Fakten, Analysten-Bezug mit Quelle, oder Frage-Framing. Nutze NUR Zahlen, die im Text stehen; erfinde keine. Felder, für die der Text nichts hergibt, als leeren String lassen. Zahlen in deutscher Schreibweise (Komma).";
+  const out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,8000)}]));
+  smTpl.fields.forEach(f=>{
+    if(out[f.k]===undefined||out[f.k]===null) return;
+    let v=""+out[f.k];
+    const inp=$("smFields").querySelector('[data-smk="'+f.k+'"]'); if(!inp) return;
+    if(f.type==="sel"){ if([...inp.options].some(o=>o.value===v||o.text===v)) inp.value=v; }
+    else inp.value=v;
+    smData[f.k]=inp.value;
+    smUpdateCnt(inp,f);
+  });
+  if(out.theme && $("smTheme") && ["clean","cinematic","metaphor"].includes(out.theme)) $("smTheme").value=out.theme;
+  if(out.bg_prompt && smTpl.path==="C" && $("smBgPrompt")) $("smBgPrompt").value=out.bg_prompt;
+  smCheckTriggers(); smUpdateLegal(); smRender();
 }
 
 async function extractChart(txt){
@@ -2990,6 +3056,7 @@ function smSelectTpl(id){
   smData={}; smSlide=0; smBgImg=null; smBgUrl="";
   smBuildTplGrid(); smBuildFields(); smBuildFmt(); smUpdateLegal();
   $("smBgCard").style.display = smTpl.path==="C" ? "" : "none";
+  if($("smBgPrompt")) $("smBgPrompt").value=smTpl.bgPrompt||"";
   $("smBgStatus").textContent=""; $("smBgClear").style.display="none";
   smRender();
 }
@@ -3491,18 +3558,26 @@ function smCalc(){
 
 /* ---------- KI-Hintergrund (Pfad C) über bestehenden Make-Webhook ---------- */
 const SM_NEG=" Strictly no text, no letters, no words, no numbers, no digits, no logos, no watermarks, no charts, no tables, no invented data, no currency symbols, no percentage signs, no brand names, no realistic photography of real people.";
+const SM_THEME_TXT={
+  clean:"calm, precise, minimal, controlled studio light",
+  cinematic:"dramatic cinematic light, strong atmosphere, depth of field",
+  metaphor:"illustrative, conceptual metaphor, premium editorial illustration style"
+};
 async function smGenBg(){
   const st=$("smBgStatus");
   if(genMode()==="demo"){ st.textContent="Demo-Modus: kein Live-Bild. Make-Webhook oder OpenRouter-Key nötig."; return; }
   st.textContent="KI-Hintergrund wird generiert …";
   try{
-    const prompt=(smTpl.bgPrompt||"Abstract premium fintech background")+", "+(SM_BRANDS[smBrand].dark?"dark navy, near-black, subtle green accent glow":"light, clean white and soft blue tones")+"."+SM_NEG;
+    const userPrompt=($("smBgPrompt")&&$("smBgPrompt").value.trim())||smTpl.bgPrompt||"Abstract premium fintech background";
+    const theme=($("smTheme")&&$("smTheme").value)||"clean";
+    const model=($("smModel")&&$("smModel").value)||curModel;
+    const prompt=userPrompt+", "+(SM_THEME_TXT[theme]||"")+", "+(SM_BRANDS[smBrand].dark?"dark navy, near-black, subtle green accent glow":"light, clean white and soft blue tones")+"."+SM_NEG;
     let url;
-    if(genMode()==="direct"){ url=await generateImageDirect(prompt, smFmt, curModel, _orKey); }
+    if(genMode()==="direct"){ url=await generateImageDirect(prompt, smFmt, model, _orKey); }
     else{
       const params=new URLSearchParams();
       params.set("action","generate-image"); params.set("prompt",prompt);
-      params.set("format",smFmt); params.set("theme","clean"); params.set("model",curModel);
+      params.set("format",smFmt); params.set("theme",theme); params.set("model",model);
       params.set("slide","background");
       const res=await fetch(CONFIG.API_BASE,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:params.toString()});
       const data=await res.json();
@@ -3549,6 +3624,7 @@ async function smExportPdf(){
 let _smInit=false;
 function initSocialMedia(){
   smBuildGate(); smLogoPreload(); smBuildTplGrid(); smSelectTpl(SM_TEMPLATES[0].id);
+  setFillMode("sm","auto");   /* wie beim Social Karussell: Standard = Aus Text befüllen */
   $("smBgGen").onclick=smGenBg;
   $("smBgClear").onclick=()=>{ smBgImg=null; smBgUrl=""; $("smBgClear").style.display="none"; $("smBgStatus").textContent=""; smRender(); };
   $("smExport").onclick=smDoExport;
