@@ -5802,10 +5802,24 @@ function smDrawContent(ctx){
     { const _ex=(d.exchange||"")+(d.stand?" · "+d.stand:"");
       smFit(x,_ex,"500",bodyFS*0.8,W-2*M); x.fillStyle=B.muted; x.textAlign="left"; x.fillText(_ex, M, y+bodyFS*3.7); }
     y+=bodyFS*4.6;
-    /* Harter Filter (Christian 15.07., 2. Anlauf): Bilanz-Detailposten wie Liquidität fliegen
-       deterministisch raus — die Prompt-Regel allein reichte nicht (Altbestand in smData). */
-    const _banFact=/liquidit|cash.?burn|verschuldung|eigenkapitalquote|working.?capital/i;
-    const facts=[1,2,3,4].map(i=>({l:d["f"+i+"l"],v:d["f"+i+"v"]})).filter(f=>(f.l||"").trim() && !_banFact.test(f.l||""));
+    /* Harter Filter (Christian 15.07., 3. Anlauf): Bilanz-Detailposten fliegen deterministisch
+       raus. Regex jetzt auf WORTANFANG "liquid" — der 2. Anlauf prüfte "liquidit" und wurde von
+       der abgekürzten Label-Variante "Liquid. bis Ende 2027" umgangen. */
+    const _banFact=/\bliquid|cash.?burn|verschuldung|eigenkapital|working.?capital/i;
+    let facts=[1,2,3,4].map(i=>({l:d["f"+i+"l"],v:d["f"+i+"v"]})).filter(f=>(f.l||"").trim() && !_banFact.test(f.l||""));
+    /* Potenzial statt Liquidität (Christian 15.07.): fehlt eine Potenzial-Kachel, wird sie aus
+       Kurs + Kursziel BERECHNET (deterministisch, kein LLM): (Ziel/Kurs - 1) * 100. */
+    if(!facts.some(f=>/potenzial|upside/i.test(f.l||"")) && facts.length<4){
+      const num=(s)=>{ const m=/([0-9][0-9.,]*)/.exec(""+(s||"")); if(!m) return NaN;
+        return parseFloat(m[1].replace(/\.(?=\d{3}\b)/g,"").replace(",",".")); };
+      const px=num(d.quote);
+      const tgt=facts.map(f=>/kursziel/i.test(f.l||"")?num(f.v):NaN).find(v=>!isNaN(v));
+      if(px>0 && tgt>0){
+        const pot=(tgt/px-1)*100;
+        const potStr=(pot>0?"+":"")+pot.toFixed(0).replace(".",",")+" %";
+        facts.push({l:"Potenzial z. Kursziel", v:potStr});
+      }
+    }
     const fc=2, fw=(W-2*M-W*0.025)/fc;
     facts.forEach((f,i)=>{
       const fx=M+(i%fc)*(fw+W*0.025), fy=y+Math.floor(i/fc)*W*0.135;
