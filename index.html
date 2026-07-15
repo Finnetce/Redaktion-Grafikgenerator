@@ -5661,9 +5661,16 @@ function smKicker(ctx,label){
   const fs=Math.round(Math.min(ctx.W,ctx.H*1.15)*0.0235);
   x.font="700 "+fs+"px "+BRAND.font;
   const w=x.measureText(label.toUpperCase()).width;
-  x.fillStyle=B.chip; smRound(x,M,ctx.top,w+fs*1.6,fs*2.1,fs); x.fill();
-  x.fillStyle=B.accent; x.textAlign="left"; x.fillText(label.toUpperCase(),M+fs*0.8,ctx.top+fs*1.46);
-  return ctx.top+fs*2.1+ctx.W*0.03;
+  const chipW=w+fs*1.6, chipH=fs*2.1;
+  x.fillStyle=B.chip; smRound(x,M,ctx.top,chipW,chipH,fs); x.fill();
+  /* Zentrierung im Chip (Christian 15.07. abends, gilt für ALLE Templates — Kicker wird nur
+     hier gezeichnet): horizontal per textAlign=center auf Chip-Mitte, vertikal per
+     middle-Baseline auf Chip-Mitte (leichter optischer Versatz für Versalien). */
+  x.fillStyle=B.accent; x.textAlign="center";
+  const _bl=x.textBaseline; x.textBaseline="middle";
+  x.fillText(label.toUpperCase(), M+chipW/2, ctx.top+chipH/2+fs*0.06);
+  x.textBaseline=_bl; x.textAlign="left";
+  return ctx.top+chipH+ctx.W*0.03;
 }
 function smRound(x,X,Y,w,h,r){
   x.beginPath(); x.moveTo(X+r,Y); x.arcTo(X+w,Y,X+w,Y+h,r); x.arcTo(X+w,Y+h,X,Y+h,r); x.arcTo(X,Y+h,X,Y,r); x.arcTo(X,Y,X+w,Y,r); x.closePath();
@@ -5707,7 +5714,11 @@ function smDrawContent(ctx){
       y=smKicker(ctx,"Das Wichtigste");
       y=smText(x,d.takeaway||"",M,y+headFS,headFS*0.85,"800",B.ink,W-2*M,headFS*1.05);
       x.fillStyle=B.accent; smRound(x,M,y+W*0.06,W*0.42,headFS*1.35,headFS*0.68); x.fill();
-      x.font="700 "+bodyFS+"px "+BRAND.font; x.fillStyle=B.dark?"#06210f":"#fff"; x.fillText("Beitrag speichern ✓",M+W*0.045,y+W*0.06+headFS*0.9);
+      /* Button-Text zentriert im Pill (Christian 15.07. abends) */
+      x.font="700 "+bodyFS+"px "+BRAND.font; x.fillStyle=B.dark?"#06210f":"#fff";
+      { const _b0=x.textBaseline; x.textAlign="center"; x.textBaseline="middle";
+        x.fillText("Beitrag speichern ✓", M+W*0.21, y+W*0.06+headFS*1.35/2+bodyFS*0.06);
+        x.textAlign="left"; x.textBaseline=_b0; }
       { const _s=(smBrand==="zero")?"finanzen.net":d.source; /* zero: Quelle immer finanzen.net (Yuki 15.07.) */
         if(_s){ x.font="500 "+bodyFS*0.85+"px "+BRAND.font; x.fillStyle=B.muted; x.fillText("Quelle: "+_s, M, ctx.bottom-bodyFS); } }
     }
@@ -5976,8 +5987,11 @@ function smDrawContent(ctx){
     y+=W*0.135+W*0.045;
     if(d.speakers){ smFit(x,"Mit: "+d.speakers,"600",bodyFS*0.9,W-2*M); x.fillStyle=B.muted; x.textAlign="left"; x.fillText("Mit: "+d.speakers, M, y); y+=bodyFS*2; }
     x.fillStyle=B.accent; smRound(x,M,y,W*0.4,headFS*1.2,headFS*0.6); x.fill();
+    /* Button-Text zentriert im Pill (Christian 15.07. abends) */
     x.font="700 "+bodyFS+"px "+BRAND.font; x.fillStyle=B.dark?"#06210f":"#fff";
-    x.fillText(d.cta||"Jetzt anmelden", M+W*0.04, y+headFS*0.78);
+    { const _b1=x.textBaseline; x.textAlign="center"; x.textBaseline="middle";
+      x.fillText(d.cta||"Jetzt anmelden", M+W*0.2, y+headFS*0.6+bodyFS*0.06);
+      x.textAlign="left"; x.textBaseline=_b1; }
 
   } else if(id==="zero_sm_brand_product_announcement"){
     y=smKicker(ctx,d.kicker);
@@ -5994,8 +6008,11 @@ function smDrawContent(ctx){
       y+=W*0.03; }
     if(d.adate){ smFit(x,"Verfügbar ab "+d.adate,"500",bodyFS*0.85,W-2*M); x.fillStyle=B.muted; x.textAlign="left"; x.fillText("Verfügbar ab "+d.adate, M, y); y+=bodyFS*2; }
     x.fillStyle=B.accent; smRound(x,M,y,W*0.36,headFS*1.15,headFS*0.58); x.fill();
+    /* Button-Text zentriert im Pill (Christian 15.07. abends) */
     x.font="700 "+bodyFS+"px "+BRAND.font; x.fillStyle=B.dark?"#06210f":"#fff";
-    x.fillText(d.cta||"Mehr erfahren", M+W*0.04, y+headFS*0.75);
+    { const _b2=x.textBaseline; x.textAlign="center"; x.textBaseline="middle";
+      x.fillText(d.cta||"Mehr erfahren", M+W*0.18, y+headFS*0.575+bodyFS*0.06);
+      x.textAlign="left"; x.textBaseline=_b2; }
   }
 }
 
