@@ -3893,6 +3893,15 @@ if($id("smBrand")) $id("smBrand").onchange=function(){ smApplyBrand(this.value);
 
 /* ---------- Plattform-Auswahl -> Masterformat ---------- */
 function smSelectedPlatforms(){
+  /* zero-Editor: Plattformen aus dem zero-Katalog (Chips) ableiten */
+  try{
+    if(typeof slides!=="undefined"&&slides.length&&slides[0].content&&slides[0].content.origin==="sm"&&typeof smPlats!=="undefined"){
+      var map={instagram:"ig_feed",instagram_story:"ig_story",linkedin:"li_feed",x:"x_post"};
+      var zout=[]; smPlats.forEach(function(z){ var gid=map[z]; if(!gid) return;
+        var p=SM_PLATFORMS.find(function(q){return q.id===gid;}); if(p) zout.push(p); });
+      if(zout.length) return zout;
+    }
+  }catch(e){}
   var out=[];
   document.querySelectorAll(".sm-plat").forEach(function(el){
     if(el.querySelector("input").checked){
@@ -4337,7 +4346,9 @@ renderSlideTabs=function(){
   var list=$id("slideList"); if(!list) return;
   var plats=smSelectedPlatforms();
   // Fallback auf alte Liste: keine Plattformen (z.B. Grafiken-Redaktion-Slide im Editor)
-  var isGraphic = (typeof slides!=="undefined") && slides.length && slides[0].type==="graphic";
+  /* zero-Slides (origin "sm") bekommen die Plattform-Gruppen wie finanzen.net; nur echte Grafiken-Redaktion fällt zurück */
+  var isSm=(typeof slides!=="undefined")&&slides.length&&slides[0].content&&slides[0].content.origin==="sm";
+  var isGraphic = (typeof slides!=="undefined") && slides.length && slides[0].type==="graphic" && !isSm;
   if(!plats.length || isGraphic || typeof slides==="undefined" || !slides.length){ _origRenderSlideTabs(); return; }
   if(!window._smActiveGroup || !plats.some(function(p){return p.id===window._smActiveGroup;})) window._smActiveGroup=plats[0].id;
   list.innerHTML="";
@@ -5144,7 +5155,16 @@ function smFit(x,text,weight,baseFS,maxW){
   return fs;
 }
 function smText(x,text,X,Y,fs,weight,color,maxW,lh){
-  x.font=(weight||"400")+" "+fs+"px "+BRAND.font; x.fillStyle=color; x.textAlign="left";
+  x.font=(weight||"400")+" "+fs+"px "+BRAND.font;
+  /* Shrink-to-fit: das längste Einzelwort darf NIE über den Rand laufen
+     (z.B. "Investitionsverschiebung") — Schrift proportional verkleinern. */
+  let longest=0; (text||"").split(/\s+/).forEach(w=>{ const ww=x.measureText(w).width; if(ww>longest) longest=ww; });
+  if(longest>maxW && longest>0){
+    const k=Math.max(maxW/longest,0.55), nfs=Math.max(Math.floor(fs*k),12);
+    if(lh) lh=lh*(nfs/fs);
+    fs=nfs; x.font=(weight||"400")+" "+fs+"px "+BRAND.font;
+  }
+  x.fillStyle=color; x.textAlign="left";
   const lines=smWrap(x,text,maxW);
   lines.forEach((ln,i)=>x.fillText(ln,X,Y+i*(lh||fs*1.22)));
   return Y+(lines.length-1)*(lh||fs*1.22)+fs;
