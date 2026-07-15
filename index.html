@@ -1698,7 +1698,7 @@ function buildCover(content){
     const sub=new fabric.Textbox(noWrapUnits(content.sub),{left:108*sx,top:996*sy,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.subPx*sx,fill:"#ffffff",lineHeight:1.25,name:"subline"});
     objs.push({kind:"obj",obj:head});
     objs.push({kind:"obj",obj:sub});
-    objs.push({kind:"obj",obj:new fabric.IText("Bildquelle: KI generiert",{left:W-10*sx,top:H*0.30,angle:90,fontFamily:spec.font,fontSize:17*sx,fill:"rgba(255,255,255,0.62)",name:"credit"})});
+    objs.push({kind:"obj",obj:new fabric.IText("Bildquelle: KI generiert",{left:W-28*sx,top:H*0.30,angle:90,fontFamily:spec.font,fontSize:17*sx,fill:"rgba(255,255,255,0.62)",name:"credit"})});
   } else if(curFmt==="9:16"){
     // FIX Story (9:16): Texte lagen zu tief und wurden von der Instagram-UI (Reply-Feld unten,
     // Profil/Buttons oben) abgeschnitten. Safe-Zone: oben ~250px, unten ~310px (Master 1080x1920).
@@ -1706,11 +1706,11 @@ function buildCover(content){
     const safeBottom=H-310*sy;                     // Unterkante der nutzbaren Zone
     objs.push({kind:"obj",obj:tHeadline(content.head,{left:108*sx,top:safeBottom-330*sy,width:864*sx,fontSize:spec.headPx*sx,fontFamily:spec.font})});
     objs.push({kind:"obj",obj:new fabric.Textbox(content.sub,{left:108*sx,top:safeBottom-150*sy,width:864*sx,fontFamily:spec.font,fontWeight:600,fontSize:spec.subPx*sx,fill:"#ffffff",name:"subline"})});
-    objs.push({kind:"obj",obj:new fabric.IText("Bildquelle: KI generiert",{left:W-10*sx,top:H*0.32,angle:90,fontFamily:spec.font,fontSize:17*sx,fill:"rgba(255,255,255,0.62)",name:"credit"})});
+    objs.push({kind:"obj",obj:new fabric.IText("Bildquelle: KI generiert",{left:W-28*sx,top:H*0.32,angle:90,fontFamily:spec.font,fontSize:17*sx,fill:"rgba(255,255,255,0.62)",name:"credit"})});
   } else {
     objs.push({kind:"obj",obj:tHeadline(content.head,{left:px(0.06,W),top:px(0.685,H),width:px(0.82,W),fontSize:px(spec.headPx/1080,W),fontFamily:spec.font})});
     objs.push({kind:"obj",obj:new fabric.Textbox(content.sub,{left:px(0.06,W),top:px(0.865,H),width:px(0.66,W),fontFamily:spec.font,fontWeight:600,fontSize:px(spec.subPx/1080,W),fill:"#ffffff",name:"subline"})});
-    objs.push({kind:"obj",obj:new fabric.IText("Bildquelle: KI generiert",{left:px(0.991,W),top:px(0.30,H),angle:90,fontFamily:spec.font,fontSize:Math.max(px(0.016,W),13),fill:"rgba(255,255,255,0.62)",name:"credit"})});
+    objs.push({kind:"obj",obj:new fabric.IText("Bildquelle: KI generiert",{left:px(0.974,W),top:px(0.30,H),angle:90,fontFamily:spec.font,fontSize:Math.max(px(0.016,W),13),fill:"rgba(255,255,255,0.62)",name:"credit"})});
   }
   return {objs,logoDark:true};
 }
@@ -5552,8 +5552,13 @@ function smDrawContentFitted(ctx){
   s=Math.max(s,0.5);
   if(s<1){
     const srcH=Math.min(Math.max(maxY-ctx.top,10), off.height-ctx.top);
-    try{ window._smLastFit={s:s,top:ctx.top,W:W}; }catch(e){}
-    x.drawImage(off, 0, ctx.top, W, srcH, Math.round((W-W*s)/2), ctx.top, Math.round(W*s), Math.round(srcH*s));
+    /* FIX Positions-Stabilität (Yuki 15.07. abends): geschrumpften Inhalt LINKS am Margin M
+       verankern statt zu zentrieren — vorher rückte der Block auf vollen Slides nach rechts
+       und "wanderte" gegenüber Slides ohne Schrumpfung. dx = M*(1-s) hält die linke Kante
+       exakt auf M, unabhängig vom Schrumpf-Faktor. */
+    const dx=Math.round(M*(1-s));
+    try{ window._smLastFit={s:s,top:ctx.top,W:W,dx:dx}; }catch(e){}
+    x.drawImage(off, 0, ctx.top, W, srcH, dx, ctx.top, Math.round(W*s), Math.round(srcH*s));
   } else {
     try{ window._smLastFit={s:1,top:ctx.top,W:W}; }catch(e){}
     x.drawImage(off,0,0);
@@ -5579,9 +5584,13 @@ function smDrawLogo(x,W,H,B,safeBot,legalH){
 }
 /* Dezenter KI-Bildnachweis: klein, 90° gedreht am rechten Rand (wie Presse-Bildcredit) */
 function smDrawAiCredit(x,W,H,B,safeTop,safeBot){
+  /* Nur bei KI-Hintergrund aufgerufen (Guard: if(smBgImg) im Render-Pass) — beim cleanen
+     Standard-Design gibt es den Hinweis nie. Abstand (Yuki 15.07. abends): nicht mehr direkt
+     an der Bildkante, sondern ~1,6% der Breite nach innen gerückt. */
   const fs=Math.max(Math.round(W*0.016),15);
+  const inset=Math.max(Math.round(W*0.016),16);
   x.save();
-  x.translate(W-fs*0.6, safeTop+(H-safeTop-safeBot)*0.5);
+  x.translate(W-inset-fs*0.6, safeTop+(H-safeTop-safeBot)*0.5);
   x.rotate(Math.PI/2);
   x.font="500 "+fs+"px "+BRAND.font;
   x.fillStyle=B.dark?"rgba(255,255,255,0.62)":"rgba(10,31,68,0.55)";
@@ -5811,8 +5820,11 @@ function smDrawContent(ctx){
       let _st=d.stand||"";
       ["vorbörslich","nachbörslich"].forEach(w=>{ if((d.exchange||"").toLowerCase().includes(w)) _st=_st.replace(new RegExp("[,·\\s]*"+w,"i"),"").trim(); });
       const _ex=(d.exchange||"")+(_st?" · "+_st:"");
-      smFit(x,_ex,"500",bodyFS*0.8,W-2*M); x.fillStyle=B.muted; x.textAlign="left"; x.fillText(_ex, M, y+bodyFS*3.7); }
-    y+=bodyFS*4.6;
+      /* Abstand-Fix (Christian 15.07. abends): Komma/Unterlängen des großen Kurses (2,3x-Schrift,
+         Baseline y+2,6*bodyFS) reichen bis ~y+3,15*bodyFS — die Börsenplatz-Zeile stand bei 3,7
+         und das Kurs-Komma ragte optisch hinein. Jetzt 4,15 plus Folgeabstand angepasst. */
+      smFit(x,_ex,"500",bodyFS*0.8,W-2*M); x.fillStyle=B.muted; x.textAlign="left"; x.fillText(_ex, M, y+bodyFS*4.15); }
+    y+=bodyFS*5.05;
     /* Harter Filter (Christian 15.07., 3. Anlauf): Bilanz-Detailposten fliegen deterministisch
        raus. Regex jetzt auf WORTANFANG "liquid" — der 2. Anlauf prüfte "liquidit" und wurde von
        der abgekürzten Label-Variante "Liquid. bis Ende 2027" umgangen. */
@@ -6053,7 +6065,8 @@ async function smOpenInEditor(){
       const m=/(\d{3}|bold|normal)?\s*([0-9.]+)px\s+(.+)/.exec(it.font||"")||[];
       const weight=m[1]||"500", px0=parseFloat(m[2]||"40"), fam=(m[3]||BRAND.font).split(",")[0].replace(/["']/g,"").trim();
       let X=it.x, Y=it.y, S=px0;
-      if(it.tag==="content"){ X=(WW-WW*fs_)/2 + it.x*fs_; Y=ftop+(it.y-ftop)*fs_; S=px0*fs_; }
+      /* dx-Anker synchron zu smDrawContentFitted (links auf M statt zentriert, Yuki 15.07.) */
+      if(it.tag==="content"){ const dx0=(cap.fit.dx!==undefined)?cap.fit.dx:0; X=dx0 + it.x*fs_; Y=ftop+(it.y-ftop)*fs_; S=px0*fs_; }
       const t=new fabric.IText(it.text,{
         left:X*kScale, top:(Y - S*0.82)*kScale, fontSize:S*kScale,
         fontFamily:fam, fontWeight:weight, fill:it.fill||"#fff",
