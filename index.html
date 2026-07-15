@@ -3340,19 +3340,15 @@ async function extractSM(txt,opts){
   }
   if(smTpl.carousel) smBuildTplGrid();
   smCheckTriggers(); smUpdateLegal(); smRender();
-  /* Schritt 3: KI-Hintergrund automatisch generieren — NUR bei Karussell-Templates.
-     Einzel-Slide-Posts (Christian 15.07.): KEIN KI-Bild, cleaner Brand-Hintergrund (#080104). */
+  /* Schritt 3 (Yuki-Feedback 15.07. abends): bei zero KEIN automatischer KI-Hintergrund mehr —
+     für ALLE Templates (auch Karussells). Standard = cleaner Brand-Hintergrund (#080104).
+     Ein KI-Bild ist rein OPTIONAL über den Button "KI-Hintergrund generieren" (Bild-Prompt
+     ist aus dem Artikel vorbefüllt und bleibt frei editierbar). */
   const info2=$("smAutoInfo");
-  if(!smTpl.carousel){
-    smBgImg=null; smBgUrl=null;
-    if($("smBgClear")) $("smBgClear").style.display="none";
-    smRender();
-    if(info2) info2.textContent="Fertig: Felder gesetzt. Einzel-Slide nutzt den cleanen zero-Hintergrund (kein KI-Bild).";
-  } else if(genMode()!=="demo"){
-    if(info2) info2.textContent="KI-Hintergrund wird generiert …";
-    try{ await smGenBg(); if(info2) info2.textContent="Fertig: Template, Felder, Stil und Bild gesetzt."; }
-    catch(e){ if(info2) info2.textContent="Felder gefüllt — Bild bitte manuell generieren."; }
-  } else if(info2) info2.textContent="Felder gefüllt (Demo-Modus: kein Live-Bild).";
+  smBgImg=null; smBgUrl=null;
+  if($("smBgClear")) $("smBgClear").style.display="none";
+  smRender();
+  if(info2) info2.textContent="Fertig: Felder gesetzt — cleaner zero-Hintergrund. Optional: unten „KI-Hintergrund generieren“ klicken.";
 }
 
 async function extractChart(txt){
@@ -5421,8 +5417,11 @@ function smRender(){
      gleichmäßig verkleinert eingepasst — nie Überlagerung mit Quelle/Legal/Logo. */
   smDrawContentFitted(ctx);
 
-  /* Provenance (Quelle + Stand) direkt über Legal */
-  const prov=[smData.source?("Quelle: "+smData.source):"", smData.stand?("Stand: "+smData.stand):""].filter(Boolean).join("  ·  ");
+  /* Provenance (Quelle + Stand) direkt über Legal.
+     Zero (Yuki 15.07.): Quelle ist IMMER "finanzen.net" — deterministisch erzwungen,
+     egal was im Feld steht. */
+  const _src=(smBrand==="zero")?"finanzen.net":smData.source;
+  const prov=[_src?("Quelle: "+_src):"", smData.stand?("Stand: "+smData.stand):""].filter(Boolean).join("  ·  ");
   if(prov && smTpl.id!=="zero_sm_edu_explainer"){
     /* Logo-Zone rechts freihalten (Logo-Vertrag: 16% Breite + 3,5% Margin) */
     const provMaxW=W - 2*M - W*((((LOGOS[B.logo]||{}).breite_prozent||16)/100)+0.055);
@@ -5662,7 +5661,8 @@ function smDrawContent(ctx){
       y=smText(x,d.takeaway||"",M,y+headFS,headFS*0.85,"800",B.ink,W-2*M,headFS*1.05);
       x.fillStyle=B.accent; smRound(x,M,y+W*0.06,W*0.42,headFS*1.35,headFS*0.68); x.fill();
       x.font="700 "+bodyFS+"px "+BRAND.font; x.fillStyle=B.dark?"#06210f":"#fff"; x.fillText("Beitrag speichern ✓",M+W*0.045,y+W*0.06+headFS*0.9);
-      if(d.source){ x.font="500 "+bodyFS*0.85+"px "+BRAND.font; x.fillStyle=B.muted; x.fillText("Quelle: "+d.source, M, ctx.bottom-bodyFS); }
+      { const _s=(smBrand==="zero")?"finanzen.net":d.source; /* zero: Quelle immer finanzen.net (Yuki 15.07.) */
+        if(_s){ x.font="500 "+bodyFS*0.85+"px "+BRAND.font; x.fillStyle=B.muted; x.fillText("Quelle: "+_s, M, ctx.bottom-bodyFS); } }
     }
 
   } else if(id==="zero_sm_data_chart_story"){
@@ -5974,12 +5974,8 @@ const SM_THEME_TXT={
 };
 async function smGenBg(){
   const st=$("smBgStatus");
-  /* Einzel-Slide-Posts (Christian 15.07.): kein KI-Hintergrund — cleaner zero-Hintergrund ist Pflicht */
-  if(smBrand==="zero" && smTpl && !smTpl.carousel){
-    smBgImg=null; smBgUrl=null; if($("smBgClear")) $("smBgClear").style.display="none"; smRender();
-    if(st) st.textContent="Einzel-Slide-Posts nutzen bei zero den cleanen Brand-Hintergrund — kein KI-Bild.";
-    return;
-  }
+  /* Yuki 15.07. abends: KI-Hintergrund ist bei zero rein OPTIONAL (nur manueller Klick landet hier,
+     kein Auto-Aufruf mehr) — erlaubt für ALLE Templates, Standard bleibt der cleane Hintergrund. */
   if(genMode()==="demo"){ st.textContent="Demo-Modus: kein Live-Bild. Make-Webhook oder OpenRouter-Key nötig."; return; }
   st.textContent="KI-Hintergrund wird generiert …";
   /* FIX (Christian 15.07.): Editor öffnete teils VOR dem Bild-Load -> Hintergrund fehlte im Editor.
