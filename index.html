@@ -3111,7 +3111,7 @@ async function extractSM(txt,opts){
   schema["bg_prompt"]="kurzer englischer Bild-Prompt für einen thematisch passenden Stimmungshintergrund ohne Text, ohne Zahlen, ohne Logos";
   schema["theme"]="einer von: clean | cinematic | metaphor — passend zur Tonalität des Inhalts";
   schema["caption_instagram"]="Instagram-Caption im zero-Ton (packende erste Zeile, kurze Absätze, gezielt einzelne Emojis, Engagement-Frage am Ende, KEINE Anlageberatung)";
-  schema["caption_linkedin"]="LinkedIn-Caption: sachlich-analytisch, längerer Fließtext, keine Emojis";
+  schema["caption_linkedin"]="LinkedIn-Caption: sachlich-analytisch, längerer Fließtext, keine Emojis. WICHTIG: jede Firma nur beim ERSTEN Vorkommen mit @ markieren (z.B. @Apple), bei allen weiteren Erwähnungen derselben Firma OHNE @";
   schema["x_text"]="X/Twitter-Post, max 260 Zeichen, prägnant";
   schema["hashtags_instagram"]="Array mit 5 thematischen Hashtags, klein geschrieben";
   schema["hashtags_linkedin"]="Array mit 3-4 Hashtags";
@@ -3131,6 +3131,12 @@ async function extractSM(txt,opts){
   if(out.bg_prompt && $("smBgPrompt")) $("smBgPrompt").value=out.bg_prompt;
   /* Copy-Paste-Texte für die Plattform-Leiste im Editor (gleiche Struktur wie finanzen.net) */
   if(out.caption_instagram||out.caption_linkedin||out.x_text){
+    /* @-Mentions: pro Firma nur beim ersten Vorkommen (Yuki) — gleiches Sicherheitsnetz wie finanzen.net */
+    const dedupe=(t)=>{ if(!t) return t; const seen=new Set();
+      return t.replace(/@([A-Za-z0-9ÄÖÜäöüß][\w&.-]*(?:\s+[A-Z][\w&.-]*)?)/g,(m,name)=>{
+        const key=name.trim().toLowerCase();
+        if(seen.has(key)) return name; seen.add(key); return m; }); };
+    out.caption_linkedin=dedupe(out.caption_linkedin);
     window._smText={
       captions:{instagram:out.caption_instagram||"",linkedin:out.caption_linkedin||""},
       hashtags:{instagram:Array.isArray(out.hashtags_instagram)?out.hashtags_instagram:[],linkedin:Array.isArray(out.hashtags_linkedin)?out.hashtags_linkedin:[]},
