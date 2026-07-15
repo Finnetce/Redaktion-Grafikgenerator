@@ -1605,6 +1605,23 @@ function makeLogo(dark){
   const b=new fabric.Text(".net",{left:a.width+fs*0.07+fs*0.115*2+fs*0.07,fontFamily:BRAND.font,fontWeight:800,fontSize:fs,fill:c1,originX:"left"});
   const g=new fabric.Group([a,dot,b],{selectable:true}); g.set({name:"logo"}); return g;
 }
+/* ===== GLOBALER UMBRUCH-SCHUTZ (Christian/Yuki 15.07., 2. Fix ~11:15) =====
+   Buchstaben-Umbruch ("IPO-Plän|e") trat WEITER auf, obwohl splitByGrapheme beim Erstellen
+   entfernt war: alte Slide-Snapshots (slides[].json, Undo-Stack, PDF-Export) tragen das Flag
+   noch in ihrem JSON und canvas.loadFromJSON stellte es wieder her.
+   Daher wird splitByGrapheme hier auf PROTOTYP-Ebene hart auf false gepinnt: jeder Versuch,
+   es zu setzen (Konstruktor, loadFromJSON, set(), Undo/Redo), wird ignoriert. Damit kann
+   NIE wieder ein einzelner Buchstabe in eine neue Zeile umbrechen — egal aus welcher Quelle
+   eine Textbox kommt. Über-lange Wörter behandelt weiterhin _breakLongWords (gezielt, s.u.). */
+(function(){
+  try{
+    Object.defineProperty(fabric.Textbox.prototype,"splitByGrapheme",{
+      get:function(){ return false; },
+      set:function(){ /* bewusst ignoriert — Buchstaben-Umbruch ist verboten */ },
+      configurable:true
+    });
+  }catch(e){ /* im Zweifel altes Verhalten, aber defineProperty auf Prototyp ist überall verfügbar */ }
+})();
 /* Bricht NUR einzelne Wörter um, die breiter als die Box sind (Bug Yuki 15.07.: "Seeblockad|e"
    entstand, weil splitByGrapheme global JEDES Wort per Zeichen zerhackte). Normale Wörter bleiben
    unangetastet und wrappen normal an Leerzeichen. Zu lange Wörter werden bevorzugt am Bindestrich
@@ -1629,16 +1646,14 @@ function _breakLongWords(txt,opts){
         else cur=test;
       });
       if(cur) lines.push(cur);
-      // jede Teil-Zeile, die IMMER noch zu breit ist, hart per Zeichen brechen
-      return lines.map(l=>meas(l)>maxW?hardChar(l):l).join("\n");
+      // Teil-Zeilen, die IMMER noch zu breit sind, NICHT mehr per Zeichen brechen (verboten!)
+      // -> unverändert lassen, die Shrink-Stufe in _fitTextLines verkleinert die Schrift passend.
+      return lines.join("\n");
     }
-    // 2) kein Bindestrich -> hart per Zeichen
-    return hardChar(word);
-  };
-  const hardChar=(s)=>{
-    let out="", cur="";
-    for(const ch of s){ const test=cur+ch; if(cur && meas(test)>maxW){ out+=cur+"\n"; cur=ch; } else cur=test; }
-    return out+cur;
+    // 2) kein Bindestrich -> NIEMALS per Zeichen brechen (Regel Christian 15.07.:
+    //    kein einzelner Buchstabe darf je in eine neue Zeile). Wort unverändert lassen;
+    //    _fitTextLines verkleinert die Schrift, bis es in die Box passt.
+    return word;
   };
   return (""+txt).split(/(\s+)/).map(tok=>/\s/.test(tok)?tok:splitOne(tok)).join("");
 }
@@ -2057,6 +2072,24 @@ function _fitTextLines(){
   const subMax=(window._smBrand==="zero")?2:1;
   canvas.getObjects().forEach(o=>{
     if(o.type!=="textbox") return;
+    /* Schutz 3 (Christian 15.07.): alte Snapshots (slides[].json / Undo) können den früheren
+       Buchstaben-Umbruch als HARTES \n mitten im Wort gespeichert haben ("IPO-Plän\ne ...").
+       Ein \n direkt zwischen zwei Buchstaben ohne Bindestrich/Leerzeichen ist nie gewollt ->
+       zusammenfügen; der normale Wortumbruch übernimmt danach. */
+    if(o.text && /[A-Za-zÄÖÜäöüß0-9]\n[a-zäöüß0-9]/.test(o.text)){
+      o.set("text", o.text.replace(/([A-Za-zÄÖÜäöüß0-9])\n([a-zäöüß0-9])/g,"$1$2"));
+      o.initDimensions&&o.initDimensions();
+    }
+    /* Schutz 2 (Christian 15.07.): splitByGrapheme ist global AUS (Prototyp-Pin oben).
+       Folge: ein zu langes Einzelwort kann rechts überstehen statt zerhackt zu werden.
+       Dann Schrift verkleinern, bis das längste Wort in die Box passt (nie Buchstaben-Umbruch). */
+    { let gW=30;
+      const tooWide=()=>{ if(!o.textLines||!o._getLineWidth) return false;
+        for(let li=0;li<o.textLines.length;li++){ if(o._getLineWidth(li)>o.width+2) return true; }
+        return false; };
+      o.initDimensions&&o.initDimensions();
+      while(tooWide() && o.fontSize>14 && gW-->0){ o.set("fontSize",o.fontSize-1); o.initDimensions(); }
+    }
     const isSub=o.name==="subline";
     const maxLines = o.name==="headline" ? 2 : (isSub ? subMax : 0);
     if(!maxLines) return;
