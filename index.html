@@ -5522,7 +5522,7 @@ function smBuildMotifZ(){
     if(window._smCapture && this._capTag){
       const tr=this.getTransform();
       if(tr.a===1&&tr.b===0&&tr.c===0&&tr.d===1&&tr.e===0&&tr.f===0){
-        window._smCapture.push({tag:this._capTag,text:""+t,x:a,y:b,font:this.font,fill:this.fillStyle,align:this.textAlign||"left"});
+        window._smCapture.push({tag:this._capTag,text:""+t,x:a,y:b,font:this.font,fill:this.fillStyle,align:this.textAlign||"left",baseline:this.textBaseline||"alphabetic"});
         return;  // Text NICHT ins Hintergrund-PNG zeichnen
       }
     }
@@ -5666,10 +5666,11 @@ function smKicker(ctx,label){
   /* Zentrierung im Chip (Christian 15.07. abends, gilt für ALLE Templates — Kicker wird nur
      hier gezeichnet): horizontal per textAlign=center auf Chip-Mitte, vertikal per
      middle-Baseline auf Chip-Mitte (leichter optischer Versatz für Versalien). */
+  /* Vertikal: alphabetische Baseline auf Chip-Mitte + halbe Versalhöhe (~0,36em) —
+     "middle"-Baseline saß bei Plus Jakarta Sans zu hoch (Yuki/Christian 15.07. abends) */
   x.fillStyle=B.accent; x.textAlign="center";
-  const _bl=x.textBaseline; x.textBaseline="middle";
-  x.fillText(label.toUpperCase(), M+chipW/2, ctx.top+chipH/2+fs*0.06);
-  x.textBaseline=_bl; x.textAlign="left";
+  x.fillText(label.toUpperCase(), M+chipW/2, ctx.top+chipH/2+fs*0.36);
+  x.textAlign="left";
   return ctx.top+chipH+ctx.W*0.03;
 }
 function smRound(x,X,Y,w,h,r){
@@ -5716,9 +5717,9 @@ function smDrawContent(ctx){
       x.fillStyle=B.accent; smRound(x,M,y+W*0.06,W*0.42,headFS*1.35,headFS*0.68); x.fill();
       /* Button-Text zentriert im Pill (Christian 15.07. abends) */
       x.font="700 "+bodyFS+"px "+BRAND.font; x.fillStyle=B.dark?"#06210f":"#fff";
-      { const _b0=x.textBaseline; x.textAlign="center"; x.textBaseline="middle";
-        x.fillText("Beitrag speichern ✓", M+W*0.21, y+W*0.06+headFS*1.35/2+bodyFS*0.06);
-        x.textAlign="left"; x.textBaseline=_b0; }
+      { x.textAlign="center";
+        x.fillText("Beitrag speichern ✓", M+W*0.21, y+W*0.06+headFS*1.35/2+bodyFS*0.36);
+        x.textAlign="left"; }
       { const _s=(smBrand==="zero")?"finanzen.net":d.source; /* zero: Quelle immer finanzen.net (Yuki 15.07.) */
         if(_s){ x.font="500 "+bodyFS*0.85+"px "+BRAND.font; x.fillStyle=B.muted; x.fillText("Quelle: "+_s, M, ctx.bottom-bodyFS); } }
     }
@@ -5989,9 +5990,9 @@ function smDrawContent(ctx){
     x.fillStyle=B.accent; smRound(x,M,y,W*0.4,headFS*1.2,headFS*0.6); x.fill();
     /* Button-Text zentriert im Pill (Christian 15.07. abends) */
     x.font="700 "+bodyFS+"px "+BRAND.font; x.fillStyle=B.dark?"#06210f":"#fff";
-    { const _b1=x.textBaseline; x.textAlign="center"; x.textBaseline="middle";
-      x.fillText(d.cta||"Jetzt anmelden", M+W*0.2, y+headFS*0.6+bodyFS*0.06);
-      x.textAlign="left"; x.textBaseline=_b1; }
+    { x.textAlign="center";
+      x.fillText(d.cta||"Jetzt anmelden", M+W*0.2, y+headFS*0.6+bodyFS*0.36);
+      x.textAlign="left"; }
 
   } else if(id==="zero_sm_brand_product_announcement"){
     y=smKicker(ctx,d.kicker);
@@ -6010,9 +6011,9 @@ function smDrawContent(ctx){
     x.fillStyle=B.accent; smRound(x,M,y,W*0.36,headFS*1.15,headFS*0.58); x.fill();
     /* Button-Text zentriert im Pill (Christian 15.07. abends) */
     x.font="700 "+bodyFS+"px "+BRAND.font; x.fillStyle=B.dark?"#06210f":"#fff";
-    { const _b2=x.textBaseline; x.textAlign="center"; x.textBaseline="middle";
-      x.fillText(d.cta||"Mehr erfahren", M+W*0.18, y+headFS*0.575+bodyFS*0.06);
-      x.textAlign="left"; x.textBaseline=_b2; }
+    { x.textAlign="center";
+      x.fillText(d.cta||"Mehr erfahren", M+W*0.18, y+headFS*0.575+bodyFS*0.36);
+      x.textAlign="left"; }
   }
 }
 
@@ -6158,6 +6159,8 @@ async function smOpenInEditor(){
         lineHeight:bk.texts.length>1?bk.lh:1.16,
         fontFamily:bk.fam, fontWeight:bk.weight, fill:bk.fill,
         originX:(bk.align==="right")?"right":(bk.align==="center"?"center":"left"),
+        /* Zeilen INNERHALB des Blocks folgen der Capture-Ausrichtung (Footer mittig etc.) */
+        textAlign:(bk.align==="right")?"right":(bk.align==="center"?"center":"left"),
         name:"smtext"+n, selectable:true, editable:true
       });
       canvas.add(t);
