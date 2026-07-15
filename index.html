@@ -2009,6 +2009,17 @@ async function generateSlideImages(content){
   }
 }
 
+/* Textbausteine unverzerrbar machen (Christian 15.07. abends): Eck-/Seiten-Griffe deaktivieren,
+   damit Text nicht in die Breite/Höhe gezogen (gestretcht) werden kann. Verschieben + Rotieren
+   bleiben erlaubt; die Schriftgröße ändert man über das Eigenschaften-Panel. Gilt auch, wenn
+   der Editor eine solche Textbox neu aktiviert. */
+function _lockTextScale(o){
+  if(!o) return;
+  o.set({ lockScalingX:true, lockScalingY:true, lockSkewingX:true, lockSkewingY:true });
+  o.setControlsVisibility && o.setControlsVisibility({
+    mt:false, mb:false, ml:false, mr:false, tl:false, tr:false, bl:false, br:false, mtr:true
+  });
+}
 function loadImageObj(src,props){
   return new Promise((resolve,reject)=>{
     fabric.Image.fromURL(src,(img)=>{
@@ -2344,6 +2355,8 @@ function labelFor(o){
 function updateProps(){
   const o=canvas.getActiveObject(); if(!o){ clearProps(); return; }
   const isText=o.type==="textbox"||o.type==="i-text"||o.type==="text";
+  /* Textbausteine nie verzerrbar (Christian 15.07.): auch beim (Neu-)Aktivieren absichern */
+  if(isText && typeof _lockTextScale==="function"){ _lockTextScale(o); }
   const w=Math.round(o.getScaledWidth()),h=Math.round(o.getScaledHeight());
   let html=`<div class="sel-tag"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg> ${labelFor(o)}</div>`;
   html+=`<div class="pgroup"><div class="pgt">Position & Größe</div>
@@ -5605,7 +5618,9 @@ function smDrawLogo(x,W,H,B,safeBot,legalH){
   const img=_smLogoCache[logoId+"_"+variant]||_smLogoCache[logoId+"_"+(dark?"dunkel":"hell")];
   if(!img) return;
   const pct=((LOGOS[logoId]||{}).breite_prozent||16)/100;
-  const mg=Math.round(W*0.035);                       /* identisch zu _addLogoFabric/_drawLogoCanvas2D */
+  /* Logo weiter nach innen (Christian 15.07. abends): Margin von 3,5% -> 6% der Breite, plus
+     safeTop/safeBot berücksichtigt — Logo sitzt klar innerhalb der Safe-Zone, nicht am Rand. */
+  const mg=Math.round(W*0.06);
   const lw=Math.round(W*pct), lh=Math.round(lw*_logoAspect(logoId,dark));
   const ly=H - safeBot - legalH - mg - lh;            /* unten rechts, über der Legal-Fußzeile */
   x.drawImage(img, W-mg-lw, ly, lw, lh);
@@ -6163,6 +6178,7 @@ async function smOpenInEditor(){
         textAlign:(bk.align==="right")?"right":(bk.align==="center"?"center":"left"),
         name:"smtext"+n, selectable:true, editable:true
       });
+      _lockTextScale(t);   /* Textbausteine nicht verzerrbar (Christian 15.07.): nur bewegen + Schriftgröße */
       canvas.add(t);
     });
     canvas.renderAll();
