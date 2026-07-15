@@ -752,7 +752,8 @@
     </div>
 
     <div class="card">
-      <div class="card-h"><span class="n">1</span><h3>Template</h3><span class="hint" id="smTplAutoTag" style="margin-left:10px"></span></div>
+      <div class="card-h"><span class="n">1</span><h3>Use Case / Template</h3><span class="hint" id="smTplAutoTag" style="margin-left:10px"></span></div>
+      <label class="lab" style="margin-top:0">Vorlage wählen — bestimmt zugleich die Slide-Serie (Anzahl/Art der Slides)</label>
       <div class="sm-tpl-grid" id="smTplGrid"></div>
       <div class="row" id="smRefillRow" style="display:none;margin-top:10px;align-items:center;gap:10px">
         <button class="btn" id="smRefill">
@@ -761,6 +762,13 @@
         </button>
         <span class="hint">Nutzt den eingefügten Artikel und füllt die Slots des neu gewählten Templates (z.B. mehr Slides beim Karussell).</span>
       </div>
+      <label class="lab">Logo</label>
+      <div class="selwrap"><select class="sel" id="smLogoSel"><option value="">Kein Logo (Standard)</option></select><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+      <div class="selwrap" style="margin-top:7px"><select class="sel" id="smLogoVar"><option value="">Variante: Auto (hell/dunkel)</option><option value="hell">Helle Variante (weiß)</option><option value="dunkel">Dunkle Variante</option></select><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+      <span class="hint" style="display:block;margin-top:7px">Wird skaliert unten rechts über der Legal-Fußzeile gesetzt. Standard: zero-Logo automatisch. Variante automatisch nach Hintergrundhelligkeit — oder manuell wählbar.</span>
+      <label class="lab" style="margin-top:14px">Bildmotiv (KI-Hintergrund)</label>
+      <div class="sm-sug" id="smMotifListZ" style="grid-template-columns:1fr 1fr"></div>
+      <span class="hint" style="display:block;margin-top:8px" id="smMotifHintZ">Claude schlägt anhand des Artikels ein Motiv vor. Anderes Motiv anklicken, um den Bild-Prompt zu übernehmen.</span>
     </div>
 
     <div class="sm-stage">
@@ -771,16 +779,8 @@
           <div class="sm-fields" id="smFields"></div>
           <div class="sm-warn" id="smWarn"></div>
         </div>
-        <div class="card">
-          <div class="card-h"><span class="n">3</span><h3>Plattformen &amp; Format</h3></div>
-          <label class="lab" style="margin-top:0">Plattformen — alle vorausgewählt, Häkchen entfernen was nicht bespielt wird</label>
-          <div class="sm-fmt-grid" id="smPlats" style="margin-bottom:10px"></div>
-          <label class="lab">Format</label>
-          <div class="sm-fmt-grid" id="smFmtGrid"></div>
-          <span class="hint" style="display:block;margin-top:8px" id="smFmtHint"></span>
-        </div>
         <div class="card" id="smBgCard" style="display:none">
-          <div class="card-h"><span class="n">4</span><h3>KI-Hintergrund</h3></div>
+          <div class="card-h"><span class="n">3</span><h3>KI-Bild</h3></div>
           <span class="hint" style="display:block;margin-bottom:9px">Erzeugt einen Stimmungshintergrund ohne Text über die Bild-KI (wird beim Auto-Fill automatisch mitgeneriert). Text, Zahlen, Charts, Logo und Pflichttexte bleiben deterministisch als Ebene darüber.</span>
           <div class="sm-row2" style="margin-bottom:9px">
             <div>
@@ -808,6 +808,14 @@
             <button class="btn" id="smBgClear" style="display:none">Hintergrund entfernen</button>
           </div>
           <span class="hint" id="smBgStatus" style="display:block;margin-top:8px"></span>
+        </div>
+        <div class="card">
+          <div class="card-h"><span class="n">4</span><h3>Plattformen &amp; Format</h3></div>
+          <label class="lab" style="margin-top:0">Plattformen — alle vorausgewählt, Häkchen entfernen was nicht bespielt wird</label>
+          <div class="sm-fmt-grid" id="smPlats" style="margin-bottom:10px"></div>
+          <label class="lab">Format</label>
+          <div class="sm-fmt-grid" id="smFmtGrid"></div>
+          <span class="hint" style="display:block;margin-top:8px" id="smFmtHint"></span>
         </div>
         <div class="card">
           <div class="card-h"><span class="n">5</span><h3>Compliance</h3></div>
@@ -1598,7 +1606,11 @@ function makeLogo(dark){
   const g=new fabric.Group([a,dot,b],{selectable:true}); g.set({name:"logo"}); return g;
 }
 function tHeadline(txt,opts){
-  return new fabric.Textbox(txt,Object.assign({fontFamily:BRAND.font,fontWeight:800,fill:"#ffffff",textAlign:"left",lineHeight:1.04,name:"headline"},opts));
+  // FIX (Yuki 15.07.): lange zusammengesetzte/getrennte Wörter (z.B. "Infrastruktur-Angriffen")
+  // wurden von Fabric NICHT umbrochen (Wrap nur an Leerzeichen) und liefen über den rechten
+  // Rand aus dem Bild. splitByGrapheme erlaubt Fabric, bei Bedarf auch mitten im Wort/am
+  // Bindestrich umzubrechen -> Text bleibt IMMER innerhalb der Box, läuft nie aus dem Bild.
+  return new fabric.Textbox(txt,Object.assign({fontFamily:BRAND.font,fontWeight:800,fill:"#ffffff",textAlign:"left",lineHeight:1.04,name:"headline",splitByGrapheme:true},opts));
 }
 
 function buildCover(content){
@@ -1782,7 +1794,8 @@ function buildQuote(content){
   const q=(content.quote&&content.quote.text)||content.sub||content.close||"";
   const nm=(content.quote&&content.quote.name)||"";
   const role=(content.quote&&content.quote.role)||"";
-  const baseY = (curFmt==="9:16") ? H-(310/1920)*H-30*sx : H-136*sx;
+  // FIX (Yuki 15.07.): Zitat-Text lag auf Höhe des Logos -> minimal höher setzen (136 -> 178).
+  const baseY = (curFmt==="9:16") ? H-(310/1920)*H-46*sx : H-178*sx;
   const roleT = role? new fabric.Textbox(role,{left:108*sx,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:30*sx,fill:"rgba(255,255,255,0.85)",name:"qrole"}) : null;
   const nameT = nm? new fabric.Textbox(nm,{left:108*sx,width:864*sx,fontFamily:spec.font,fontWeight:800,fontSize:46*sx,fill:"#ffffff",name:"qname"}) : null;
   const quoteT = new fabric.Textbox('"'+q+'"',{left:108*sx,width:864*sx,fontFamily:spec.font,fontWeight:500,fontStyle:"italic",fontSize:44*sx,fill:"#ffffff",lineHeight:1.45,name:"quote"});
@@ -3110,13 +3123,16 @@ async function extractSM(txt,opts){
   });
   schema["bg_prompt"]="kurzer englischer Bild-Prompt für einen thematisch passenden Stimmungshintergrund ohne Text, ohne Zahlen, ohne Logos";
   schema["theme"]="einer von: clean | cinematic | metaphor — passend zur Tonalität des Inhalts";
+  schema["motive"]={"empfohlen":"person|logo|szene|metapher — welches Cover-Motiv zu diesem Artikel am stärksten passt (nicht immer logo, für echte Varianz)","person":"englischer Bild-Prompt: Schlüsselperson thematisch inszeniert, photorealistic, NO text overlays","logo":"englischer Bild-Prompt: Markenwelt der Firma, Logo an Fassade/Store/Produkt","szene":"englischer Bild-Prompt: die Story als thematische Szene ohne Logo-Fokus","metapher":"englischer Bild-Prompt: visuelle Metapher zur Kernaussage, premium editorial style"};
   schema["caption_instagram"]="Instagram-Caption im zero-Ton (packende erste Zeile, kurze Absätze, gezielt einzelne Emojis, Engagement-Frage am Ende, KEINE Anlageberatung)";
   schema["caption_linkedin"]="LinkedIn-Caption: sachlich-analytisch, längerer Fließtext, keine Emojis. WICHTIG: jede Firma nur beim ERSTEN Vorkommen mit @ markieren (z.B. @Apple), bei allen weiteren Erwähnungen derselben Firma OHNE @";
   schema["x_text"]="X/Twitter-Post, max 260 Zeichen, prägnant";
-  schema["hashtags_instagram"]="Array mit 5 thematischen Hashtags, klein geschrieben";
-  schema["hashtags_linkedin"]="Array mit 3-4 Hashtags";
+  schema["hashtags_instagram"]="Array mit MAXIMAL 5 thematischen Hashtags (nie mehr!), klein geschrieben";
+  schema["hashtags_linkedin"]="Array mit MAXIMAL 5 Hashtags (nie mehr!)";
   schema["cashtags"]="Array mit 0-2 Cashtags (z.B. $NVDA), nur wenn Einzeltitel Thema ist";
-  const sys="Du bist Redakteur bei finanzen.net zero (deutscher Neobroker) und schreibst professionelles, korrektes Deutsch mit Umlauten. Lies den Artikel und fülle die Felder für das Social-Template \""+smTpl.name+"\" ("+smTpl.desc+"). Antworte NUR mit reinem JSON, ohne Markdown. Schema (Feldname: Bedeutung): "+JSON.stringify(schema)+". COMPLIANCE ZWINGEND: keine Kauf- oder Verkaufsempfehlung aus persönlicher Sicht, keine Formulierungen wie 'jetzt kaufen', 'lohnt sich', 'Top-Pick'. Erlaubt: neutrale Fakten, Analysten-Bezug mit Quelle, oder Frage-Framing. Nutze NUR Zahlen, die im Text stehen; erfinde keine. Felder, für die der Text nichts hergibt, als leeren String lassen. Zahlen in deutscher Schreibweise (Komma).";
+  const sys="Du bist Redakteur bei finanzen.net zero (deutscher Neobroker) und schreibst professionelles, korrektes Deutsch mit Umlauten. Lies den Artikel und fülle die Felder für das Social-Template \""+smTpl.name+"\" ("+smTpl.desc+"). "+
+    "PRIORISIERUNG (Pflicht-Schritt VOR dem Ausfüllen, Redakteurs-Feedback Yuki 15.07.): Identifiziere gedanklich ALLE Einzelfakten des Artikels (Zahlen, Vergleiche, Entscheidungen, Ereignisse, Kursbewegungen) und bewerte jeden nach (a) Größe/strukturellem Gewicht, (b) Überraschungswert, (c) Relevanz für die Anlageentscheidung. Wähle für Headline/Kicker/erstes Feld explizit den Fakt mit dem höchsten Gesamtwert — das ist KEINE Regel gegen Kursbewegungen (bei vielen Artikeln ist die Kursbewegung selbst der stärkste Fakt), sondern gegen automatisches Übernehmen einer nebensächlichen oder austauschbaren Randinfo nur weil sie im Text zuerst steht oder leicht zu formulieren ist. Beispiel für einen Fehler, den es zu vermeiden gilt: eine vage Bewertung wie 'starkes Quartal' ohne Zahl wählen, obwohl der Artikel einen härteren, konkreteren Fakt (z.B. eine prozentuale Kostensenkung oder Kapazitätsverschiebung) enthält. Alle Felder zusammen sollen einen klaren roten Faden ergeben (Ereignis -> Hintergrund -> Konsequenz). KEINE META-REFERENZ AUF DEN ARTIKEL (Pflicht, Redakteurs-Feedback Yuki 15.07.): Schreibe niemals 'wird im Artikel als X bezeichnet', 'laut Artikel', 'weitere Details nennt die Firma nicht' oder ähnliche Verweise auf den Quelltext selbst. Formuliere Fakten direkt (STATT 'X ist im SDAX notiert und wird im Artikel als Technologiekonzern bezeichnet' -> 'X ist ein im SDAX notierter Technologiekonzern'). Fehlt eine Info im Artikel, lasse sie ersatzlos weg statt das Fehlen zu erwähnen. "+
+    "Antworte NUR mit reinem JSON, ohne Markdown. Schema (Feldname: Bedeutung): "+JSON.stringify(schema)+". COMPLIANCE ZWINGEND: keine Kauf- oder Verkaufsempfehlung aus persönlicher Sicht, keine Formulierungen wie 'jetzt kaufen', 'lohnt sich', 'Top-Pick'. Erlaubt: neutrale Fakten, Analysten-Bezug mit Quelle, oder Frage-Framing. Nutze NUR Zahlen, die im Text stehen; erfinde keine. Felder, für die der Text nichts hergibt, als leeren String lassen. Zahlen in deutscher Schreibweise (Komma).";
   const out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,8000)}]));
   smTpl.fields.forEach(f=>{
     if(out[f.k]===undefined||out[f.k]===null) return;
@@ -3128,7 +3144,18 @@ async function extractSM(txt,opts){
     smUpdateCnt(inp,f);
   });
   if(out.theme && $("smTheme") && ["clean","cinematic","metaphor"].includes(out.theme)) $("smTheme").value=out.theme;
-  if(out.bg_prompt && $("smBgPrompt")) $("smBgPrompt").value=out.bg_prompt;
+  // Bildmotiv (Cover-Varianz, wie finanzen.net): bei Auto das von Claude empfohlene Motiv übernehmen,
+  // bei manuell bereits gewähltem Motiv dessen Prompt nehmen. Fallback: genereller bg_prompt.
+  window._smMotivesZ=(out.motive&&typeof out.motive==="object")?out.motive:null;
+  if(window._smMotivesZ){
+    const mKey=(window._smMotifZ==="auto") ? (out.motive.empfohlen||"") : window._smMotifZ;
+    const mPrompt=out.motive[mKey]||"";
+    if($("smBgPrompt")) $("smBgPrompt").value = mPrompt || out.bg_prompt || ($("smBgPrompt")?$("smBgPrompt").value:"");
+    if(window._smMotifZ==="auto" && mKey && typeof SM_MOTIFS!=="undefined" && SM_MOTIFS[mKey]){
+      const mc=document.querySelector('#smMotifListZ [data-motifz="auto"] .g');
+      if(mc) mc.textContent="Claude hat gewählt: "+SM_MOTIFS[mKey].label+". Anderes Motiv anklicken, um es zu übernehmen.";
+    }
+  } else if(out.bg_prompt && $("smBgPrompt")) $("smBgPrompt").value=out.bg_prompt;
   /* Copy-Paste-Texte für die Plattform-Leiste im Editor (gleiche Struktur wie finanzen.net) */
   if(out.caption_instagram||out.caption_linkedin||out.x_text){
     /* @-Mentions: pro Firma nur beim ersten Vorkommen (Yuki) — gleiches Sicherheitsnetz wie finanzen.net */
@@ -3137,9 +3164,14 @@ async function extractSM(txt,opts){
         const key=name.trim().toLowerCase();
         if(seen.has(key)) return name; seen.add(key); return m; }); };
     out.caption_linkedin=dedupe(out.caption_linkedin);
+    /* Harte Regel (Yuki 15.07.): auch am Caption-Ende angehängte Hashtag-Reihen auf max. 5 kappen */
+    const capTags=(t)=>t?t.replace(/((?:#[\wäöüÄÖÜß]+\s*){6,})$/m,(m)=>m.trim().split(/\s+/).slice(0,5).join(" ")):t;
+    out.caption_instagram=capTags(out.caption_instagram);
+    out.caption_linkedin=capTags(out.caption_linkedin);
     window._smText={
       captions:{instagram:out.caption_instagram||"",linkedin:out.caption_linkedin||""},
-      hashtags:{instagram:Array.isArray(out.hashtags_instagram)?out.hashtags_instagram:[],linkedin:Array.isArray(out.hashtags_linkedin)?out.hashtags_linkedin:[]},
+      /* Harte Regel (Yuki 15.07.): max. 5 Hashtags, egal welche Plattform — auch falls das Modell mehr liefert */
+      hashtags:{instagram:(Array.isArray(out.hashtags_instagram)?out.hashtags_instagram:[]).slice(0,5),linkedin:(Array.isArray(out.hashtags_linkedin)?out.hashtags_linkedin:[]).slice(0,5)},
       x:{text:out.x_text||"",cashtags:Array.isArray(out.cashtags)?out.cashtags:[]},
       story:{}
     };
@@ -4040,7 +4072,9 @@ extractSocial = async function(txt){
     ? " W\u00e4hle selbst den passenden Textstil f\u00fcr diesen Artikel (hook=zugespitzt/neugierig, trader=maximale Zahlendichte, info=ruhig erkl\u00e4rend) und gib ihn im Feld textstyle zur\u00fcck."
     : " "+_st.prompt+" Gib im Feld textstyle den Wert '"+window._smTextStyle+"' zur\u00fcck.";
   var sys="Du bist Social-Media-Redakteur bei "+b.label+" und schreibst professionelles, korrektes Deutsch mit Umlauten. Tonalit\u00e4t: "+b.ton+stylePart+" Lies den Artikeltext und antworte NUR mit reinem JSON ohne Markdown. Schema: {"+
-    "\"head\":\"prägnante Schlagzeile, max 55 Zeichen\","+
+    "\" PRIORISIERUNG (Pflicht-Schritt VOR dem Schreiben, Redakteurs-Feedback Yuki 15.07.): Bevor du auch nur ein Feld formulierst, identifiziere gedanklich ALLE Einzelfakten des Artikels (Zahlen, Vergleiche, Entscheidungen, Zitate, Ereignisse, Kursbewegungen) und bewerte jeden nach drei Kriterien: (a) Groesse/strukturelles Gewicht (z.B. eine dauerhafte Kostensenkung, ein Vertragswert, eine Kapazitaetsverschiebung wiegt oft schwerer als eine kurzfristige Kursbewegung von 1-2 Tagen), (b) Ueberraschungswert (weicht der Fakt von der Erwartung ab, ist er neu oder kontraintuitiv?), (c) Relevanz fuer die Anlageentscheidung des Lesers. WICHTIG (Praezisierung Yuki 15.07., nach Rueckfrage): Das ist KEINE pauschale Regel gegen Kursbewegungen -- bei vielen Artikeln IST die Kursbewegung selbst der staerkste, meldungswuerdigste Fakt (z.B. ein Kurssprung von 15 Prozent nach Uebernahmegeruechten) und gehoert dann zu Recht in head/bullets[0]. Entscheide von Fall zu Fall anhand der drei Kriterien oben, nicht anhand der Reihenfolge im Artikel. Vermeide nur den Fehler, eine NEBENSAECHLICHE oder AUSTAUSCHBARE Randinfo (z.B. eine kurze, durch andere Fakten im Artikel klar uebertroffene Kursbewegung, oder eine vage Bewertung wie 'starkes Quartal' ohne Zahl) automatisch zu waehlen, nur weil sie im Text zuerst steht oder am leichtesten zu formulieren ist, wenn der Artikel einen staerkeren Fakt enthaelt. Negativ-Beispiele aus echtem Feedback: Bei einem Mercedes-Artikel wurde faelschlich der zweitaegige Kursanstieg als Hauptaussage gewaehlt, obwohl der Artikel auch 'rund 70 Prozent niedrigere Produktionskosten in Ungarn' nannte -- ein staerkerer, ueberraschenderer Fakt mit echtem strukturellem Gewicht, der stattdessen in head/bullets[0] gehoert haette. Bei einem Rio-Tinto-Artikel wurde 'starkes Q2 aus Pilbara' gewaehlt -- eine vage, austauschbare Bewertung ohne Zahl und ohne Neuigkeitswert, obwohl der Artikel konkretere, haertere Fakten enthielt. Gib deine Priorisierung explizit im Feld relevanz zurueck (Pflichtfeld zur Selbstkontrolle, erscheint NICHT auf der Grafik). Der staerkste Fakt aus relevanz MUSS wortgleich oder sinngleich in head ODER bullets[0] auftauchen -- harte Bedingung. ROTER FADEN (Pflicht): Alle Felder zusammen muessen eine zusammenhaengende Story mit klarem Bogen ergeben (Ereignis -> Ursache/Hintergrund -> Konsequenz), nicht eine lose Ansammlung einzelner Fakten -- jedes Feld baut inhaltlich auf dem vorherigen auf.\""+
+    "\"relevanz\":{\"staerkster_fakt\":\"der eine Fakt, den du als wichtigsten identifiziert hast, mit Zahl/Beleg\",\"warum\":\"1 kurzer Satz warum dieser Fakt die anderen Kandidaten schlaegt (Gewicht/Ueberraschung/Anlagerelevanz) -- falls es die Kursbewegung ist, begruende explizit warum sie hier der staerkste Fakt ist\",\"verworfen\":\"1 kurzes Beispiel eines schwaecheren Fakts, den du bewusst NICHT in head/bullets[0] verwendet hast\"},"+
+    "\"head\":\"prägnante Schlagzeile, max 55 Zeichen -- MUSS den staerksten Fakt aus relevanz enthalten, falls er dort noch nicht steht\","+
     "\"sub\":\"Unterzeile, STRIKT max 40 Zeichen (muss bei gro\u00dfer Schrift auf EINE Zeile passen), pr\u00e4gnanter Zusatz zur Schlagzeile\","+
     "\"bullets\":[\"drei Kernaussagen, je STRIKT max 100 Zeichen (harte Grenze, sonst Layout-Bruch). QUALITÄTS-REGELN (alle Pflicht): (1) Jeder Punkt muss OHNE Vorwissen verständlich sein — ein Follower, der nur diese Slide sieht, versteht sofort, worum es geht und was passiert ist. (2) Jeder Punkt enthält mindestens EINEN konkreten Fakt aus dem Artikel: eine Zahl, einen Prozentwert, einen Betrag, ein Datum oder eine klar benannte Entscheidung — keine vagen Aussagen wie 'Experten sind optimistisch' oder 'Das Umfeld bleibt schwierig'. (3) Die drei Punkte bauen als Story aufeinander auf: Punkt 1 = WAS ist konkret passiert (das Ereignis mit der wichtigsten Zahl), Punkt 2 = WARUM / der Auslöser oder Kontext, Punkt 3 = die KONSEQUENZ: was es für Anleger, das Unternehmen oder den Markt konkret bedeutet. (4) Der wichtigste Fakt des Artikels MUSS in den Bullets vorkommen — frage dich: Was ist die eine Sache, die ein Leser mitnehmen soll? Diese zuerst. (5) Aktive, konkrete Sprache: Subjekt + Verb + Fakt ('Intel hebt die Xeon-Preise um 12 Prozent an'), keine Substantivierungen, keine Füllwörter, kein Behörden-Deutsch. SELBSTTEST vor der Antwort: Lies deine drei Bullets isoliert — versteht ein Laie ohne den Artikel, was passiert ist und warum es wichtig ist? Falls nein, umschreiben\"],"+
     "\"close\":\"Schluss-Statement, max 140 Zeichen: die konkrete Kernerkenntnis oder der Ausblick mit Substanz (was sollte man im Blick behalten und WARUM) — kein generisches 'Es bleibt spannend'\","+
@@ -4064,8 +4098,8 @@ extractSocial = async function(txt){
     "\"infoBullet\":\"Chevron-Punkt der Info-Slide, max 100 Zeichen: ein weiterer NEUER Fakt, der weder in bullets noch in intro steht\","+
     "\"box\":\"Kontext/Ausblick für die abgerundete Info-Box, max 160 Zeichen und EIN vollständiger, in sich abgeschlossener Satz: die konkrete Konsequenz oder der nächste relevante Termin — darf KEINEN Fakt aus bullets, intro oder infoBullet wiederholen\","+
     "\"x\":{\"text\":\"Post für X (Twitter), STRIKT max 240 Zeichen (Puffer für Cashtags): macht neugierig auf die Slides und regt zum Durchklicken an (z.B. Kernaussage anteasern, die stärkste Zahl nennen, aber nicht alles verraten). Redakteurs-Ton, keine KI-Floskeln, maximal 1 Emoji\",\"cashtags\":[\"1 bis MAXIMAL 2 Börsenticker der zentralen Aktien des Artikels im Format $AMD, $NVDA — NUR wenn der Ticker sicher bekannt ist, sonst leere Liste\"]},"+
-    "\"hashtags\":{\"instagram\":[\"MAXIMAL 5 deutsche Hashtags (nie mehr als 5!), klein geschrieben. AUSWAHL-REGEL: 1x Firmenname + sonst breite, reichweitenstarke Finanz-/Wirtschafts-Hashtags wie #börse, #aktien, #finanzen, #wirtschaft, #investieren, #geldanlage. KEINE Nischen-Hashtags zum Spezialthema (FALSCH: #containerschifffahrt, #prognose, #hamburg, #nutzfahrzeuge — RICHTIG: #hapaglloyd #aktien #börse #wirtschaft #finanzen)\"],\"linkedin\":[\"3-5 Hashtags: 1x Firmenname + breite Wirtschafts-/Finanz-Tags (#Wirtschaft, #Börse, #Finanzen, #Investieren), keine Nischen-Tags\"]}}. "+
-    "ANTI-REDUNDANZ (kritisch): Jedes Feld wird auf einer EIGENEN Slide angezeigt. Über ALLE Felder hinweg (head, sub, bullets, infoHead, intro, infoBullet, box, close, closeHead) darf derselbe Fakt NIE zweimal vorkommen — auch nicht umformuliert. Verteile die Fakten des Artikels bewusst: bullets = die 3 wichtigsten Kernfakten; intro/infoBullet/box = weitere Aspekte, Hintergründe, Zahlen oder Termine, die in den bullets NICHT stehen; close = eine echte Schlussfolgerung, kein Fakten-Recap. closeHead und infoHead müssen sich klar von head und voneinander unterscheiden. SELBSTTEST: Lies alle Felder nacheinander wie ein Karussell — wiederholt sich inhaltlich etwas, ersetze es durch einen noch nicht genutzten Fakt aus dem Artikel. KEIN KI-KLANG (Pflicht für alle Texte): VERBOTEN sind formelhafte Absatz-Einstiege mit Doppelpunkt-Anmoderation wie 'Besonders überraschend:', 'Ein Wermutstropfen bleibt:', 'Besonders bemerkenswert:', 'Interessant dabei:', 'Wichtig zu wissen:', 'Hinzu kommt:', 'Nicht zu vergessen:' und ähnliche Zweiwort-Floskeln. Statt 'Besonders überraschend: International Motors erzielte 115 Mio.' schreibe 'International Motors erzielte 115 Mio. EUR — der Konsens hatte einen Verlust erwartet.' Die Überraschung/Bewertung gehört IN den Satz, nicht davor. Variiere Satzanfänge über alle Absätze. LESBARKEIT (Pflicht): Schreibe einfache, klare Sätze wie ein guter Nachrichtenredakteur. Maximal EIN Nebensatz pro Satz, KEINE Schachtelsätze, KEINE Einschübe mit Gedankenstrich am Satzende, keine Relativsatz-Ketten. Lieber zwei kurze Sätze als ein verschachtelter. Negativ-Beispiel (so NICHT): 'Louisiana befreite Ende 2024 Rechenzentren, die vor 2029 gebaut werden, für 20 Jahre von der Umsatzsteuer — gezielt, um Meta ins Land zu holen.' Besser: 'Louisiana befreit neue Rechenzentren für 20 Jahre von der Umsatzsteuer. Das Gesetz von Ende 2024 sollte gezielt Meta ins Land holen.' SELBSTTEST LESBARKEIT: Lies jeden Satz laut — stolpert man oder braucht man zwei Anläufe, in zwei Sätze aufteilen. WÄHRUNGS-SCHREIBWEISE (Pflicht in allen Feldern): Entweder Symbol VOR der Zahl ('$ 4.062,60') ODER Kürzel NACH der Zahl ('4.062,60 USD', '145,30 EUR'). NIEMALS das Symbol nach der Zahl ('4.062,60 $' ist FALSCH), kein ausgeschriebenes 'US-Dollar' hinter Zahlen. Innerhalb des Beitrags einheitlich eine Variante verwenden. GROUNDING (absolut kritisch, Verstoß = unbrauchbar): Verwende AUSSCHLIESSLICH Fakten, Zahlen, Namen, Firmen und Vergleiche, die WÖRTLICH im Artikeltext stehen. Erfinde NIEMALS Vergleiche oder Einordnungen mit Firmen/Werten, die der Artikel nicht nennt (z.B. NICHT 'mehr als Apple wert' schreiben, wenn Apple im Text nicht vorkommt). Kein Weltwissen ergänzen, keine Kontexte aus deinem Training, keine gerundeten oder umgerechneten Zahlen — nur was im Text steht, in der Form, in der es dort steht. SELBSTTEST GROUNDING: Prüfe jedes Feld — kommt jede Zahl, jeder Firmenname und jeder Vergleich darin im Artikeltext vor? Falls nein, ersatzlos streichen oder durch einen belegten Fakt ersetzen. Sachlich, deskriptiv, keine Kaufempfehlung, keine Kursziele als Empfehlung. Alle Zahlen exakt aus dem Text, nichts erfinden.";
+    "\"hashtags\":{\"instagram\":[\"MAXIMAL 5 deutsche Hashtags (nie mehr als 5!), klein geschrieben. AUSWAHL-REGEL: 1x Firmenname + sonst breite, reichweitenstarke Finanz-/Wirtschafts-Hashtags wie #börse, #aktien, #finanzen, #wirtschaft, #investieren, #geldanlage. KEINE Nischen-Hashtags zum Spezialthema (FALSCH: #containerschifffahrt, #prognose, #hamburg, #nutzfahrzeuge — RICHTIG: #hapaglloyd #aktien #börse #wirtschaft #finanzen)\"],\"linkedin\":[\"MAXIMAL 5 Hashtags (nie mehr als 5!): 1x Firmenname + breite Wirtschafts-/Finanz-Tags (#Wirtschaft, #Börse, #Finanzen, #Investieren), keine Nischen-Tags\"]}}. HASHTAG-OBERGRENZE (Pflicht, Redakteurs-Feedback Yuki 15.07., gilt für ALLE Plattformen ausnahmslos): Egal welches Feld oder welche Plattform Hashtags enthält — NIE mehr als 5 Hashtags insgesamt. "+
+    "ANTI-REDUNDANZ (kritisch): Jedes Feld wird auf einer EIGENEN Slide angezeigt. Über ALLE Felder hinweg (head, sub, bullets, infoHead, intro, infoBullet, box, close, closeHead) darf derselbe Fakt NIE zweimal vorkommen — auch nicht umformuliert. Verteile die Fakten des Artikels bewusst: bullets = die 3 wichtigsten Kernfakten; intro/infoBullet/box = weitere Aspekte, Hintergründe, Zahlen oder Termine, die in den bullets NICHT stehen; close = eine echte Schlussfolgerung, kein Fakten-Recap. closeHead und infoHead müssen sich klar von head und voneinander unterscheiden. SELBSTTEST: Lies alle Felder nacheinander wie ein Karussell — wiederholt sich inhaltlich etwas, ersetze es durch einen noch nicht genutzten Fakt aus dem Artikel. KEIN KI-KLANG (Pflicht für alle Texte): VERBOTEN sind formelhafte Absatz-Einstiege mit Doppelpunkt-Anmoderation wie 'Besonders überraschend:', 'Ein Wermutstropfen bleibt:', 'Besonders bemerkenswert:', 'Interessant dabei:', 'Wichtig zu wissen:', 'Hinzu kommt:', 'Nicht zu vergessen:' und ähnliche Zweiwort-Floskeln. Statt 'Besonders überraschend: International Motors erzielte 115 Mio.' schreibe 'International Motors erzielte 115 Mio. EUR — der Konsens hatte einen Verlust erwartet.' Die Überraschung/Bewertung gehört IN den Satz, nicht davor. Variiere Satzanfänge über alle Absätze. LESBARKEIT (Pflicht): Schreibe einfache, klare Sätze wie ein guter Nachrichtenredakteur. Maximal EIN Nebensatz pro Satz, KEINE Schachtelsätze, KEINE Einschübe mit Gedankenstrich am Satzende, keine Relativsatz-Ketten. Lieber zwei kurze Sätze als ein verschachtelter. Negativ-Beispiel (so NICHT): 'Louisiana befreite Ende 2024 Rechenzentren, die vor 2029 gebaut werden, für 20 Jahre von der Umsatzsteuer — gezielt, um Meta ins Land zu holen.' Besser: 'Louisiana befreit neue Rechenzentren für 20 Jahre von der Umsatzsteuer. Das Gesetz von Ende 2024 sollte gezielt Meta ins Land holen.' SELBSTTEST LESBARKEIT: Lies jeden Satz laut — stolpert man oder braucht man zwei Anläufe, in zwei Sätze aufteilen. WÄHRUNGS-SCHREIBWEISE (Pflicht in allen Feldern): Entweder Symbol VOR der Zahl ('$ 4.062,60') ODER Kürzel NACH der Zahl ('4.062,60 USD', '145,30 EUR'). NIEMALS das Symbol nach der Zahl ('4.062,60 $' ist FALSCH), kein ausgeschriebenes 'US-Dollar' hinter Zahlen. Innerhalb des Beitrags einheitlich eine Variante verwenden. GROUNDING (absolut kritisch, Verstoß = unbrauchbar): Verwende AUSSCHLIESSLICH Fakten, Zahlen, Namen, Firmen und Vergleiche, die WÖRTLICH im Artikeltext stehen. Erfinde NIEMALS Vergleiche oder Einordnungen mit Firmen/Werten, die der Artikel nicht nennt (z.B. NICHT 'mehr als Apple wert' schreiben, wenn Apple im Text nicht vorkommt). Kein Weltwissen ergänzen, keine Kontexte aus deinem Training, keine gerundeten oder umgerechneten Zahlen — nur was im Text steht, in der Form, in der es dort steht. SELBSTTEST GROUNDING: Prüfe jedes Feld — kommt jede Zahl, jeder Firmenname und jeder Vergleich darin im Artikeltext vor? Falls nein, ersatzlos streichen oder durch einen belegten Fakt ersetzen. KEINE META-REFERENZ AUF DEN ARTIKEL (Pflicht, Redakteurs-Feedback Yuki 15.07.): Schreibe niemals Formulierungen wie 'wird im Artikel als X bezeichnet', 'laut Artikel', 'weitere Details nennt die Firma nicht', 'der Artikel erwähnt nicht' oder ähnliche Verweise auf den Quelltext selbst — das ist ein Stilbruch, der Leser aus der Grafik reißt. Formuliere den Fakt stattdessen direkt und eigenständig, so als hättest du selbst recherchiert: STATT 'Kontron ist im SDAX notiert und wird im Artikel als Technologiekonzern bezeichnet' schreibe 'Kontron ist ein im SDAX notierter Technologiekonzern'. STATT 'Der Auftragsgeber ist ein europäischer Bahnbetreiber — weitere Details nennt Kontron nicht' schreibe 'Der Auftragsgeber ist ein europäischer Bahnbetreiber' (den Nicht-Fakt 'keine weiteren Details' einfach weglassen, statt ihn explizit zu erwähnen). Wenn eine Information im Artikel fehlt, lasse sie ersatzlos weg — erwähne NIE, dass sie fehlt oder woher die vorhandene Information stammt. Sachlich, deskriptiv, keine Kaufempfehlung, keine Kursziele als Empfehlung. Alle Zahlen exakt aus dem Text, nichts erfinden.";
   var out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,9000)}]));
   if(out.head) $id("fHead").value=out.head;
   if(out.sub) $id("fSub").value=out.sub;
@@ -4097,11 +4131,17 @@ extractSocial = async function(txt){
       }
     });
   }
-  // Harte Regel: Instagram maximal 5 Hashtags (auch falls das Modell mehr liefert),
-  // zusätzlich überzählige Hashtags am Caption-Ende kappen.
+  // Harte Regel (Yuki 15.07.: gilt für ALLE Plattformen ausnahmslos): maximal 5 Hashtags,
+  // auch falls das Modell mehr liefert — zusätzlich überzählige Hashtags am Caption-Ende kappen.
   if(out.hashtags && Array.isArray(out.hashtags.instagram)) out.hashtags.instagram=out.hashtags.instagram.slice(0,5);
+  if(out.hashtags && Array.isArray(out.hashtags.linkedin)) out.hashtags.linkedin=out.hashtags.linkedin.slice(0,5);
   if(out.captions && out.captions.instagram){
     out.captions.instagram=out.captions.instagram.replace(/((?:#[\wäöüÄÖÜß]+\s*){6,})$/m,function(m){
+      return m.trim().split(/\s+/).slice(0,5).join(" ");
+    });
+  }
+  if(out.captions && out.captions.linkedin){
+    out.captions.linkedin=out.captions.linkedin.replace(/((?:#[\wäöüÄÖÜß]+\s*){6,})$/m,function(m){
       return m.trim().split(/\s+/).slice(0,5).join(" ");
     });
   }
@@ -4891,7 +4931,9 @@ function smSelectTpl(id,manual){
   if(rr) rr.style.display=(manual && $("src-sm") && $("src-sm").value.trim())?"":"none";
   const tag=$("smTplAutoTag"); if(manual && tag) tag.textContent="";
   smData={}; smSlide=0; smBgImg=null; smBgUrl="";
+  window._smMotifZ="auto"; window._smMotivesZ=null;
   smBuildTplGrid(); smBuildFields(); smBuildFmt(); smUpdateLegal();
+  if(typeof smBuildMotifZ==="function") smBuildMotifZ();
   /* KI-Hintergrund für ALLE Templates verfügbar; bei Pfad A mit Hinweis (Zahlen bleiben deterministisch) */
   $("smBgCard").style.display="";
   if($("smBgPrompt")) $("smBgPrompt").value=smTpl.bgPrompt||"Abstract premium fintech background, subtle depth, soft gradient, atmospheric glow, generous negative space";
@@ -5083,15 +5125,43 @@ function smRender(){
    Synchron im Render-Pass gezeichnet (kein onload-Race, keine Sprünge). */
 const _smLogoCache={};
 function smLogoPreload(){
-  Object.values(SM_BRANDS).forEach(b=>{
-    const l=LOGOS[b.logo]; if(!l) return;
+  // Marken-Standardlogos UND alle sonstigen eingebetteten Logos vorladen (für die manuelle
+  // Logo-Auswahl in der Use-Case-Karte, analog zur finanzen.net-Redaktion).
+  const ids=new Set(Object.values(SM_BRANDS).map(b=>b.logo));
+  Object.keys(LOGOS).forEach(id=>ids.add(id));
+  ids.forEach(id=>{
+    const l=LOGOS[id]; if(!l) return;
     ["hell","dunkel"].forEach(v=>{
       const url=l["data_url_"+v]; if(!url) return;
-      const key=b.logo+"_"+v;
+      const key=id+"_"+v;
       if(_smLogoCache[key]) return;
       const img=new Image();
       img.onload=()=>{ _smLogoCache[key]=img; try{ smRender(); }catch(e){} };
       img.src=url;
+    });
+  });
+}
+/* Logo-Dropdown der zero-Maske befüllen (wie _fillLogoDDs bei finanzen.net) */
+function smFillLogoDD(){
+  const s=document.getElementById("smLogoSel"); if(!s) return;
+  while(s.options.length>1) s.remove(1);
+  Object.entries(LOGOS).forEach(([lid,l])=>{ if(lid!=="kein_logo") s.add(new Option(l.label,lid)); });
+}
+/* ---------- Bildmotiv-Auswahl für zero (Cover-Varianz, analog finanzen.net SM_MOTIFS) ---------- */
+window._smMotifZ="auto";
+function smBuildMotifZ(){
+  const el=document.getElementById("smMotifListZ"); if(!el||typeof SM_MOTIFS==="undefined") return;
+  el.innerHTML=Object.entries(SM_MOTIFS).map(([k,m])=>
+    '<div class="sm-sug-card'+(k===window._smMotifZ?" on":"")+'" data-motifz="'+k+'"><div class="t">'+m.label+'</div><div class="g">'+m.desc+'</div></div>').join('');
+  el.querySelectorAll("[data-motifz]").forEach(c=>{
+    c.addEventListener("click",()=>{
+      el.querySelectorAll("[data-motifz]").forEach(x=>x.classList.remove("on"));
+      c.classList.add("on"); window._smMotifZ=c.dataset.motifz;
+      const t=window._smMotivesZ;
+      if(t && t[c.dataset.motifz] && document.getElementById("smBgPrompt")){
+        document.getElementById("smBgPrompt").value=t[c.dataset.motifz];
+        toast("Bildmotiv: "+(SM_MOTIFS[c.dataset.motifz]||{}).label);
+      }
     });
   });
 }
@@ -5124,12 +5194,20 @@ function smDrawContentFitted(ctx){
   }
 }
 function smDrawLogo(x,W,H,B,safeBot,legalH){
-  const variant=B.dark?"hell":"dunkel";
-  const img=_smLogoCache[B.logo+"_"+variant]||_smLogoCache[B.logo+"_"+(B.dark?"dunkel":"hell")];
+  // Manuelle Logo-Wahl (Karte "Use Case / Template", wie bei finanzen.net Redaktion) hat Vorrang
+  // vor dem Marken-Standardlogo. Variante: manuelle Wahl > Auto nach Hintergrundhelligkeit.
+  const selEl=document.getElementById("smLogoSel");
+  const manualId=selEl?selEl.value:"";
+  const logoId=manualId||B.logo;
+  const varEl=document.getElementById("smLogoVar");
+  const varManual=varEl?varEl.value:"";
+  const dark = varManual==="hell" ? true : (varManual==="dunkel" ? false : B.dark);
+  const variant=dark?"hell":"dunkel";
+  const img=_smLogoCache[logoId+"_"+variant]||_smLogoCache[logoId+"_"+(dark?"dunkel":"hell")];
   if(!img) return;
-  const pct=((LOGOS[B.logo]||{}).breite_prozent||16)/100;
+  const pct=((LOGOS[logoId]||{}).breite_prozent||16)/100;
   const mg=Math.round(W*0.035);                       /* identisch zu _addLogoFabric/_drawLogoCanvas2D */
-  const lw=Math.round(W*pct), lh=Math.round(lw*_logoAspect(B.logo,B.dark));
+  const lw=Math.round(W*pct), lh=Math.round(lw*_logoAspect(logoId,dark));
   const ly=H - safeBot - legalH - mg - lh;            /* unten rechts, über der Legal-Fußzeile */
   x.drawImage(img, W-mg-lw, ly, lw, lh);
 }
@@ -5584,7 +5662,10 @@ async function smExportPdf(){
 /* ---------- Init ---------- */
 let _smInit=false;
 function initSocialMedia(){
-  smBuildGate(); smLogoPreload(); smBuildTplGrid(); smSelectTpl(SM_TEMPLATES[0].id);
+  smBuildGate(); smLogoPreload(); smFillLogoDD(); smBuildMotifZ(); smBuildTplGrid(); smSelectTpl(SM_TEMPLATES[0].id);
+  const smLogoSel=$("smLogoSel"), smLogoVar=$("smLogoVar");
+  if(smLogoSel) smLogoSel.onchange=()=>smRender();
+  if(smLogoVar) smLogoVar.onchange=()=>smRender();
   setFillMode("sm","auto");   /* wie beim Social Karussell: Standard = Aus Text befüllen */
   $("smBgGen").onclick=smGenBg;
   $("smBgClear").onclick=()=>{ smBgImg=null; smBgUrl=""; $("smBgClear").style.display="none"; $("smBgStatus").textContent=""; smRender(); };
