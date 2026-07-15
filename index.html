@@ -1605,12 +1605,48 @@ function makeLogo(dark){
   const b=new fabric.Text(".net",{left:a.width+fs*0.07+fs*0.115*2+fs*0.07,fontFamily:BRAND.font,fontWeight:800,fontSize:fs,fill:c1,originX:"left"});
   const g=new fabric.Group([a,dot,b],{selectable:true}); g.set({name:"logo"}); return g;
 }
+/* Bricht NUR einzelne Wörter um, die breiter als die Box sind (Bug Yuki 15.07.: "Seeblockad|e"
+   entstand, weil splitByGrapheme global JEDES Wort per Zeichen zerhackte). Normale Wörter bleiben
+   unangetastet und wrappen normal an Leerzeichen. Zu lange Wörter werden bevorzugt am Bindestrich
+   getrennt (mit Newline), sonst hart per Zeichen an der Stelle, wo die Box-Breite überschritten wird. */
+let _measCtx=null;
+function _breakLongWords(txt,opts){
+  const maxW=opts&&opts.width; if(!maxW||!txt) return txt;
+  if(!_measCtx) _measCtx=document.createElement("canvas").getContext("2d");
+  const fw=(opts.fontWeight||800), fs=(opts.fontSize||40), ff=(opts.fontFamily||BRAND.font);
+  _measCtx.font=fw+" "+fs+"px "+ff;
+  const meas=(s)=>_measCtx.measureText(s).width;
+  const splitOne=(word)=>{
+    if(meas(word)<=maxW) return word;
+    // 1) an Bindestrichen trennen (natürliche Fuge: "Infrastruktur-\nDrohung")
+    if(word.indexOf("-")>=0){
+      const parts=word.split("-");
+      let lines=[], cur="";
+      parts.forEach((p,i)=>{
+        const seg=(i<parts.length-1)?p+"-":p;
+        const test=cur?cur+seg:seg;
+        if(cur && meas(test)>maxW){ lines.push(cur); cur=seg; }
+        else cur=test;
+      });
+      if(cur) lines.push(cur);
+      // jede Teil-Zeile, die IMMER noch zu breit ist, hart per Zeichen brechen
+      return lines.map(l=>meas(l)>maxW?hardChar(l):l).join("\n");
+    }
+    // 2) kein Bindestrich -> hart per Zeichen
+    return hardChar(word);
+  };
+  const hardChar=(s)=>{
+    let out="", cur="";
+    for(const ch of s){ const test=cur+ch; if(cur && meas(test)>maxW){ out+=cur+"\n"; cur=ch; } else cur=test; }
+    return out+cur;
+  };
+  return (""+txt).split(/(\s+)/).map(tok=>/\s/.test(tok)?tok:splitOne(tok)).join("");
+}
 function tHeadline(txt,opts){
-  // FIX (Yuki 15.07.): lange zusammengesetzte/getrennte Wörter (z.B. "Infrastruktur-Angriffen")
-  // wurden von Fabric NICHT umbrochen (Wrap nur an Leerzeichen) und liefen über den rechten
-  // Rand aus dem Bild. splitByGrapheme erlaubt Fabric, bei Bedarf auch mitten im Wort/am
-  // Bindestrich umzubrechen -> Text bleibt IMMER innerhalb der Box, läuft nie aus dem Bild.
-  return new fabric.Textbox(txt,Object.assign({fontFamily:BRAND.font,fontWeight:800,fill:"#ffffff",textAlign:"left",lineHeight:1.04,name:"headline",splitByGrapheme:true},opts));
+  // FIX (Yuki 15.07. 10:49): kein globales splitByGrapheme mehr (zerhackte jedes Wort).
+  // Nur echte Überlänge-Wörter werden gezielt umgebrochen; normaler Wortumbruch bleibt erhalten.
+  const t=_breakLongWords(txt,opts);
+  return new fabric.Textbox(t,Object.assign({fontFamily:BRAND.font,fontWeight:800,fill:"#ffffff",textAlign:"left",lineHeight:1.04,name:"headline"},opts));
 }
 
 function buildCover(content){
@@ -1990,6 +2026,15 @@ function _loadImageObjOld(src,props){
 
 async function renderTemplate(type,content){
   canvas.clear(); canvas.backgroundColor="#ffffff";
+  // Schutz (Yuki 15.07.): zero-Slides haben type "graphic" und werden NICHT über die Fabric-
+  // TEMPLATES gerendert. Früher crashte hier "TEMPLATES[type] is not a function" beim Cross-Format-
+  // Export. Solche Slides werden über smRenderSlideToDataURL neu gebaut, nie über renderTemplate.
+  if(typeof TEMPLATES[type]!=="function"){
+    const bg=(content&&content.bg)||null;
+    if(bg){ const img=await loadImageObj(bg,{name:"bg",selectable:true}); canvas.add(img); canvas.sendToBack(img); }
+    canvas.renderAll();
+    return;
+  }
   const spec=TEMPLATES[type](content);
   const mode = (slides[current] && slides[current].backdrop) || "scrim";
   for(const o of spec.objs){
@@ -4479,12 +4524,22 @@ var _exBtn=$id("tExport");
 if(_exBtn){
   _exBtn.onclick=async function(){
     try{
-      var isGraphic=(typeof slides!=="undefined")&&slides.length&&slides[0].type==="graphic";
+      var isSm=(typeof slides!=="undefined")&&slides.length&&slides[0].content&&slides[0].content.origin==="sm";
       var g=window._smActiveGroup;
       var p=g?SM_PLATFORMS.find(function(x){return x.id===g;}):null;
+      var base=(($id("fHead").value||"post").replace(/[^a-z0-9äöüß]+/gi,"_").replace(/^_+|_+$/g,"").slice(0,40))||"post";
+      // zero-Slide (origin sm): IMMER über smRender im Zielformat (4:5/9:16) exportieren —
+      // voll eingepasst, doppelte Auflösung, nie abgeschnitten (Yuki 15.07.). Kein renderTemplate!
+      if(isSm && typeof smRenderSlideToDataURL==="function"){
+        var zfmt=(p&&p.master==="9:16")?"9:16":"4:5";
+        var zurl=await smRenderSlideToDataURL(zfmt, (typeof current==="number"&&current>=0)?current:0);
+        var zf=FORMATS[zfmt];
+        var za=document.createElement("a"); za.href=zurl; za.download=base+"_slide"+((current||0)+1)+"_"+(zf.w*SM_SCALE)+"x"+(zf.h*SM_SCALE)+".png"; za.click();
+        return;
+      }
+      var isGraphic=(typeof slides!=="undefined")&&slides.length&&slides[0].type==="graphic";
       if(isGraphic || !p || typeof canvas==="undefined" || !canvas){ return exportPNG(); }
       var f=FORMATS[p.master], c=FORMATS[curFmt];
-      var base=(($id("fHead").value||"post").replace(/[^a-z0-9äöüß]+/gi,"_").replace(/^_+|_+$/g,"").slice(0,40))||"post";
       snapshotCurrent();
       if(Math.abs(f.w/f.h - c.w/c.h) < 0.01){
         // gleiches Verhältnis: Master exportieren, in 2x HQ wie das Bundle (Yuki 14.07.)
@@ -4546,6 +4601,41 @@ async function smDownloadBundle(){
     var zip=new JSZip();
     var b=SOCIAL_BRANDS[window._smBrand]||SOCIAL_BRANDS.finnet;
     var base=(($id("fHead").value||"post").replace(/[^a-z0-9äöüß]+/gi,"_").replace(/^_+|_+$/g,"").slice(0,40))||"post";
+
+    // ===== zero-Pfad (Yuki 15.07.): JEDE Slide pro Plattform über smRender im Zielformat (4:5/9:16)
+    // neu rendern — voll eingepasst, doppelte Auflösung, nie abgeschnitten. Kein Fabric/renderTemplate. =====
+    var isSm=slides[0]&&slides[0].content&&slides[0].content.origin==="sm";
+    if(isSm && typeof smRenderSlideToDataURL==="function"){
+      var nSlides=smSlides().length;
+      // eindeutige Zielformate der gewählten Plattformen (nur 4:5 / 9:16)
+      var fmtsByPlat={}; plats.forEach(function(p){ fmtsByPlat[p.id]=(p.master==="9:16")?"9:16":"4:5"; });
+      // pro Format einmal rendern und cachen (spart doppeltes Rendern bei gleich-formatigen Plattformen)
+      var cache={};
+      for(var si=0; si<nSlides; si++){
+        for(var pi=0; pi<plats.length; pi++){
+          var pl=plats[pi], zf=fmtsByPlat[pl.id];
+          var ck=zf+"#"+si;
+          if(!cache[ck]) cache[ck]=await smRenderSlideToDataURL(zf, si);
+          var F=FORMATS[zf];
+          zip.file(b.id+"/"+pl.id+"/"+base+"_slide"+(si+1)+"_"+(F.w*SM_SCALE)+"x"+(F.h*SM_SCALE)+".png", cache[ck].split(",")[1], {base64:true});
+        }
+      }
+      var t0=window._smText, l0=[];
+      l0.push("Marke: "+b.label); l0.push("Erstellt: "+new Date().toLocaleString("de-DE")); l0.push("");
+      if(t0&&t0.captions){
+        if(t0.captions.instagram){ l0.push("=== INSTAGRAM CAPTION ==="); l0.push(t0.captions.instagram); l0.push(""); l0.push("=== INSTAGRAM HASHTAGS ==="); l0.push((t0.hashtags&&t0.hashtags.instagram||[]).join(" ")); l0.push(""); }
+        if(t0.captions.linkedin){ l0.push("=== LINKEDIN CAPTION ==="); l0.push(t0.captions.linkedin); l0.push(""); l0.push("=== LINKEDIN HASHTAGS ==="); l0.push((t0.hashtags&&t0.hashtags.linkedin||[]).join(" ")); l0.push(""); }
+        if(t0.x&&t0.x.text){ l0.push("=== X (TWITTER) ==="); l0.push((t0.x.text+"\n\n"+((t0.x.cashtags||[]).join(" "))).trim()); l0.push(""); }
+      }
+      zip.file(b.id+"/captions_und_hashtags.txt", l0.join("\n"));
+      var zblob=await zip.generateAsync({type:"blob"});
+      var za2=document.createElement("a"); za2.href=URL.createObjectURL(zblob); za2.download=b.id+"_"+base+"_bundle.zip"; za2.click();
+      setTimeout(function(){ URL.revokeObjectURL(za2.href); },4000);
+      toast("Bundle heruntergeladen");
+      btn.disabled=false; btn.innerHTML=old;
+      return;
+    }
+
     snapshotCurrent();
     var orig=current, origFmt=curFmt;
     // Plattformen aufteilen: gleiches Seitenverhältnis => Master skalieren,
@@ -4722,7 +4812,7 @@ const SM_TEMPLATES=[
 { id:"zero_sm_edu_explainer", name:"Erklär-Karussell", prio:"P1", path:"C", carousel:true,
   desc:"Finanzbegriff in 3–7 Karten erklären. Hook → Aufbau → Takeaway.",
   note:"Evidenz: belegt (Rang 1, Finanzfluss-Muster). Dramaturgie: Hook-Slide → Karten → Abschluss mit CTA „Speichern“. Max. 8 Slides.",
-  formats:["4:5","1:1","9:16"], master:"4:5",
+  formats:["4:5","9:16"], master:"4:5",
   bgPrompt:"Modern fintech slide background, clean composition, large empty text zone in upper two thirds, generous negative space, subtle abstract shapes, premium dark atmosphere",
   legal:["base","risk"],
   fields:[
@@ -4740,7 +4830,7 @@ const SM_TEMPLATES=[
 { id:"zero_sm_data_chart_story", name:"Chart-Story", prio:"P1", path:"A", carousel:false,
   desc:"Entwicklung über Zeit mit Punchline. Linienchart, deterministisch.",
   note:"Evidenz: belegt (Rang 2, Bloomberg/Chartr-Muster). Achsen + Werte werden IMMER deterministisch gerendert – nie KI. Balken beginnen bei 0.",
-  formats:["4:5","1:1","16:9"], master:"4:5",
+  formats:["4:5","9:16"], master:"4:5",
   legal:["base","perf"],
   fields:[
     {k:"kicker",l:"Kicker",type:"text",max:28,def:"Chart"},
@@ -4757,7 +4847,7 @@ const SM_TEMPLATES=[
 { id:"zero_sm_data_number_of_day", name:"Zahl des Tages", prio:"P1", path:"C", carousel:false,
   desc:"Eine Kennzahl prominent, mit Kontext und Vergleich.",
   note:"Evidenz: belegt. Zahl wird deterministisch gesetzt (KI-Fehlerrate bei Dezimalzahlen 35–55 %). Optional KI-Hintergrund (Pfad C).",
-  formats:["4:5","1:1","9:16","16:9"], master:"4:5",
+  formats:["4:5","9:16"], master:"4:5",
   bgPrompt:"Abstract premium fintech background, subtle depth, soft gradient, atmospheric glow, generous empty center area",
   legal:["base","risk"],
   fields:[
@@ -4772,7 +4862,7 @@ const SM_TEMPLATES=[
 { id:"zero_sm_market_pulse", name:"Market Pulse", prio:"P1", path:"A", carousel:false,
   desc:"3–6 Märkte/Assets zu einem Zeitpunkt. Tägliches Arbeitspferd.",
   note:"Farbe/Pfeil werden aus dem Vorzeichen berechnet, nie aus Freitext. Werte deterministisch.",
-  formats:["4:5","1:1","9:16","16:9"], master:"4:5",
+  formats:["4:5","9:16"], master:"4:5",
   legal:["base","risk"],
   fields:[
     {k:"kind",l:"Update-Typ",type:"sel",opts:["Börsenschluss","Handelsstart","Intraday","Wochenrückblick","Breaking"]},
@@ -4788,7 +4878,7 @@ const SM_TEMPLATES=[
 { id:"zero_sm_data_ranking", name:"Ranking (Top/Flop)", prio:"P2", path:"A", carousel:false,
   desc:"Rangfolgen – nur deskriptiv/neutral, Methodik sichtbar.",
   note:"Compliance-Leitplanke K1: KEINE Kaufwertung („Top-Pick“ verboten). Methodik-Feld ist Pflicht und wird sichtbar gerendert.",
-  formats:["4:5","1:1","9:16"], master:"4:5",
+  formats:["4:5","9:16"], master:"4:5",
   legal:["base","risk"],
   fields:[
     {k:"kicker",l:"Kicker",type:"text",max:28,def:"Ranking"},
@@ -4805,7 +4895,7 @@ const SM_TEMPLATES=[
 { id:"zero_sm_company_earnings", name:"Earnings-Reaktion", prio:"P2", path:"A", carousel:false,
   desc:"Quartalszahlen: KPIs vs. Erwartung + Kursreaktion.",
   note:"„Beat/Miss“ wird nur berechnet, wenn Ist UND Erwartung gefüllt sind. Keine wertenden Adjektive ohne Zahl.",
-  formats:["4:5","1:1","16:9"], master:"4:5",
+  formats:["4:5","9:16"], master:"4:5",
   legal:["base","risk","perf"],
   fields:[
     {k:"kicker",l:"Kicker",type:"text",max:28,def:"Quartalszahlen"},
@@ -4822,7 +4912,7 @@ const SM_TEMPLATES=[
 { id:"zero_sm_instrument_snapshot", name:"Instrument-Snapshot", prio:"P2", path:"A", carousel:false,
   desc:"Aktie/ETF/Krypto als neutrales Faktenprofil.",
   note:"Neutrale Headline, keine Kaufaufforderung. Frage-Framing erlaubt („Sollte man … jetzt kaufen?“) – Antwort auf der Grafik bleibt neutral. Assetklasse Krypto triggert MiCAR-Hinweis.",
-  formats:["4:5","1:1","9:16"], master:"4:5",
+  formats:["4:5","9:16"], master:"4:5",
   legal:["base","risk"],
   fields:[
     {k:"aclass",l:"Assetklasse",type:"sel",opts:["Aktie","ETF","Krypto","Index"]},
@@ -4843,7 +4933,7 @@ const SM_TEMPLATES=[
 { id:"zero_sm_investing_savings_calc", name:"Sparplan-Rechenbeispiel", prio:"P2", path:"A", carousel:false,
   desc:"Zinseszins transparent – Ergebnis wird berechnet, nie eingegeben.",
   note:"Ergebniswerte (Einzahlungen, Endwert, Wertzuwachs) berechnet das Studio selbst (Art. 44 Abs. 6 DelVO: Annahmen kennzeichnen, keine Garantie).",
-  formats:["4:5","1:1","9:16"], master:"4:5",
+  formats:["4:5","9:16"], master:"4:5",
   legal:["base","model"],
   fields:[
     {k:"kicker",l:"Kicker",type:"text",max:28,def:"Rechenbeispiel"},
@@ -4857,7 +4947,7 @@ const SM_TEMPLATES=[
 { id:"zero_sm_editorial_quote", name:"Quote-Card", prio:"P3", path:"C", carousel:false,
   desc:"Belegtes Zitat mit Kontext und Primärquelle.",
   note:"Ohne Primärquelle keine Veröffentlichung. Niedrigstes KI-Risiko: Text deterministisch, Stimmung aus KI.",
-  formats:["1:1","4:5","9:16"], master:"1:1",
+  formats:["4:5","9:16"], master:"4:5",
   bgPrompt:"Abstract fintech mood background, premium atmosphere, cinematic soft light, empty center text zone, muted tones",
   legal:["base"],
   fields:[
@@ -4870,7 +4960,7 @@ const SM_TEMPLATES=[
 { id:"zero_sm_community_poll_result", name:"Umfrage-Ergebnis", prio:"P3", path:"A", carousel:false,
   desc:"Community-Abstimmung transparent darstellen.",
   note:"Prozente sollten in Summe 100 % ergeben. Keine Repräsentativität suggerieren.",
-  formats:["1:1","4:5","9:16"], master:"1:1",
+  formats:["4:5","9:16"], master:"4:5",
   legal:["base","poll"],
   fields:[
     {k:"kicker",l:"Kicker",type:"text",max:28,def:"Community-Umfrage"},
@@ -4886,7 +4976,7 @@ const SM_TEMPLATES=[
 { id:"zero_sm_event_announcement", name:"Event-Ankündigung", prio:"P3", path:"C", carousel:false,
   desc:"Webinar, Livestream oder Termin ankündigen.",
   note:"Keine KI-generierten Abbilder realer Speaker – nur freigegebene Fotos oder neutrales Motiv.",
-  formats:["4:5","1:1","9:16","16:9"], master:"4:5",
+  formats:["4:5","9:16"], master:"4:5",
   bgPrompt:"Modern fintech event background, atmospheric stage light, depth of field, empty lower third for event details",
   legal:["base"],
   fields:[
@@ -4902,7 +4992,7 @@ const SM_TEMPLATES=[
 { id:"zero_sm_brand_product_announcement", name:"Produkt-Ankündigung", prio:"P3", path:"C", carousel:false,
   desc:"Neues Feature/Konditionen – Statement-Karten-Stil.",
   note:"Evidenz: belegt (Trade-Republic-Muster: Dark Mode, ein Akzent). Preise/Claims nur mit Beleg – kein unbelegter Superlativ.",
-  formats:["4:5","1:1","9:16","16:9"], master:"4:5",
+  formats:["4:5","9:16"], master:"4:5",
   bgPrompt:"Premium fintech brand background, dark mode, subtle accent glow, minimal, elegant, large empty text zone",
   legal:["base","risk"],
   fields:[
@@ -5029,7 +5119,9 @@ function smCheckTriggers(){
     w.classList.add("show");
   } else w.classList.remove("show");
 }
-const SM_ZPLATFORMS={instagram:{l:"Instagram Feed",fmt:"4:5"},instagram_story:{l:"Instagram Story",fmt:"9:16"},linkedin:{l:"LinkedIn Post",fmt:"4:5"},x:{l:"X (Twitter)",fmt:"16:9"},tiktok:{l:"TikTok",fmt:"9:16"},youtube:{l:"YouTube",fmt:"16:9"},whatsapp:{l:"WhatsApp",fmt:"9:16"}};
+/* Yuki 15.07.: zero nutzt AUSSCHLIESSLICH 4:5 (Feed) und 9:16 (Story). Keine 1:1/16:9-Plattformen mehr.
+   Jede Plattform ist genau einem der beiden erlaubten Formate zugeordnet. */
+const SM_ZPLATFORMS={instagram:{l:"Instagram Feed",fmt:"4:5"},instagram_story:{l:"Instagram Story",fmt:"9:16"},linkedin:{l:"LinkedIn Post",fmt:"4:5"},x:{l:"X (Twitter)",fmt:"4:5"},tiktok:{l:"TikTok Story",fmt:"9:16"}};
 let smPlats=Object.keys(SM_ZPLATFORMS);   /* Yuki: initial ALLE angehakt, abwählen optional */
 function smBuildPlats(){
   const el=$("smPlats"); if(!el) return;
@@ -5685,6 +5777,25 @@ async function smOpenInEditor(){
   current=imgs.length-1;
   await showSlide(0);
   renderSlideTabs();
+}
+
+/* Zentraler zero-Renderer für Export/Bundle (Yuki 15.07.): rendert eine zero-Slide in EINEM
+   beliebigen Zielformat (nur 4:5 oder 9:16) über smRender — voll eingepasst (Overflow-Schutz),
+   in doppelter Auflösung (SM_SCALE=2), nie abgeschnitten. Setzt smFmt/smSlide danach zurück.
+   Gibt eine PNG-data-URL in exakt F.w*2 x F.h*2 zurück. */
+async function smRenderSlideToDataURL(fmt, slideIndex){
+  if(fmt!=="4:5" && fmt!=="9:16") fmt="4:5";          // zero kennt nur diese zwei
+  const keepFmt=smFmt, keepSlide=smSlide;
+  smFmt=fmt; smSlide=Math.max(0,Math.min(slideIndex||0, smSlides().length-1));
+  smRender();
+  await new Promise(r=>setTimeout(r,120));            // Logo/Hintergrund sicher gezeichnet
+  let url=$("smCanvas").toDataURL("image/png");
+  const F=FORMATS[fmt];
+  // exakte Zielpixel erzwingen (SM_SCALE=2 -> 2x); fitToTarget schneidet Rundungs-Artefakte weg
+  url=await fitToTarget(url, F.w*SM_SCALE, F.h*SM_SCALE, "image/png");
+  smFmt=keepFmt; smSlide=keepSlide; smRender();
+  await new Promise(r=>setTimeout(r,60));
+  return url;
 }
 
 /* ---------- Export ---------- */
