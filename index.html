@@ -3340,9 +3340,15 @@ async function extractSM(txt,opts){
   }
   if(smTpl.carousel) smBuildTplGrid();
   smCheckTriggers(); smUpdateLegal(); smRender();
-  /* Schritt 3: KI-Hintergrund automatisch generieren (alle Templates, live-Modus) */
+  /* Schritt 3: KI-Hintergrund automatisch generieren — NUR bei Karussell-Templates.
+     Einzel-Slide-Posts (Christian 15.07.): KEIN KI-Bild, cleaner Brand-Hintergrund (#080104). */
   const info2=$("smAutoInfo");
-  if(genMode()!=="demo"){
+  if(!smTpl.carousel){
+    smBgImg=null; smBgUrl=null;
+    if($("smBgClear")) $("smBgClear").style.display="none";
+    smRender();
+    if(info2) info2.textContent="Fertig: Felder gesetzt. Einzel-Slide nutzt den cleanen zero-Hintergrund (kein KI-Bild).";
+  } else if(genMode()!=="demo"){
     if(info2) info2.textContent="KI-Hintergrund wird generiert …";
     try{ await smGenBg(); if(info2) info2.textContent="Fertig: Template, Felder, Stil und Bild gesetzt."; }
     catch(e){ if(info2) info2.textContent="Felder gefüllt — Bild bitte manuell generieren."; }
@@ -4955,11 +4961,12 @@ try{ _fillLogoDDs(); }catch(e){}
 const SM_BRANDS={
   zero:{
     label:"finanzen.net zero", sub:"Neobroker · Broker-Kommunikation. Harte Compliance-Slots: Werbemitteilung + Risikohinweis auf der Grafik, keine eigene Kauf-/Verkaufswertung.",
-    dark:true, bg1:"#0b0e16", bg2:"#101726", ink:"#ffffff", muted:"#94a3b8",
-    /* Zero-Branding (Christian 15.07.): pink/lila wie das zero-Logo (Gradient pink -> violett) —
-       Akzente NICHT mehr grün. pos/neg bleiben Ampellogik für Kursveränderungen. */
-    accent:"#f0426e", accent2:"#8b5cf6", neg:"#ff5a5f", pos:"#2fd483", chip:"rgba(240,66,110,.16)",
-    logo:"fn_zero", swatches:["#0b0e16","#f0426e","#8b5cf6","#ffffff"]
+    dark:true, bg1:"#080104", bg2:"#0d0309", ink:"#ffffff", muted:"#94a3b8",
+    /* Zero-Branding (Christian 15.07. abends, verbindliche Farbwerte):
+       Buttons/Akzent #F81C7D · Header-Schrift #FFFFFF · positiv #34CD6A ·
+       negativ #F83A3E · cleaner Hintergrund #080104. Gilt für ALLE zero-Templates. */
+    accent:"#F81C7D", accent2:"#F81C7D", neg:"#F83A3E", pos:"#34CD6A", chip:"rgba(248,28,125,.16)",
+    logo:"fn_zero", swatches:["#080104","#F81C7D","#34CD6A","#ffffff"]
   },
   fnet:{
     label:"finanzen.net", sub:"Redaktion · öffnet den bewährten Social-Karussell-Flow (Cover, Content, Closing — KI-Bild + editierbare Textebene), exakt wie bisher.",
@@ -5392,7 +5399,7 @@ function smRender(){
     x.fillStyle=g; x.fillRect(0,0,W,H);
     /* dezente Akzent-Aura */
     const r=x.createRadialGradient(W*0.85,H*0.1,0,W*0.85,H*0.1,W*0.75);
-    r.addColorStop(0,B.dark?"rgba(240,66,110,0.14)":"rgba(0,147,93,0.07)"); r.addColorStop(1,"rgba(0,0,0,0)");
+    r.addColorStop(0,B.dark?"rgba(248,28,125,0.12)":"rgba(0,147,93,0.07)"); r.addColorStop(1,"rgba(0,0,0,0)");
     x.fillStyle=r; x.fillRect(0,0,W,H);
   }
 
@@ -5681,7 +5688,7 @@ function smDrawContent(ctx){
         x.font="500 "+gfs+"px "+BRAND.font; x.fillStyle=B.dark?"rgba(255,255,255,0.38)":"rgba(10,31,68,0.38)"; x.textAlign="left";
         x.fillText(smNum(mx+pad-((mx+pad)-(mn-pad))*i/3), cx0, gy-gfs*0.45); }
       /* Fläche + Linie */
-      const grd=x.createLinearGradient(0,cy0,0,cy1); grd.addColorStop(0,B.dark?"rgba(240,66,110,0.30)":"rgba(0,147,93,0.22)"); grd.addColorStop(1,"rgba(0,0,0,0)");
+      const grd=x.createLinearGradient(0,cy0,0,cy1); grd.addColorStop(0,B.dark?"rgba(248,28,125,0.30)":"rgba(0,147,93,0.22)"); grd.addColorStop(1,"rgba(0,0,0,0)");
       x.beginPath(); x.moveTo(xv(0),yv(vals[0])); vals.forEach((v,i)=>x.lineTo(xv(i),yv(v)));
       x.lineTo(cx1,cy1); x.lineTo(cx0,cy1); x.closePath(); x.fillStyle=grd; x.fill();
       x.beginPath(); x.moveTo(xv(0),yv(vals[0])); vals.forEach((v,i)=>x.lineTo(xv(i),yv(v)));
@@ -5710,8 +5717,9 @@ function smDrawContent(ctx){
     y=smText(x,d.label||"Was wird gemessen?",M,y+headFS*0.9,headFS*0.62,"700",B.dark?"rgba(255,255,255,.9)":B.ink,W-2*M,headFS*0.8);
     const v=(d.value||"–")+(d.unit?" "+d.unit:"");
     const bfs=smFit(x,v,"800",bigFS,W-2*M);
-    x.fillStyle=smChangeColor(d.value,B)===B.neg?B.neg:B.accent;
-    if(!/^[+\-−]/.test(d.value||"")) x.fillStyle=B.accent;
+    /* Zahlen-Farbregel (Christian 15.07.): vorzeichenbehaftete Zahlen grün (#34CD6A) / rot (#F83A3E),
+       neutrale Zahlen im Akzent-Pink */
+    x.fillStyle=/^[+\-−]/.test(d.value||"") ? smChangeColor(d.value,B) : B.accent;
     x.textAlign="left"; x.fillText(v, M-W*0.005, y+bfs*1.05);
     y+=bfs*1.25;
     y=smText(x,d.context||"",M,y+W*0.02,bodyFS*1.12,"400",B.dark?"rgba(255,255,255,.85)":B.ink,W-2*M,bodyFS*1.62);
@@ -5776,7 +5784,7 @@ function smDrawContent(ctx){
       x.fillText(k.a,kx+W*0.024,y+W*0.115);
       if(k.e){ smFit(x,"Erwartet: "+k.e,"500",bodyFS*0.82,kMaxW); x.fillStyle=B.muted;
         x.fillText("Erwartet: "+k.e,kx+W*0.024,y+W*0.165);
-        const beat=smBeat(k.a,k.e); if(beat!==null){ x.font="800 "+bodyFS*0.82+"px "+BRAND.font; x.fillStyle=beat?B.accent:B.neg;
+        const beat=smBeat(k.a,k.e); if(beat!==null){ x.font="800 "+bodyFS*0.82+"px "+BRAND.font; x.fillStyle=beat?(B.pos||B.accent):B.neg;
           x.fillText(beat?"✓ BEAT":"✗ MISS",kx+colW-W*0.115,y+W*0.048); } }
     });
     y+=W*0.21+W*0.05;
@@ -5869,7 +5877,7 @@ function smDrawContent(ctx){
       x.fillText(smEur(b[1]), W-M, by+W*0.062); x.textAlign="left";
     });
     y+=2*W*0.15+W*0.02;
-    x.font="800 "+bodyFS*1.4+"px "+BRAND.font; x.fillStyle=B.accent;
+    x.font="800 "+bodyFS*1.4+"px "+BRAND.font; x.fillStyle=B.pos||B.accent;   /* positive Zahl -> grün */
     x.fillText("+ "+smEur(r.gain)+" möglicher Wertzuwachs", M, y+bodyFS*1.4);
 
   } else if(id==="zero_sm_editorial_quote"){
@@ -5966,6 +5974,12 @@ const SM_THEME_TXT={
 };
 async function smGenBg(){
   const st=$("smBgStatus");
+  /* Einzel-Slide-Posts (Christian 15.07.): kein KI-Hintergrund — cleaner zero-Hintergrund ist Pflicht */
+  if(smBrand==="zero" && smTpl && !smTpl.carousel){
+    smBgImg=null; smBgUrl=null; if($("smBgClear")) $("smBgClear").style.display="none"; smRender();
+    if(st) st.textContent="Einzel-Slide-Posts nutzen bei zero den cleanen Brand-Hintergrund — kein KI-Bild.";
+    return;
+  }
   if(genMode()==="demo"){ st.textContent="Demo-Modus: kein Live-Bild. Make-Webhook oder OpenRouter-Key nötig."; return; }
   st.textContent="KI-Hintergrund wird generiert …";
   /* FIX (Christian 15.07.): Editor öffnete teils VOR dem Bild-Load -> Hintergrund fehlte im Editor.
