@@ -42,10 +42,11 @@
     --panel:#12203a;
     --ink:#eef2f7;
     --ink-2:#cfd9e6;
-    --muted:#8fa2ba;
-    --faint:#63788f;
-    --line:#22344f;
-    --line-2:#1a2a42;
+    /* Kontrast-Anhebung Dark Mode (Christian 15.07.): Schrift heller, Linien deutlich sichtbarer */
+    --muted:#a9bbd3;
+    --faint:#8399b5;
+    --line:#35496b;
+    --line-2:#2b3d5a;
     --navy:#3b82d1;
     --navy-2:#5a9adf;
     --accent:#3b82d1;
@@ -69,6 +70,18 @@
   html[data-theme="dark"] .fmt,html[data-theme="dark"] .sm-sug-card,html[data-theme="dark"] .sm-plat,html[data-theme="dark"] .tile,html[data-theme="dark"] .toggle,html[data-theme="dark"] .icon-btn{background:var(--panel);border-color:var(--line);color:var(--ink-2)}
   html[data-theme="dark"] .sm-box,html[data-theme="dark"] .modal-note,html[data-theme="dark"] .wiki-doc code,html[data-theme="dark"] .autobox{background:#0f1c33;border-color:var(--line);color:var(--ink-2)}
   html[data-theme="dark"] .sm-cpanel textarea.sm-copybox{background:#0f1c33;border-color:var(--line);color:var(--ink)}
+  /* Kontrast-Feinschliff Dark Mode (Christian 15.07.): Labels/Hints heller, Fokus-Ringe sichtbar,
+     Platzhalter lesbar, Karten-Ränder klar abgesetzt */
+  html[data-theme="dark"] .lab,html[data-theme="dark"] .card-h h3{color:var(--ink-2)}
+  html[data-theme="dark"] .hint{color:var(--faint)}
+  html[data-theme="dark"] ::placeholder{color:#7d90ab;opacity:1}
+  html[data-theme="dark"] .inp:focus,html[data-theme="dark"] .ta:focus,html[data-theme="dark"] .sel:focus{border-color:#5a9adf;outline:none;box-shadow:0 0 0 2px rgba(90,154,223,.25)}
+  html[data-theme="dark"] .card{border:1px solid var(--line)}
+  html[data-theme="dark"] .tool{color:var(--ink-2)}
+  html[data-theme="dark"] .tool:hover{color:#fff}
+  html[data-theme="dark"] .stab{border-color:var(--line)}
+  html[data-theme="dark"] .sm-grp{border-color:var(--line);color:var(--ink-2)}
+  html[data-theme="dark"] .props,html[data-theme="dark"] .slides,html[data-theme="dark"] .toolbar{border-color:var(--line)}
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased;font-feature-settings:"cv05","ss01"}
@@ -862,25 +875,29 @@
     <button class="tool danger" id="tDelete"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6M14 11v6"/></svg> Löschen</button>
     <div class="spacer"></div>
     <button class="tool" id="tBack"><svg class="ic" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Zurück</button>
-    <button class="tool-solid" id="tBundleTop" title="Alle Slides in allen gewählten Plattform-Größen + Captions als ZIP"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/></svg> Bundle (ZIP)</button>
-    <button class="tool-solid" id="tExport"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/></svg> Export PNG</button>
-    <button class="tool-solid" id="tExportPdf" title="Alle Slides als ein PDF — LinkedIn macht daraus ein echtes Karussell (Dokument-Post)"><svg class="ic" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M9 13h6M9 17h6"/></svg> PDF (LinkedIn)</button>
-    <button class="tool-pub" id="tPublish"><svg class="ic" viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1-1-7.9A5 5 0 0 1 16 9a3.5 3.5 0 0 1 1 6.9"/><path d="M12 12v7"/><path d="M9 15l3-3 3 3"/></svg> Veröffentlichen</button>
+    <!-- Downloads (Christian 15.07.): oben rechts entfernt (inkl. Veröffentlichen).
+         Downloads leben jetzt LINKS in der Slide-Leiste: pro Plattform-Sparte ein Button,
+         ganz unten der Bundle-Download. tExport/tExportPdf bleiben als unsichtbare
+         Funktionsträger erhalten (werden von den Sidebar-Buttons aufgerufen). -->
+    <button id="tExport" style="display:none"></button>
+    <button id="tExportPdf" style="display:none"></button>
   </div>
 
-  <!-- Bild-Prompt-Panel (pro Slide) -->
-  <div id="promptPanel" style="display:none;padding:12px 16px;background:#f6f7fa;border-bottom:1px solid var(--line)">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:7px">
-      <b style="font-size:13px">Bild-Prompt dieser Slide</b>
-      <span class="hint" id="spHint"></span>
-      <span style="flex:1"></span>
-      <button class="tool" id="spClose" style="padding:4px 8px">Schließen</button>
-    </div>
-    <textarea class="ta" id="slidePrompt" style="min-height:58px;background:#fff"></textarea>
-    <div class="row" style="gap:8px;margin-top:8px">
-      <button class="btn" id="spSuggest">Alternative vorschlagen</button>
-      <button class="btn btn-primary" id="spGenOne">Nur diese Slide neu generieren</button>
-      <button class="btn" id="spGenAll">Alle Slides neu generieren</button>
+  <!-- Bild-Prompt-Panel (pro Slide) — kompaktes Modal (Christian 15.07.), nicht mehr bildschirmfüllend -->
+  <div id="promptPanel" style="display:none;position:fixed;inset:0;z-index:220;background:rgba(8,14,26,.42);backdrop-filter:blur(3px);align-items:center;justify-content:center">
+    <div style="width:min(560px,calc(100vw - 40px));background:var(--panel,#fff);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-lg,0 18px 50px rgba(0,0,0,.3));padding:18px 20px" onclick="event.stopPropagation()">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <b style="font-size:14px">Bild-Prompt dieser Slide</b>
+        <span class="hint" id="spHint"></span>
+        <span style="flex:1"></span>
+        <button class="icon-btn" id="spClose" title="Schließen" style="width:30px;height:30px;border-radius:8px;display:grid;place-items:center;border:1px solid var(--line)"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <textarea class="ta" id="slidePrompt" style="min-height:96px;border-radius:10px"></textarea>
+      <div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn" id="spSuggest">Alternative vorschlagen</button>
+        <button class="btn" id="spGenAll">Alle Slides neu</button>
+        <button class="btn btn-primary" id="spGenOne">Diese Slide neu generieren</button>
+      </div>
     </div>
   </div>
 
@@ -2272,6 +2289,18 @@ function renderSlideTabs(){
     const x=t.querySelector(".sx"); if(x) x.onclick=(e)=>{ e.stopPropagation(); removeSlide(i); };
     list.appendChild(t);
   });
+  /* Fallback ohne Plattform-Gruppen (z.B. Grafiken-Redaktion): Downloads unten links,
+     da die Toolbar-Buttons oben rechts entfernt wurden (Christian 15.07.) */
+  const png=document.createElement("button"); png.className="sm-grp-txt sm-grp-dl";
+  png.innerHTML='<svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/></svg> Export PNG';
+  png.onclick=()=>{ const b=$("tExport"); if(b&&b.onclick) b.onclick(); else exportPNG(); };
+  list.appendChild(png);
+  if(slides.length>1){
+    const pdfB=document.createElement("button"); pdfB.className="sm-grp-txt sm-grp-bundle";
+    pdfB.innerHTML="PDF (LinkedIn)";
+    pdfB.onclick=()=>exportPDF();
+    list.appendChild(pdfB);
+  }
 }
 async function removeSlide(i){
   if(slides.length<=1) return;
@@ -2479,7 +2508,7 @@ const tGenImgHandler=async()=>{
          NEU aufbauen — Texte, Zahlen, Legal-Fußzeile und Logo bleiben erhalten. */
       const theme=($("smTheme")&&$("smTheme").value)||"clean";
       const model=($("smModel")&&$("smModel").value)||curModel;
-      const fullP=uPrompt+", "+((typeof SM_THEME_TXT!=="undefined"&&SM_THEME_TXT[theme])||"")+", "+(SM_BRANDS[smBrand].dark?"dark navy, near-black, subtle green accent glow":"light, clean tones")+"."+SM_NEG;
+      const fullP=uPrompt+", "+((typeof SM_THEME_TXT!=="undefined"&&SM_THEME_TXT[theme])||"")+", "+(SM_BRANDS[smBrand].dark?"dark navy, near-black, subtle pink and violet accent glow":"light, clean tones")+"."+SM_NEG;
       let raw;
       if(genMode()==="direct") raw=await generateImageDirect(fullP,smFmt,model,_orKey);
       else if(genMode()==="make"){
@@ -2530,8 +2559,10 @@ function spOpen(){
   const sc=(slides[current]&&slides[current].content)||{};
   $("slidePrompt").value=(sc.prompt||window._content.prompt||"").trim();
   $("spHint").textContent="Slide "+(current+1)+"/"+slides.length+" · Format "+curFmt+" · Modell "+modelLabel();
-  $("promptPanel").style.display="";
+  $("promptPanel").style.display="flex";   /* Modal (Christian 15.07.): zentriert, kompakt */
 }
+/* Klick auf den abgedunkelten Hintergrund schließt das Modal */
+$("promptPanel").addEventListener("click",(e)=>{ if(e.target===$("promptPanel")) $("promptPanel").style.display="none"; });
 function spSave(){
   if(current<0) return;
   slides[current].content=Object.assign({},slides[current].content,{prompt:$("slidePrompt").value.trim()});
@@ -2598,7 +2629,7 @@ async function exportPNG(){
     catch(e){ /* fallback: volle Auflösung */ }
   }
   const a=document.createElement("a");
-  a.href=out; a.download=`${(window._content.head||grUseCase||"grafik").replace(/[^a-z0-9]+/gi,"_").slice(0,40)}${suffix}.png`; a.click();
+  a.href=out; a.download=(window.smFileBase?smFileBase(window._content.head||grUseCase||"grafik"):((window._content.head||grUseCase||"grafik").replace(/[^a-z0-9]+/gi,"_").slice(0,40)))+suffix+".png"; a.click();
 }
 $("tExport").onclick=exportPNG;
 
@@ -2627,12 +2658,12 @@ async function exportPDF(){
     /* Ursprüngliche Slide wiederherstellen */
     if(keep>=0&&keep!==current){ current=keep; await new Promise(r=>canvas.loadFromJSON(slides[keep].json,()=>{canvas.renderAll();r();})); }
     renderSlideTabs();
-    pdf.save(((window._content&&window._content.head)||"karussell").replace(/[^a-z0-9]+/gi,"_").slice(0,40)+"_linkedin.pdf");
+    pdf.save((window.smFileBase?smFileBase((window._content&&window._content.head)||"karussell"):(((window._content&&window._content.head)||"karussell").replace(/[^a-z0-9]+/gi,"_").slice(0,40)))+"_linkedin.pdf");
   }catch(e){ alert("PDF-Export fehlgeschlagen: "+e.message); }
   hideLoading();
 }
 $("tExportPdf").onclick=exportPDF;
-$("tPublish").onclick=()=>{ alert("Im Live-Betrieb geht der Post von hier per Make an OneUp und die Social-Kanäle. Im Demo: Export PNG nutzen."); };
+/* Veröffentlichen-Button entfernt (Christian 15.07.) — Publishing läuft über Make/OneUp außerhalb des Editors */
 
 function showLoading(t,s){ $("loadTitle").textContent=t; $("loadSub").textContent=s; $("loading").classList.add("show"); }
 function hideLoading(){ $("loading").classList.remove("show"); }
@@ -2811,7 +2842,7 @@ function initGraphic(){
       const composed = await _composeGraphic(_grLastImg);   // Logo + Quelle deterministisch drauf (voller Auflösung)
       const out = tg ? await fitToTarget(composed, tg[0], tg[1], "image/png") : composed;
       const a=document.createElement("a"); a.href=out;
-      a.download=grUseCase+(tg?("_"+tg[0]+"x"+tg[1]):"")+".png"; a.click();
+      a.download=(window.smFileBase?smFileBase(($("grTitle")&&$("grTitle").value)||grUseCase):grUseCase)+"_"+grUseCase+(tg?("_"+tg[0]+"x"+tg[1]):"")+".png"; a.click();
     }catch(e){ toast("Export fehlgeschlagen: "+e.message+" — nutze 'Im Editor öffnen'",6000); }
   };
 }
@@ -3250,7 +3281,10 @@ async function extractSM(txt,opts){
   schema["cashtags"]="Array mit 0-2 Cashtags (z.B. $NVDA), nur wenn Einzeltitel Thema ist";
   const sys="Du bist Redakteur bei finanzen.net zero (deutscher Neobroker) und schreibst professionelles, korrektes Deutsch mit Umlauten. Lies den Artikel und fülle die Felder für das Social-Template \""+smTpl.name+"\" ("+smTpl.desc+"). "+
     "PRIORISIERUNG (Pflicht-Schritt VOR dem Ausfüllen, Redakteurs-Feedback Yuki 15.07.): Identifiziere gedanklich ALLE Einzelfakten des Artikels (Zahlen, Vergleiche, Entscheidungen, Ereignisse, Kursbewegungen) und bewerte jeden nach (a) Größe/strukturellem Gewicht, (b) Überraschungswert, (c) Relevanz für die Anlageentscheidung. Wähle für Headline/Kicker/erstes Feld explizit den Fakt mit dem höchsten Gesamtwert — das ist KEINE Regel gegen Kursbewegungen (bei vielen Artikeln ist die Kursbewegung selbst der stärkste Fakt), sondern gegen automatisches Übernehmen einer nebensächlichen oder austauschbaren Randinfo nur weil sie im Text zuerst steht oder leicht zu formulieren ist. Beispiel für einen Fehler, den es zu vermeiden gilt: eine vage Bewertung wie 'starkes Quartal' ohne Zahl wählen, obwohl der Artikel einen härteren, konkreteren Fakt (z.B. eine prozentuale Kostensenkung oder Kapazitätsverschiebung) enthält. Alle Felder zusammen sollen einen klaren roten Faden ergeben (Ereignis -> Hintergrund -> Konsequenz). KEINE META-REFERENZ AUF DEN ARTIKEL (Pflicht, Redakteurs-Feedback Yuki 15.07.): Schreibe niemals 'wird im Artikel als X bezeichnet', 'laut Artikel', 'weitere Details nennt die Firma nicht' oder ähnliche Verweise auf den Quelltext selbst. Formuliere Fakten direkt (STATT 'X ist im SDAX notiert und wird im Artikel als Technologiekonzern bezeichnet' -> 'X ist ein im SDAX notierter Technologiekonzern'). Fehlt eine Info im Artikel, lasse sie ersatzlos weg statt das Fehlen zu erwähnen. "+
-    "Antworte NUR mit reinem JSON, ohne Markdown. Schema (Feldname: Bedeutung): "+JSON.stringify(schema)+". COMPLIANCE ZWINGEND: keine Kauf- oder Verkaufsempfehlung aus persönlicher Sicht, keine Formulierungen wie 'jetzt kaufen', 'lohnt sich', 'Top-Pick'. Erlaubt: neutrale Fakten, Analysten-Bezug mit Quelle, oder Frage-Framing. Nutze NUR Zahlen, die im Text stehen; erfinde keine. Felder, für die der Text nichts hergibt, als leeren String lassen. Zahlen in deutscher Schreibweise (Komma).";
+    "Antworte NUR mit reinem JSON, ohne Markdown. Schema (Feldname: Bedeutung): "+JSON.stringify(schema)+". COMPLIANCE ZWINGEND: keine Kauf- oder Verkaufsempfehlung aus persönlicher Sicht, keine Formulierungen wie 'jetzt kaufen', 'lohnt sich', 'Top-Pick'. Erlaubt: neutrale Fakten, Analysten-Bezug mit Quelle, oder Frage-Framing. Nutze NUR Zahlen, die im Text stehen; erfinde keine. Felder, für die der Text nichts hergibt, als leeren String lassen. Zahlen in deutscher Schreibweise (Komma). "+
+    "KURSDATEN-GROUNDING (absolut kritisch, Fehler = unbrauchbar, Redakteurs-Feedback Christian 15.07.): Kurs, Veränderung (Δ %), Vorzeichen und Zeitraum MÜSSEN exakt so im Artikel stehen — NIEMALS Richtung oder Wert erfinden oder umdrehen (Negativ-Beispiel: Grafik zeigte '-6,06 % (1 Tag)', obwohl der Artikel einen zweistelligen KursANSTIEG meldete). Prüfe explizit: Steigt oder fällt der Kurs laut Artikel? Übernimm das Vorzeichen daraus. Steht kein konkreter aktueller Kurs oder keine konkrete Prozent-Veränderung im Artikel, lasse das Feld LEER statt zu schätzen. Übernimm auch den Zeitbezug wörtlich aus dem Artikel (z.B. 'vorbörslich', 'im Seoul-Handel') statt pauschal '1 Tag'. Beachte das Artikeldatum: Formuliere Stand/Zeitraum relativ zum Artikel, nicht zum heutigen Tag. "+
+    "GRAMMATIK & UMLAUTE (Pflicht, Redakteurs-Feedback 15.07.): Fehlerfreies Deutsch in JEDEM Feld. Umlaute ä/ö/ü/ß IMMER korrekt verwenden — niemals Transliterationen oder Fremdschreibweisen (FALSCH: 'Folgekvartal', 'Gewinnschaetzung', 'Boerse' — RICHTIG: 'Folgequartal', 'Gewinnschätzung', 'Börse'). SELBSTTEST: Lies jedes Feld auf Rechtschreibung und Grammatik, korrigiere vor der Antwort. "+
+    "HOOK & KONTEXT (Pflicht, Redakteurs-Feedback Yuki 15.07.): Kein Feld darf so generisch sein, dass man es ohne Vorwissen nicht einordnen kann. Headline/Kicker müssen konkret benennen, WER was tut und WARUM es relevant ist — mit Firma und Zahl statt Schlagwort. Die erste Slide muss neugierig machen weiterzulesen/weiterzuswipen (stärkster Fakt + offene Konsequenz), keine austauschbaren Etiketten.";
   const out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,8000)}]));
   smTpl.fields.forEach(f=>{
     if(out[f.k]===undefined||out[f.k]===null) return;
@@ -3931,7 +3965,7 @@ window.SM_TEXTSTYLES={
   hook:{ label:"Hook / Aufmerksamkeit", desc:"Zugespitzt und neugierig machend \u2014 die \u00fcberraschendste Zahl zuerst, Spannungsbogen \u00fcber die Slides.",
     prompt:"STIL: HOOK. Formuliere zugespitzt und neugierig machend: die \u00fcberraschendste oder gr\u00f6\u00dfte Zahl zuerst, klare Spannung (Gegensatz, Wendung, trotz/obwohl), kurze kraftvolle S\u00e4tze. Kein Clickbait ohne Substanz \u2014 jede Zuspitzung muss durch einen Fakt aus dem Artikel gedeckt sein." },
   trader:{ label:"Trader / Zahlen-Fokus", desc:"Kurse, Kursziele, Prozentbewegungen, Termine \u2014 maximale Zahlendichte f\u00fcr aktive Anleger.",
-    prompt:"STIL: TRADER. Maximale Zahlendichte f\u00fcr aktive Anleger: Kursbewegungen, Kursziele mit Analystenhaus, Prozentwerte, Bewertungen, konkrete Termine (Earnings, Entscheidungen). Jeder Bullet enth\u00e4lt mindestens zwei konkrete Zahlen/Daten. Marktreaktion und Einordnung zum Kurs zuerst." },
+    prompt:"STIL: TRADER. Maximale Zahlendichte f\u00fcr aktive Anleger: Kursbewegungen, Kursziele mit Analystenhaus, Prozentwerte, Bewertungen, konkrete Termine (Earnings, Entscheidungen). Jeder Bullet enth\u00e4lt mindestens zwei konkrete Zahlen/Daten. Marktreaktion und Einordnung zum Kurs zuerst. ABER (Yuki 15.07.): Zahlendichte ersetzt NICHT den Kontext \u2014 auch im Trader-Stil muss jede Slide ohne Vorwissen verst\u00e4ndlich sein (Firma + Ereignis + Zahl), und das Cover braucht einen Hook, der zum Weiterswipen anregt. Nie nackte Zahlenreihen ohne Einordnung." },
   info:{ label:"Info / Erkl\u00e4rend", desc:"Ruhig und einordnend \u2014 Hintergr\u00fcnde verst\u00e4ndlich erkl\u00e4rt, auch f\u00fcr Einsteiger.",
     prompt:"STIL: INFO. Ruhig, einordnend, erkl\u00e4rend: Zusammenh\u00e4nge und Hintergr\u00fcnde so erkl\u00e4ren, dass auch Einsteiger folgen k\u00f6nnen. Fachbegriffe kurz aufl\u00f6sen (z.B. Kontingentierung, also Zuteilung knapper Ware). Ein Fakt pro Bullet reicht, daf\u00fcr sauber eingeordnet." }
 };
@@ -4217,7 +4251,7 @@ extractSocial = async function(txt){
     "\"box\":\"Kontext/Ausblick für die abgerundete Info-Box, max 160 Zeichen und EIN vollständiger, in sich abgeschlossener Satz: die konkrete Konsequenz oder der nächste relevante Termin — darf KEINEN Fakt aus bullets, intro oder infoBullet wiederholen\","+
     "\"x\":{\"text\":\"Post für X (Twitter), STRIKT max 240 Zeichen (Puffer für Cashtags): macht neugierig auf die Slides und regt zum Durchklicken an (z.B. Kernaussage anteasern, die stärkste Zahl nennen, aber nicht alles verraten). Redakteurs-Ton, keine KI-Floskeln, maximal 1 Emoji\",\"cashtags\":[\"1 bis MAXIMAL 2 Börsenticker der zentralen Aktien des Artikels im Format $AMD, $NVDA — NUR wenn der Ticker sicher bekannt ist, sonst leere Liste\"]},"+
     "\"hashtags\":{\"instagram\":[\"MAXIMAL 5 deutsche Hashtags (nie mehr als 5!), klein geschrieben. AUSWAHL-REGEL: 1x Firmenname + sonst breite, reichweitenstarke Finanz-/Wirtschafts-Hashtags wie #börse, #aktien, #finanzen, #wirtschaft, #investieren, #geldanlage. KEINE Nischen-Hashtags zum Spezialthema (FALSCH: #containerschifffahrt, #prognose, #hamburg, #nutzfahrzeuge — RICHTIG: #hapaglloyd #aktien #börse #wirtschaft #finanzen)\"],\"linkedin\":[\"MAXIMAL 5 Hashtags (nie mehr als 5!): 1x Firmenname + breite Wirtschafts-/Finanz-Tags (#Wirtschaft, #Börse, #Finanzen, #Investieren), keine Nischen-Tags\"]}}. HASHTAG-OBERGRENZE (Pflicht, Redakteurs-Feedback Yuki 15.07., gilt für ALLE Plattformen ausnahmslos): Egal welches Feld oder welche Plattform Hashtags enthält — NIE mehr als 5 Hashtags insgesamt. "+
-    "ANTI-REDUNDANZ (kritisch): Jedes Feld wird auf einer EIGENEN Slide angezeigt. Über ALLE Felder hinweg (head, sub, bullets, infoHead, intro, infoBullet, box, close, closeHead) darf derselbe Fakt NIE zweimal vorkommen — auch nicht umformuliert. Verteile die Fakten des Artikels bewusst: bullets = die 3 wichtigsten Kernfakten; intro/infoBullet/box = weitere Aspekte, Hintergründe, Zahlen oder Termine, die in den bullets NICHT stehen; close = eine echte Schlussfolgerung, kein Fakten-Recap. closeHead und infoHead müssen sich klar von head und voneinander unterscheiden. SELBSTTEST: Lies alle Felder nacheinander wie ein Karussell — wiederholt sich inhaltlich etwas, ersetze es durch einen noch nicht genutzten Fakt aus dem Artikel. KEIN KI-KLANG (Pflicht für alle Texte): VERBOTEN sind formelhafte Absatz-Einstiege mit Doppelpunkt-Anmoderation wie 'Besonders überraschend:', 'Ein Wermutstropfen bleibt:', 'Besonders bemerkenswert:', 'Interessant dabei:', 'Wichtig zu wissen:', 'Hinzu kommt:', 'Nicht zu vergessen:' und ähnliche Zweiwort-Floskeln. Statt 'Besonders überraschend: International Motors erzielte 115 Mio.' schreibe 'International Motors erzielte 115 Mio. EUR — der Konsens hatte einen Verlust erwartet.' Die Überraschung/Bewertung gehört IN den Satz, nicht davor. Variiere Satzanfänge über alle Absätze. LESBARKEIT (Pflicht): Schreibe einfache, klare Sätze wie ein guter Nachrichtenredakteur. Maximal EIN Nebensatz pro Satz, KEINE Schachtelsätze, KEINE Einschübe mit Gedankenstrich am Satzende, keine Relativsatz-Ketten. Lieber zwei kurze Sätze als ein verschachtelter. Negativ-Beispiel (so NICHT): 'Louisiana befreite Ende 2024 Rechenzentren, die vor 2029 gebaut werden, für 20 Jahre von der Umsatzsteuer — gezielt, um Meta ins Land zu holen.' Besser: 'Louisiana befreit neue Rechenzentren für 20 Jahre von der Umsatzsteuer. Das Gesetz von Ende 2024 sollte gezielt Meta ins Land holen.' SELBSTTEST LESBARKEIT: Lies jeden Satz laut — stolpert man oder braucht man zwei Anläufe, in zwei Sätze aufteilen. WÄHRUNGS-SCHREIBWEISE (Pflicht in allen Feldern): Entweder Symbol VOR der Zahl ('$ 4.062,60') ODER Kürzel NACH der Zahl ('4.062,60 USD', '145,30 EUR'). NIEMALS das Symbol nach der Zahl ('4.062,60 $' ist FALSCH), kein ausgeschriebenes 'US-Dollar' hinter Zahlen. Innerhalb des Beitrags einheitlich eine Variante verwenden. GROUNDING (absolut kritisch, Verstoß = unbrauchbar): Verwende AUSSCHLIESSLICH Fakten, Zahlen, Namen, Firmen und Vergleiche, die WÖRTLICH im Artikeltext stehen. Erfinde NIEMALS Vergleiche oder Einordnungen mit Firmen/Werten, die der Artikel nicht nennt (z.B. NICHT 'mehr als Apple wert' schreiben, wenn Apple im Text nicht vorkommt). Kein Weltwissen ergänzen, keine Kontexte aus deinem Training, keine gerundeten oder umgerechneten Zahlen — nur was im Text steht, in der Form, in der es dort steht. SELBSTTEST GROUNDING: Prüfe jedes Feld — kommt jede Zahl, jeder Firmenname und jeder Vergleich darin im Artikeltext vor? Falls nein, ersatzlos streichen oder durch einen belegten Fakt ersetzen. KEINE META-REFERENZ AUF DEN ARTIKEL (Pflicht, Redakteurs-Feedback Yuki 15.07.): Schreibe niemals Formulierungen wie 'wird im Artikel als X bezeichnet', 'laut Artikel', 'weitere Details nennt die Firma nicht', 'der Artikel erwähnt nicht' oder ähnliche Verweise auf den Quelltext selbst — das ist ein Stilbruch, der Leser aus der Grafik reißt. Formuliere den Fakt stattdessen direkt und eigenständig, so als hättest du selbst recherchiert: STATT 'Kontron ist im SDAX notiert und wird im Artikel als Technologiekonzern bezeichnet' schreibe 'Kontron ist ein im SDAX notierter Technologiekonzern'. STATT 'Der Auftragsgeber ist ein europäischer Bahnbetreiber — weitere Details nennt Kontron nicht' schreibe 'Der Auftragsgeber ist ein europäischer Bahnbetreiber' (den Nicht-Fakt 'keine weiteren Details' einfach weglassen, statt ihn explizit zu erwähnen). Wenn eine Information im Artikel fehlt, lasse sie ersatzlos weg — erwähne NIE, dass sie fehlt oder woher die vorhandene Information stammt. Sachlich, deskriptiv, keine Kaufempfehlung, keine Kursziele als Empfehlung. Alle Zahlen exakt aus dem Text, nichts erfinden.";
+    "ANTI-REDUNDANZ (kritisch): Jedes Feld wird auf einer EIGENEN Slide angezeigt. Über ALLE Felder hinweg (head, sub, bullets, infoHead, intro, infoBullet, box, close, closeHead) darf derselbe Fakt NIE zweimal vorkommen — auch nicht umformuliert. Verteile die Fakten des Artikels bewusst: bullets = die 3 wichtigsten Kernfakten; intro/infoBullet/box = weitere Aspekte, Hintergründe, Zahlen oder Termine, die in den bullets NICHT stehen; close = eine echte Schlussfolgerung, kein Fakten-Recap. closeHead und infoHead müssen sich klar von head und voneinander unterscheiden. SELBSTTEST: Lies alle Felder nacheinander wie ein Karussell — wiederholt sich inhaltlich etwas, ersetze es durch einen noch nicht genutzten Fakt aus dem Artikel. KEIN KI-KLANG (Pflicht für alle Texte): VERBOTEN sind formelhafte Absatz-Einstiege mit Doppelpunkt-Anmoderation wie 'Besonders überraschend:', 'Ein Wermutstropfen bleibt:', 'Besonders bemerkenswert:', 'Interessant dabei:', 'Wichtig zu wissen:', 'Hinzu kommt:', 'Nicht zu vergessen:' und ähnliche Zweiwort-Floskeln. Statt 'Besonders überraschend: International Motors erzielte 115 Mio.' schreibe 'International Motors erzielte 115 Mio. EUR — der Konsens hatte einen Verlust erwartet.' Die Überraschung/Bewertung gehört IN den Satz, nicht davor. Variiere Satzanfänge über alle Absätze. LESBARKEIT (Pflicht): Schreibe einfache, klare Sätze wie ein guter Nachrichtenredakteur. Maximal EIN Nebensatz pro Satz, KEINE Schachtelsätze, KEINE Einschübe mit Gedankenstrich am Satzende, keine Relativsatz-Ketten. Lieber zwei kurze Sätze als ein verschachtelter. Negativ-Beispiel (so NICHT): 'Louisiana befreite Ende 2024 Rechenzentren, die vor 2029 gebaut werden, für 20 Jahre von der Umsatzsteuer — gezielt, um Meta ins Land zu holen.' Besser: 'Louisiana befreit neue Rechenzentren für 20 Jahre von der Umsatzsteuer. Das Gesetz von Ende 2024 sollte gezielt Meta ins Land holen.' SELBSTTEST LESBARKEIT: Lies jeden Satz laut — stolpert man oder braucht man zwei Anläufe, in zwei Sätze aufteilen. WÄHRUNGS-SCHREIBWEISE (Pflicht in allen Feldern): Entweder Symbol VOR der Zahl ('$ 4.062,60') ODER Kürzel NACH der Zahl ('4.062,60 USD', '145,30 EUR'). NIEMALS das Symbol nach der Zahl ('4.062,60 $' ist FALSCH), kein ausgeschriebenes 'US-Dollar' hinter Zahlen. Innerhalb des Beitrags einheitlich eine Variante verwenden. GROUNDING (absolut kritisch, Verstoß = unbrauchbar): Verwende AUSSCHLIESSLICH Fakten, Zahlen, Namen, Firmen und Vergleiche, die WÖRTLICH im Artikeltext stehen. Erfinde NIEMALS Vergleiche oder Einordnungen mit Firmen/Werten, die der Artikel nicht nennt (z.B. NICHT 'mehr als Apple wert' schreiben, wenn Apple im Text nicht vorkommt). Kein Weltwissen ergänzen, keine Kontexte aus deinem Training, keine gerundeten oder umgerechneten Zahlen — nur was im Text steht, in der Form, in der es dort steht. SELBSTTEST GROUNDING: Prüfe jedes Feld — kommt jede Zahl, jeder Firmenname und jeder Vergleich darin im Artikeltext vor? Falls nein, ersatzlos streichen oder durch einen belegten Fakt ersetzen. KEINE META-REFERENZ AUF DEN ARTIKEL (Pflicht, Redakteurs-Feedback Yuki 15.07.): Schreibe niemals Formulierungen wie 'wird im Artikel als X bezeichnet', 'laut Artikel', 'weitere Details nennt die Firma nicht', 'der Artikel erwähnt nicht' oder ähnliche Verweise auf den Quelltext selbst — das ist ein Stilbruch, der Leser aus der Grafik reißt. Formuliere den Fakt stattdessen direkt und eigenständig, so als hättest du selbst recherchiert: STATT 'Kontron ist im SDAX notiert und wird im Artikel als Technologiekonzern bezeichnet' schreibe 'Kontron ist ein im SDAX notierter Technologiekonzern'. STATT 'Der Auftragsgeber ist ein europäischer Bahnbetreiber — weitere Details nennt Kontron nicht' schreibe 'Der Auftragsgeber ist ein europäischer Bahnbetreiber' (den Nicht-Fakt 'keine weiteren Details' einfach weglassen, statt ihn explizit zu erwähnen). Wenn eine Information im Artikel fehlt, lasse sie ersatzlos weg — erwähne NIE, dass sie fehlt oder woher die vorhandene Information stammt. GRAMMATIK & UMLAUTE (Pflicht, Redakteurs-Feedback 15.07.): Fehlerfreies Deutsch in JEDEM Feld. Umlaute ä/ö/ü/ß IMMER korrekt schreiben — niemals Transliterationen oder Fremdschreibweisen (FALSCH: 'Folgekvartal', 'Gewinnschaetzung', 'Boerse' — RICHTIG: 'Folgequartal', 'Gewinnschätzung', 'Börse'). SELBSTTEST GRAMMATIK: Lies jedes Feld auf Rechtschreibung, Grammatik und korrekte Umlaute, korrigiere vor der Antwort. KEIN GENERISCHES ETIKETT / HOOK-PFLICHT (Redakteurs-Feedback Yuki 15.07.): Kein Feld darf so generisch sein, dass ein Leser es ohne Vorwissen nicht einordnen kann (Negativ-Beispiel: eine Cover-Zeile wie 'Trader-Zahlenfokus' oder 'Klassisches News-Format' sagt NICHTS über den Inhalt). Jede Headline/Zeile benennt konkret WER was tut, mit Firma und möglichst einer Zahl. Das Cover muss zum Weiterswipen anregen: stärkster Fakt plus offene Konsequenz oder Spannungsbogen — die Auflösung kommt auf den Folge-Slides. Sachlich, deskriptiv, keine Kaufempfehlung, keine Kursziele als Empfehlung. Alle Zahlen exakt aus dem Text, nichts erfinden.";
   var out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,9000)}]));
   if(out.head) $id("fHead").value=out.head;
   if(out.sub) $id("fSub").value=out.sub;
@@ -4422,6 +4456,10 @@ css2.textContent=[
 ".sm-grp-note{font-size:10.5px;color:var(--faint);line-height:1.4;padding:2px 4px 6px}",
 ".sm-grp-txt{width:100%;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;font-weight:600;color:var(--tint-ink);padding:8px;border-radius:9px;border:1.5px dashed var(--tint-line);margin:2px 0 6px;transition:.13s;background:none;cursor:pointer}",
 ".sm-grp-txt:hover{background:var(--tint)}",
+".sm-grp-dl{border-style:solid;color:var(--accent,#00935d);border-color:currentColor;opacity:.92}",
+".sm-grp-dl:hover{background:rgba(0,147,93,.08)}",
+".sm-grp-bundle{margin-top:14px;border:none;background:var(--navy,#0a1f44);color:#fff;font-weight:700;padding:11px}",
+".sm-grp-bundle:hover{filter:brightness(1.15);background:var(--navy,#0a1f44)}",
 ".sm-cpanel{position:absolute;inset:24px;max-width:640px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-lg);z-index:50;display:none;flex-direction:column;overflow:hidden}",
 ".sm-cpanel.show{display:flex}",
 ".sm-cpanel .hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line);flex:none}",
@@ -4547,9 +4585,105 @@ renderSlideTabs=function(){
     txtBtn.innerHTML='<svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg> Texte für '+(SM_GROUP_SHORT[p.id]||p.label);
     txtBtn.onclick=function(){ smShowCenterPanel(p.id); };
     list.appendChild(txtBtn);
+    /* Download pro Plattform (Christian 15.07.): alle Bilder + Texte NUR dieser Sparte als ZIP */
+    var dlBtn=document.createElement("button"); dlBtn.className="sm-grp-txt sm-grp-dl";
+    dlBtn.innerHTML='<svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/></svg> Download für '+(SM_GROUP_SHORT[p.id]||p.label);
+    dlBtn.onclick=function(){ smDownloadPlatform(p, dlBtn); };
+    list.appendChild(dlBtn);
   });
+  /* Einzel-Slide-PNG (aktive Gruppe bestimmt Format) — Ersatz für "Export PNG" oben rechts */
+  var one=document.createElement("button"); one.className="sm-grp-txt sm-grp-dl";
+  one.innerHTML='<svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/></svg> Aktuelle Slide (PNG)';
+  one.onclick=function(){ var b=$id("tExport"); if(b&&b.onclick) b.onclick(); };
+  list.appendChild(one);
+  /* Bundle-Download ganz unten links (Christian 15.07., ersetzt Buttons oben rechts) */
+  var bd=document.createElement("button"); bd.className="sm-grp-txt sm-grp-bundle"; bd.id="sbBundle";
+  bd.innerHTML='<svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/></svg> Gesamtes Bundle (ZIP)';
+  bd.onclick=function(){
+    bd.disabled=true; var o=bd.innerHTML; bd.textContent="Bundle wird gebaut …";
+    Promise.resolve(smDownloadBundle()).finally(function(){ bd.disabled=false; bd.innerHTML=o; });
+  };
+  list.appendChild(bd);
 };
 
+/* Download NUR einer Plattform-Sparte: Bilder in Plattformgröße + zugehörige Texte als ZIP */
+async function smDownloadPlatform(p, btn){
+  if(typeof JSZip==="undefined"){ toast("ZIP-Bibliothek nicht geladen"); return; }
+  if(typeof canvas==="undefined"||!canvas||!slides||!slides.length){ toast("Erst einen Post generieren"); return; }
+  if(btn){ btn.disabled=true; var old=btn.innerHTML; btn.textContent="Wird gebaut …"; }
+  try{
+    var zip=new JSZip();
+    var b=SOCIAL_BRANDS[window._smBrand]||SOCIAL_BRANDS.finnet;
+    var base=smFileBase();
+    var isSm=slides[0]&&slides[0].content&&slides[0].content.origin==="sm";
+    var t=window._smText||{};
+    if(isSm && typeof smRenderSlideToDataURL==="function"){
+      var zf=(p.master==="9:16")?"9:16":"4:5", F=FORMATS[zf], n=smSlides().length;
+      for(var i=0;i<n;i++){
+        var u=await smRenderSlideToDataURL(zf,i);
+        zip.file(p.id+"/"+base+"_slide"+(i+1)+"_"+(F.w*SM_SCALE)+"x"+(F.h*SM_SCALE)+".png", u.split(",")[1], {base64:true});
+      }
+    } else {
+      snapshotCurrent();
+      var origFmt=curFmt, orig=current;
+      var f=FORMATS[p.master], c=FORMATS[curFmt];
+      var same=Math.abs(f.w/f.h - c.w/c.h)<0.01;
+      for(var i2=0;i2<slides.length;i2++){
+        var hi;
+        if(same){
+          await showSlide(i2); await new Promise(function(r){setTimeout(r,60);});
+          hi=canvas.toDataURL({format:"png",multiplier:exportMult*2});
+          var fmx=FORMATS[origFmt]; hi=await fitToTarget(hi,fmx.w*2,fmx.h*2,"image/png");
+        } else {
+          curFmt=p.master; DISP=dispDims(curFmt); exportMult=FORMATS[curFmt].w/DISP.w;
+          canvas.setWidth(DISP.w); canvas.setHeight(DISP.h);
+          await renderTemplate(slides[i2].type, slides[i2].content||window._content);
+          await new Promise(function(r){setTimeout(r,60);});
+          hi=canvas.toDataURL({format:"png",multiplier:exportMult*2});
+          var fm2=FORMATS[p.master]; hi=await fitToTarget(hi,fm2.w*2,fm2.h*2,"image/png");
+        }
+        var url=await fitToTarget(hi,p.w*2,p.h*2,"image/png");
+        zip.file(p.id+"/"+base+"_slide"+(i2+1)+"_"+(p.w*2)+"x"+(p.h*2)+".png", url.split(",")[1], {base64:true});
+      }
+      if(!same){
+        curFmt=origFmt; DISP=dispDims(curFmt); exportMult=FORMATS[curFmt].w/DISP.w;
+        canvas.setWidth(DISP.w); canvas.setHeight(DISP.h);
+        if(orig>=0) await showSlide(orig);
+      }
+    }
+    /* Nur die Texte dieser Plattform */
+    var lines=["Marke: "+b.label, "Plattform: "+(SM_GROUP_SHORT[p.id]||p.label), "Erstellt: "+new Date().toLocaleString("de-DE"), ""];
+    var cap=t.captions||{}, ht=t.hashtags||{};
+    if(p.id.indexOf("ig")===0){
+      if(cap.instagram){ lines.push("=== CAPTION ==="); lines.push(cap.instagram); lines.push(""); }
+      if((ht.instagram||[]).length){ lines.push("=== HASHTAGS ==="); lines.push((ht.instagram||[]).join(" ")); lines.push(""); }
+      if(p.id==="ig_story" && t.story && t.story.text){ lines.push("=== STORY-TEXT ==="); lines.push(t.story.text); lines.push(""); }
+    } else if(p.id.indexOf("li")===0){
+      if(cap.linkedin){ lines.push("=== CAPTION ==="); lines.push(cap.linkedin); lines.push(""); }
+      if((ht.linkedin||[]).length){ lines.push("=== HASHTAGS ==="); lines.push((ht.linkedin||[]).join(" ")); lines.push(""); }
+    } else if(p.id==="x_post" && t.x && t.x.text){
+      lines.push("=== X (TWITTER) ==="); lines.push((t.x.text+"\n\n"+((t.x.cashtags||[]).join(" "))).trim()); lines.push("");
+    }
+    zip.file(p.id+"/texte.txt", lines.join("\n"));
+    var blob=await zip.generateAsync({type:"blob"});
+    var a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=base+"_"+p.id+".zip"; a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); },4000);
+    toast((SM_GROUP_SHORT[p.id]||p.label)+" heruntergeladen");
+  }catch(e){ toast("Download fehlgeschlagen: "+e.message,7000); }
+  if(btn){ btn.disabled=false; btn.innerHTML=old; }
+}
+
+/* Download-Namen (Christian 15.07.): IMMER Datum_Uhrzeit_Artikelthema voranstellen —
+   gilt für finanzen.net UND zero, PNGs und ZIPs. Bsp: 2026-07-15_14-32_barclays_sk_hynix_... */
+function smStamp(){
+  var d=new Date(), p=function(n){return (n<10?"0":"")+n;};
+  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"_"+p(d.getHours())+"-"+p(d.getMinutes());
+}
+function smFileBase(topic){
+  var t=(topic||($id("fHead")&&$id("fHead").value)||(window._content&&window._content.head)||"post");
+  t=(""+t).replace(/[^a-z0-9äöüß]+/gi,"_").replace(/^_+|_+$/g,"").slice(0,50)||"post";
+  return smStamp()+"_"+t;
+}
 /* ---------- Export PNG gruppen-bewusst: aktive Gruppe bestimmt Format & Größe ----------
    FIX: In der Story-Gruppe exportierte der Button bisher das 4:5-Master (1080x1350 bzw. 1349) —
    jetzt wird die Slide nativ im Story-Layout gerendert und exakt in Plattform-Größe (1080x1920) geladen. */
@@ -4565,9 +4699,17 @@ if(_exBtn){
       // voll eingepasst, doppelte Auflösung, nie abgeschnitten (Yuki 15.07.). Kein renderTemplate!
       if(isSm && typeof smRenderSlideToDataURL==="function"){
         var zfmt=(p&&p.master==="9:16")?"9:16":"4:5";
-        var zurl=await smRenderSlideToDataURL(zfmt, (typeof current==="number"&&current>=0)?current:0);
-        var zf=FORMATS[zfmt];
-        var za=document.createElement("a"); za.href=zurl; za.download=base+"_slide"+((current||0)+1)+"_"+(zf.w*SM_SCALE)+"x"+(zf.h*SM_SCALE)+".png"; za.click();
+        var zf=FORMATS[zfmt], zc=FORMATS[curFmt];
+        var zurl;
+        if(Math.abs(zf.w/zf.h - zc.w/zc.h)<0.01 && canvas){
+          /* gleiches Verhältnis: FABRIC-Canvas exportieren — enthält die (ggf. editierten) Text-Ebenen (Christian 15.07.) */
+          snapshotCurrent();
+          zurl=await fitToTarget(canvas.toDataURL({format:"png",multiplier:exportMult*2}), zf.w*SM_SCALE, zf.h*SM_SCALE, "image/png");
+        } else {
+          /* Cross-Format (Story): nativ im Zielformat neu setzen */
+          zurl=await smRenderSlideToDataURL(zfmt, (typeof current==="number"&&current>=0)?current:0);
+        }
+        var za=document.createElement("a"); za.href=zurl; za.download=smFileBase(base)+"_slide"+((current||0)+1)+"_"+(zf.w*SM_SCALE)+"x"+(zf.h*SM_SCALE)+".png"; za.click();
         return;
       }
       var isGraphic=(typeof slides!=="undefined")&&slides.length&&slides[0].type==="graphic";
@@ -4578,7 +4720,7 @@ if(_exBtn){
         // gleiches Verhältnis: Master exportieren, in 2x HQ wie das Bundle (Yuki 14.07.)
         var hi=canvas.toDataURL({format:"png",multiplier:exportMult*2});
         var out=await fitToTarget(hi,p.w*2,p.h*2,"image/png");
-        var a=document.createElement("a"); a.href=out; a.download=base+"_slide"+(current+1)+"_"+(p.w*2)+"x"+(p.h*2)+".png"; a.click();
+        var a=document.createElement("a"); a.href=out; a.download=smFileBase(base)+"_slide"+(current+1)+"_"+(p.w*2)+"x"+(p.h*2)+".png"; a.click();
         return;
       }
       // anderes Verhältnis (z.B. Story): Slide nativ im Zielformat neu rendern
@@ -4589,7 +4731,7 @@ if(_exBtn){
       await new Promise(function(r){ setTimeout(r,60); });
       var hi2=canvas.toDataURL({format:"png",multiplier:exportMult*2});
       var out2=await fitToTarget(hi2,p.w*2,p.h*2,"image/png");
-      var a2=document.createElement("a"); a2.href=out2; a2.download=base+"_slide"+(orig+1)+"_"+(p.w*2)+"x"+(p.h*2)+".png"; a2.click();
+      var a2=document.createElement("a"); a2.href=out2; a2.download=smFileBase(base)+"_slide"+(orig+1)+"_"+(p.w*2)+"x"+(p.h*2)+".png"; a2.click();
       // Master wiederherstellen
       curFmt=origFmt; DISP=dispDims(curFmt); exportMult=FORMATS[curFmt].w/DISP.w;
       canvas.setWidth(DISP.w); canvas.setHeight(DISP.h);
@@ -4662,7 +4804,7 @@ async function smDownloadBundle(){
       }
       zip.file(b.id+"/captions_und_hashtags.txt", l0.join("\n"));
       var zblob=await zip.generateAsync({type:"blob"});
-      var za2=document.createElement("a"); za2.href=URL.createObjectURL(zblob); za2.download=b.id+"_"+base+"_bundle.zip"; za2.click();
+      var za2=document.createElement("a"); za2.href=URL.createObjectURL(zblob); za2.download=smFileBase(base)+"_"+b.id+"_bundle.zip"; za2.click();
       setTimeout(function(){ URL.revokeObjectURL(za2.href); },4000);
       toast("Bundle heruntergeladen");
       btn.disabled=false; btn.innerHTML=old;
@@ -4728,7 +4870,7 @@ async function smDownloadBundle(){
     var blob=await zip.generateAsync({type:"blob"});
     var a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
-    a.download=b.id+"_"+base+"_bundle.zip";
+    a.download=smFileBase(base)+"_"+b.id+"_bundle.zip";
     a.click();
     setTimeout(function(){ URL.revokeObjectURL(a.href); },4000);
     toast("Bundle heruntergeladen");
@@ -4804,8 +4946,10 @@ const SM_BRANDS={
   zero:{
     label:"finanzen.net zero", sub:"Neobroker · Broker-Kommunikation. Harte Compliance-Slots: Werbemitteilung + Risikohinweis auf der Grafik, keine eigene Kauf-/Verkaufswertung.",
     dark:true, bg1:"#0b0e16", bg2:"#101726", ink:"#ffffff", muted:"#94a3b8",
-    accent:"#00d264", accent2:"#00e58a", neg:"#ff5a5f", chip:"rgba(0,210,100,.14)",
-    logo:"fn_zero", swatches:["#0b0e16","#00d264","#ffffff"]
+    /* Zero-Branding (Christian 15.07.): pink/lila wie das zero-Logo (Gradient pink -> violett) —
+       Akzente NICHT mehr grün. pos/neg bleiben Ampellogik für Kursveränderungen. */
+    accent:"#f0426e", accent2:"#8b5cf6", neg:"#ff5a5f", pos:"#2fd483", chip:"rgba(240,66,110,.16)",
+    logo:"fn_zero", swatches:["#0b0e16","#f0426e","#8b5cf6","#ffffff"]
   },
   fnet:{
     label:"finanzen.net", sub:"Redaktion · öffnet den bewährten Social-Karussell-Flow (Cover, Content, Closing — KI-Bild + editierbare Textebene), exakt wie bisher.",
@@ -4944,7 +5088,7 @@ const SM_TEMPLATES=[
   ]},
 { id:"zero_sm_instrument_snapshot", name:"Instrument-Snapshot", prio:"P2", path:"A", carousel:false,
   desc:"Aktie/ETF/Krypto als neutrales Faktenprofil.",
-  note:"Neutrale Headline, keine Kaufaufforderung. Frage-Framing erlaubt („Sollte man … jetzt kaufen?“) – Antwort auf der Grafik bleibt neutral. Assetklasse Krypto triggert MiCAR-Hinweis.",
+  note:"Neutrale Headline, keine Kaufaufforderung. Frage-Framing erlaubt („Sollte man … jetzt kaufen?“) – Antwort auf der Grafik bleibt neutral. Assetklasse Krypto triggert MiCAR-Hinweis. Fakten-Auswahl (Christian 15.07.): nur anlegerrelevante Kern-Fakten (Kursziel, Rating, Potenzial in %, Marktkapitalisierung) — Bilanz-Detailposten wie Liquiditätsquoten weglassen.",
   formats:["4:5","9:16"], master:"4:5",
   legal:["base","risk"],
   fields:[
@@ -4956,8 +5100,8 @@ const SM_TEMPLATES=[
     {k:"exchange",l:"Börsenplatz",type:"text",max:24,ph:"Xetra"},
     {k:"change",l:"Δ %",type:"text",max:8,ph:"-0,4"},
     {k:"cperiod",l:"Δ-Zeitraum",type:"sel",opts:["1 Tag","1 Woche","1 Monat","1 Jahr","YTD"]},
-    {k:"f1l",l:"Fakt 1 – Label",type:"text",max:20,ph:"TER"},{k:"f1v",l:"Wert",type:"text",max:16,ph:"0,20 %"},
-    {k:"f2l",l:"Fakt 2 – Label",type:"text",max:20,ph:"Fondsvolumen"},{k:"f2v",l:"Wert",type:"text",max:16},
+    {k:"f1l",l:"Fakt 1 – Label (anlegerrelevant: Kursziel, Rating, Potenzial in % — KEINE Bilanz-Detailposten wie Liquidität)",type:"text",max:20,ph:"Kursziel"},{k:"f1v",l:"Wert",type:"text",max:16,ph:"330 USD"},
+    {k:"f2l",l:"Fakt 2 – Label (z.B. Potenzial zum Kursziel in %, wenn Kurs+Kursziel im Artikel stehen)",type:"text",max:20,ph:"Potenzial"},{k:"f2v",l:"Wert",type:"text",max:16,ph:"+81 %"},
     {k:"f3l",l:"Fakt 3 – Label (optional)",type:"text",max:20},{k:"f3v",l:"Wert",type:"text",max:16},
     {k:"f4l",l:"Fakt 4 – Label (optional)",type:"text",max:20},{k:"f4v",l:"Wert",type:"text",max:16},
     {k:"analyst",l:"Analysten-Bezug (Pflicht bei jeder Wertung: Haus, Datum, Kursziel/Rating)",type:"text",max:90,ph:"z.B. Konsens laut Bloomberg, 14.07.2026: 12× Buy, 4× Hold, Kursziel Ø 128 €"},
@@ -5221,6 +5365,7 @@ function smRender(){
   const sl=smSlides(); if(smSlide>=sl.length) smSlide=0;
   c.width=F.w*SM_SCALE; c.height=F.h*SM_SCALE;
   const x=c.getContext("2d"), B=SM_BRANDS[smBrand];
+  x._capTag=window._smCaptureOn?"main":null;   /* Text-Capture (editierbare Editor-Übergabe) */
   const W=c.width, H=c.height;
   /* Safe Zone: bei 9:16 Inhalt einrücken */
   const safeTop = smFmt==="9:16" ? Math.round(H*0.130) : 0, safeBot = smFmt==="9:16" ? Math.round(H*0.146) : 0;
@@ -5234,7 +5379,7 @@ function smRender(){
     x.fillStyle=g; x.fillRect(0,0,W,H);
     /* dezente Akzent-Aura */
     const r=x.createRadialGradient(W*0.85,H*0.1,0,W*0.85,H*0.1,W*0.75);
-    r.addColorStop(0,B.dark?"rgba(0,210,100,0.13)":"rgba(0,147,93,0.07)"); r.addColorStop(1,"rgba(0,0,0,0)");
+    r.addColorStop(0,B.dark?"rgba(240,66,110,0.14)":"rgba(0,147,93,0.07)"); r.addColorStop(1,"rgba(0,0,0,0)");
     x.fillStyle=r; x.fillRect(0,0,W,H);
   }
 
@@ -5269,8 +5414,12 @@ function smRender(){
   if(legalLines.length){
     x.fillStyle=B.dark?"rgba(255,255,255,0.05)":"rgba(10,31,68,0.045)";
     x.fillRect(0, H-safeBot-legalH, W, legalH);
-    x.font="500 "+legalFS+"px "+BRAND.font; x.fillStyle=B.dark?"rgba(255,255,255,0.72)":"rgba(10,31,68,0.75)"; x.textAlign="left";
-    legalLines.forEach((ln,i)=>x.fillText(ln, M, H-safeBot-legalH+M*0.38+legalFS*1.1+i*legalFS*1.38));
+    /* Footer ZENTRIERT (Christian 15.07.): horizontal mittig UND vertikal mittig in der Fußzone */
+    x.font="500 "+legalFS+"px "+BRAND.font; x.fillStyle=B.dark?"rgba(255,255,255,0.72)":"rgba(10,31,68,0.75)"; x.textAlign="center";
+    const lh=legalFS*1.38, blockH=legalLines.length*lh;
+    const y0=(H-safeBot-legalH) + (legalH-blockH)/2 + legalFS*1.02;
+    legalLines.forEach((ln,i)=>x.fillText(ln, W/2, y0+i*lh));
+    x.textAlign="left";
   }
 
   /* KI-Bildnachweis: dezent, seitlich gedreht am rechten Rand (nur bei KI-Hintergrund) */
@@ -5330,6 +5479,25 @@ function smBuildMotifZ(){
     });
   });
 }
+/* ===== TEXT-CAPTURE für editierbare Editor-Übergabe (Christian 15.07.) =====
+   Problem: zero-Slides kamen als EIN flaches PNG in den Editor -> Texte nicht editierbar.
+   Lösung: während einer Capture-Render-Passes werden alle fillText-Aufrufe abgefangen
+   (Text, Position, Font, Farbe, Ausrichtung) und NICHT gezeichnet. Der Hintergrund
+   (Bild, Boxen, Chips, Logo, gedrehter KI-Credit) bleibt im PNG; die Texte werden im
+   Editor als echte fabric.IText-Ebenen darübergelegt — frei editierbar. */
+(function(){
+  const _oft=CanvasRenderingContext2D.prototype.fillText;
+  CanvasRenderingContext2D.prototype.fillText=function(t,a,b,mw){
+    if(window._smCapture && this._capTag){
+      const tr=this.getTransform();
+      if(tr.a===1&&tr.b===0&&tr.c===0&&tr.d===1&&tr.e===0&&tr.f===0){
+        window._smCapture.push({tag:this._capTag,text:""+t,x:a,y:b,font:this.font,fill:this.fillStyle,align:this.textAlign||"left"});
+        return;  // Text NICHT ins Hintergrund-PNG zeichnen
+      }
+    }
+    return _oft.call(this,t,a,b,mw);
+  };
+})();
 /* Inhalt zweistufig zeichnen: 1. Pass offscreen mit Y-Tracking, 2. Pass
    einpassen (zentriert skaliert), falls der Inhalt über die Grenze läuft. */
 function smDrawContentFitted(ctx){
@@ -5337,6 +5505,7 @@ function smDrawContentFitted(ctx){
   const off=document.createElement("canvas");
   off.width=W; off.height=Math.max(H,Math.round(H*1.9));
   const ox=off.getContext("2d");
+  ox._capTag=window._smCaptureOn?"content":null;   /* Text-Capture: Inhaltstexte (mit Fit-Transform) */
   let maxY=ctx.top, maxRight=0;
   const fpx=()=>{ const m=/([0-9.]+)px/.exec(ox.font||""); return m?parseFloat(m[1]):16; };
   const trk=(v)=>{ if(typeof v==="number"&&isFinite(v)&&v>maxY) maxY=v; };
@@ -5441,7 +5610,8 @@ function smKicker(ctx,label){
   return ctx.top+fs*2.1+ctx.W*0.03;
 }
 function smRound(x,X,Y,w,h,r){ x.beginPath(); x.moveTo(X+r,Y); x.arcTo(X+w,Y,X+w,Y+h,r); x.arcTo(X+w,Y+h,X,Y+h,r); x.arcTo(X,Y+h,X,Y,r); x.arcTo(X,Y,X+w,Y,r); x.closePath(); }
-function smChangeColor(v,B){ const s=(v||"").replace(",","." ).replace(/[^0-9.\-+]/g,""); const n=parseFloat(s); if(isNaN(n)||n===0) return B.muted; return n>0?B.accent:B.neg; }
+/* Ampellogik: positiv = grün (B.pos, falls definiert — zero-Akzent ist seit 15.07. pink), negativ = rot */
+function smChangeColor(v,B){ const s=(v||"").replace(",","." ).replace(/[^0-9.\-+]/g,""); const n=parseFloat(s); if(isNaN(n)||n===0) return B.muted; return n>0?(B.pos||B.accent):B.neg; }
 function smArrow(v){ const s=(v||"").replace(",",".").replace(/[^0-9.\-+]/g,""); const n=parseFloat(s); if(isNaN(n)||n===0) return "→"; return n>0?"▲":"▼"; }
 function smFmtPct(v){ if(!v) return ""; let t=(""+v).trim(); if(!/[%]/.test(t)) t+=" %"; if(!/^[+\-−]/.test(t)&&parseFloat(t.replace(",","."))>0) t="+"+t; return t; }
 
@@ -5498,7 +5668,7 @@ function smDrawContent(ctx){
         x.font="500 "+gfs+"px "+BRAND.font; x.fillStyle=B.dark?"rgba(255,255,255,0.38)":"rgba(10,31,68,0.38)"; x.textAlign="left";
         x.fillText(smNum(mx+pad-((mx+pad)-(mn-pad))*i/3), cx0, gy-gfs*0.45); }
       /* Fläche + Linie */
-      const grd=x.createLinearGradient(0,cy0,0,cy1); grd.addColorStop(0,B.dark?"rgba(0,210,100,0.30)":"rgba(0,147,93,0.22)"); grd.addColorStop(1,"rgba(0,0,0,0)");
+      const grd=x.createLinearGradient(0,cy0,0,cy1); grd.addColorStop(0,B.dark?"rgba(240,66,110,0.30)":"rgba(0,147,93,0.22)"); grd.addColorStop(1,"rgba(0,0,0,0)");
       x.beginPath(); x.moveTo(xv(0),yv(vals[0])); vals.forEach((v,i)=>x.lineTo(xv(i),yv(v)));
       x.lineTo(cx1,cy1); x.lineTo(cx0,cy1); x.closePath(); x.fillStyle=grd; x.fill();
       x.beginPath(); x.moveTo(xv(0),yv(vals[0])); vals.forEach((v,i)=>x.lineTo(xv(i),yv(v)));
@@ -5628,7 +5798,8 @@ function smDrawContent(ctx){
       x.font="800 "+bodyFS*1.12+"px "+BRAND.font; x.fillStyle=B.ink; x.fillText(f.v||"",fx+W*0.022,fy+W*0.092);
     });
     y+=Math.ceil(facts.length/fc)*W*0.135+W*0.02;
-    if(d.analyst) smText(x,"Analysten: "+d.analyst,M,y+W*0.01,bodyFS*0.86,"500",B.dark?"rgba(255,255,255,.8)":B.ink,W-2*M,bodyFS*1.3);
+    /* Analysten-Zeile entfernt (Christian 15.07.): redundant zu den Fakt-Kacheln, wirkt überladen.
+       Der Analysten-Bezug (Compliance) gehört in die Caption/Quelle, nicht auf die Grafik. */
 
   } else if(id==="zero_sm_investing_savings_calc"){
     y=smKicker(ctx,d.kicker);
@@ -5749,11 +5920,14 @@ async function smGenBg(){
   const st=$("smBgStatus");
   if(genMode()==="demo"){ st.textContent="Demo-Modus: kein Live-Bild. Make-Webhook oder OpenRouter-Key nötig."; return; }
   st.textContent="KI-Hintergrund wird generiert …";
+  /* FIX (Christian 15.07.): Editor öffnete teils VOR dem Bild-Load -> Hintergrund fehlte im Editor.
+     Laufende Generierung als Promise merken; smOpenInEditor wartet darauf. */
+  let _bgDone; window._smBgPending=new Promise(r=>{_bgDone=r;});
   try{
     const userPrompt=($("smBgPrompt")&&$("smBgPrompt").value.trim())||smTpl.bgPrompt||"Abstract premium fintech background";
     const theme=($("smTheme")&&$("smTheme").value)||"clean";
     const model=($("smModel")&&$("smModel").value)||curModel;
-    const prompt=userPrompt+", "+(SM_THEME_TXT[theme]||"")+", "+(SM_BRANDS[smBrand].dark?"dark navy, near-black, subtle green accent glow":"light, clean white and soft blue tones")+"."+SM_NEG;
+    const prompt=userPrompt+", "+(SM_THEME_TXT[theme]||"")+", "+(SM_BRANDS[smBrand].dark?"dark navy, near-black, subtle pink and violet accent glow":"light, clean white and soft blue tones")+"."+SM_NEG;
     let url;
     if(genMode()==="direct"){ url=await generateImageDirect(prompt, smFmt, model, _orKey); }
     else{
@@ -5767,19 +5941,28 @@ async function smGenBg(){
       url=data.image;
     }
     const img=new Image();
-    img.onload=()=>{ smBgImg=img; smBgUrl=url; st.textContent="Hintergrund gesetzt. Text-Ebene bleibt deterministisch."; $("smBgClear").style.display=""; smRender(); };
-    img.onerror=()=>{ st.textContent="Bild konnte nicht geladen werden."; };
+    img.onload=()=>{ smBgImg=img; smBgUrl=url; st.textContent="Hintergrund gesetzt. Text-Ebene bleibt deterministisch."; $("smBgClear").style.display=""; smRender(); _bgDone&&_bgDone(true); };
+    img.onerror=()=>{ st.textContent="Bild konnte nicht geladen werden."; _bgDone&&_bgDone(false); };
     img.src=url;
-  }catch(e){ st.textContent="Fehler: "+e.message; }
+  }catch(e){ st.textContent="Fehler: "+e.message; _bgDone&&_bgDone(false); }
 }
 
 /* ---------- Editor-Übergabe: gerenderte Slides als Bild-Ebenen in den Fabric-Editor ---------- */
 async function smOpenInEditor(){
-  const sl=smSlides(), keep=smSlide, imgs=[];
+  /* FIX Hintergrundbild im Editor (Christian 15.07.): läuft noch eine Hintergrund-Generierung,
+     erst auf sie warten — sonst wurden die Slides OHNE Bild eingefroren in den Editor übergeben. */
+  if(window._smBgPending){ showLoading&&showLoading("Hintergrund wird fertiggestellt","Slides werden gleich übergeben"); try{ await window._smBgPending; }catch(e){} window._smBgPending=null; hideLoading&&hideLoading(); }
+  const sl=smSlides(), keep=smSlide, imgs=[], texts=[];
   for(let i=0;i<sl.length;i++){
-    smSlide=i; smRender();
+    smSlide=i;
+    /* Capture-Pass: Texte abfangen statt zeichnen -> Hintergrund-PNG ohne Texte + Textliste */
+    window._smCaptureOn=true; window._smCapture=[];
+    smRender();
     await new Promise(r=>setTimeout(r,360));  /* Logo/Hintergrund sicher gezeichnet */
     imgs.push($("smCanvas").toDataURL("image/png"));
+    texts.push({items:window._smCapture.slice(), fit:Object.assign({},window._smLastFit||{s:1,top:0})});
+    window._smCaptureOn=false; window._smCapture=null;
+    smRender();  /* Anzeige-Canvas wieder MIT Texten herstellen */
   }
   smSlide=keep;
   curFmt=smFmt;
@@ -5800,10 +5983,28 @@ async function smOpenInEditor(){
   window._smActiveGroup=window._smActiveGroup||"ig_feed";   /* Plattform-Gruppen links wie bei finanzen.net */
   slides=[]; current=-1;
   /* Jede Slide als Bild-Ebene vor-rendern (json setzen — showSlide darf bei type "graphic" nie renderTemplate treffen) */
+  const F0=FORMATS[curFmt], kScale=DISP.w/(F0.w*SM_SCALE);   /* Master-Pixel -> Editor-Pixel */
   for(let i=0;i<imgs.length;i++){
     canvas.clear(); canvas.backgroundColor="#ffffff";
     const img=await loadImageObj(imgs[i],{name:"bg",selectable:true});
     canvas.add(img); canvas.sendToBack(img); canvas.renderAll();
+    /* Texte als ECHTE, editierbare Ebenen rekonstruieren (Christian 15.07.) */
+    const cap=texts[i]||{items:[],fit:{s:1,top:0}};
+    const fs_=cap.fit.s||1, ftop=cap.fit.top||0, WW=F0.w*SM_SCALE;
+    cap.items.forEach((it,n)=>{
+      const m=/(\d{3}|bold|normal)?\s*([0-9.]+)px\s+(.+)/.exec(it.font||"")||[];
+      const weight=m[1]||"500", px0=parseFloat(m[2]||"40"), fam=(m[3]||BRAND.font).split(",")[0].replace(/["']/g,"").trim();
+      let X=it.x, Y=it.y, S=px0;
+      if(it.tag==="content"){ X=(WW-WW*fs_)/2 + it.x*fs_; Y=ftop+(it.y-ftop)*fs_; S=px0*fs_; }
+      const t=new fabric.IText(it.text,{
+        left:X*kScale, top:(Y - S*0.82)*kScale, fontSize:S*kScale,
+        fontFamily:fam, fontWeight:weight, fill:it.fill||"#fff",
+        originX:(it.align==="right")?"right":(it.align==="center"?"center":"left"),
+        name:"smtext"+n, selectable:true, editable:true
+      });
+      canvas.add(t);
+    });
+    canvas.renderAll();
     current=i;
     slides.push({name:imgs.length>1?("Slide "+(i+1)):smTpl.name,type:"graphic",content:Object.assign({},window._content,{bg:imgs[i]}),json:canvas.toJSON(EXTRA),thumb:makeThumb(),backdrop:"clear"});
   }
@@ -5834,7 +6035,7 @@ async function smRenderSlideToDataURL(fmt, slideIndex){
 /* ---------- Export ---------- */
 function smDoExport(){
   const a=document.createElement("a");
-  a.download=smTpl.id+"_"+smFmt.replace(":","x")+(smSlides().length>1?"_slide"+(smSlide+1):"")+".png";
+  a.download=(window.smFileBase?smFileBase(smData.headline||smData.term||smTpl.name):smTpl.id)+"_"+smFmt.replace(":","x")+(smSlides().length>1?"_slide"+(smSlide+1):"")+".png";
   a.href=$("smCanvas").toDataURL("image/png");
   a.click();
 }
@@ -5857,7 +6058,7 @@ async function smExportPdf(){
     pdf.addImage(url,"JPEG",0,0,F.w,F.h);
   }
   smSlide=keep; smRender();
-  pdf.save(smTpl.id+"_"+smFmt.replace(":","x")+"_linkedin.pdf");
+  pdf.save((window.smFileBase?smFileBase(smData.headline||smData.term||smTpl.name):smTpl.id)+"_"+smFmt.replace(":","x")+"_linkedin.pdf");
 }
 
 /* ---------- Init ---------- */
