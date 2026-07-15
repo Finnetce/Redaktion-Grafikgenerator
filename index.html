@@ -5172,20 +5172,33 @@ function smDrawContentFitted(ctx){
   const off=document.createElement("canvas");
   off.width=W; off.height=Math.max(H,Math.round(H*1.9));
   const ox=off.getContext("2d");
-  let maxY=ctx.top;
+  let maxY=ctx.top, maxRight=0;
   const fpx=()=>{ const m=/([0-9.]+)px/.exec(ox.font||""); return m?parseFloat(m[1]):16; };
   const trk=(v)=>{ if(typeof v==="number"&&isFinite(v)&&v>maxY) maxY=v; };
-  const _ft=ox.fillText.bind(ox);   ox.fillText=(t,a,b)=>{ trk(b+fpx()*0.30); return _ft(t,a,b); };
-  const _fr=ox.fillRect.bind(ox);   ox.fillRect=(a,b,w2,h2)=>{ trk(b+h2); return _fr(a,b,w2,h2); };
-  const _lt=ox.lineTo.bind(ox);     ox.lineTo=(a,b)=>{ trk(b); return _lt(a,b); };
-  const _mt=ox.moveTo.bind(ox);     ox.moveTo=(a,b)=>{ trk(b); return _mt(a,b); };
-  const _at=ox.arcTo.bind(ox);      ox.arcTo=(a,b,c2,d2,r)=>{ trk(b); trk(d2); return _at(a,b,c2,d2,r); };
-  const _ar=ox.arc.bind(ox);        ox.arc=(a,b,r,s0,s1)=>{ trk(b+r); return _ar(a,b,r,s0,s1); };
+  // Horizontaler Überlauf-Tracker (Yuki 15.07.): rechte Kante jedes gezeichneten Elements messen.
+  // Fängt zu breite EINZEILER (z.B. lange Kontext-/Quellenzeilen), die sonst rechts aus dem Bild liefen.
+  const trkX=(r)=>{ if(typeof r==="number"&&isFinite(r)&&r>maxRight) maxRight=r; };
+  const _ft=ox.fillText.bind(ox);   ox.fillText=(t,a,b)=>{
+    trk(b+fpx()*0.30);
+    const w=ox.measureText(""+t).width, al=ox.textAlign||"left";
+    trkX(al==="right" ? a : (al==="center" ? a+w/2 : a+w));
+    return _ft(t,a,b);
+  };
+  const _fr=ox.fillRect.bind(ox);   ox.fillRect=(a,b,w2,h2)=>{ trk(b+h2); trkX(a+w2); return _fr(a,b,w2,h2); };
+  const _lt=ox.lineTo.bind(ox);     ox.lineTo=(a,b)=>{ trk(b); trkX(a); return _lt(a,b); };
+  const _mt=ox.moveTo.bind(ox);     ox.moveTo=(a,b)=>{ trk(b); trkX(a); return _mt(a,b); };
+  const _at=ox.arcTo.bind(ox);      ox.arcTo=(a,b,c2,d2,r)=>{ trk(b); trk(d2); trkX(a); trkX(c2); return _at(a,b,c2,d2,r); };
+  const _ar=ox.arc.bind(ox);        ox.arc=(a,b,r,s0,s1)=>{ trk(b+r); trkX(a+r); return _ar(a,b,r,s0,s1); };
   smDrawContent(Object.assign({},ctx,{x:ox}));
-  const avail=ctx.bottom - Math.round(M*0.25);
-  if(maxY>avail && maxY>ctx.top+10){
-    const s=Math.max((avail-ctx.top)/(maxY-ctx.top),0.5);
-    const srcH=Math.min(maxY-ctx.top, off.height-ctx.top);
+  const availY=ctx.bottom - Math.round(M*0.25);
+  const availRight=W - Math.round(M*0.5);      // Inhalt muss klar innerhalb des rechten Rands enden
+  let s=1;
+  if(maxY>availY && maxY>ctx.top+10) s=Math.min(s,(availY-ctx.top)/(maxY-ctx.top));
+  // Horizontaler Fit: Inhalt beginnt ~bei M; skaliere so, dass die breiteste Kante in W-2*M passt.
+  if(maxRight>availRight && maxRight>M+10) s=Math.min(s,(W-2*M)/(maxRight-M));
+  s=Math.max(s,0.5);
+  if(s<1){
+    const srcH=Math.min(Math.max(maxY-ctx.top,10), off.height-ctx.top);
     try{ window._smLastFit={s:s,top:ctx.top,W:W}; }catch(e){}
     x.drawImage(off, 0, ctx.top, W, srcH, Math.round((W-W*s)/2), ctx.top, Math.round(W*s), Math.round(srcH*s));
   } else {
@@ -5438,8 +5451,8 @@ function smDrawContent(ctx){
     const chS=smArrow(d.change)+" "+smFmtPct(d.change)+(d.cperiod?" ("+d.cperiod+")":"");
     smFit(x,chS,"800",bodyFS*1.2,(W-M)-(M+qw+W*0.03)); x.fillStyle=smChangeColor(d.change,B);
     x.fillText(chS, M+qw+W*0.03, y+bodyFS*2.55);
-    x.font="500 "+bodyFS*0.8+"px "+BRAND.font; x.fillStyle=B.muted;
-    x.fillText((d.exchange||"")+(d.stand?" · "+d.stand:""), M, y+bodyFS*3.7);
+    { const _ex=(d.exchange||"")+(d.stand?" · "+d.stand:"");
+      smFit(x,_ex,"500",bodyFS*0.8,W-2*M); x.fillStyle=B.muted; x.textAlign="left"; x.fillText(_ex, M, y+bodyFS*3.7); }
     y+=bodyFS*4.6;
     const facts=[1,2,3,4].map(i=>({l:d["f"+i+"l"],v:d["f"+i+"v"]})).filter(f=>(f.l||"").trim());
     const fc=2, fw=(W-2*M-W*0.025)/fc;
@@ -5481,10 +5494,13 @@ function smDrawContent(ctx){
     y=smText(x,d.quote||"Zitat …",M,y+W*0.13,headFS*0.82,"700",B.ink,W-2*M,headFS*1.1);
     y+=W*0.06;
     x.fillStyle=B.accent; x.fillRect(M,y,W*0.045,W*0.006);
-    x.font="700 "+bodyFS*1.05+"px "+BRAND.font; x.fillStyle=B.ink;
-    x.fillText(d.speaker||"", M+W*0.065, y+bodyFS*0.4);
-    if(d.role){ x.font="500 "+bodyFS*0.9+"px "+BRAND.font; x.fillStyle=B.muted; x.fillText(d.role, M+W*0.065, y+bodyFS*1.75); }
-    if(d.context){ x.font="500 "+bodyFS*0.82+"px "+BRAND.font; x.fillStyle=B.muted; x.fillText(d.context, M, y+bodyFS*3.4); }
+    // Name/Rolle rechts vom Akzentstrich, auf verfügbare Breite eingepasst (nie über den Rand)
+    const _spX=M+W*0.065, _spMaxW=W-M-_spX;
+    smFit(x,d.speaker||"","700",bodyFS*1.05,_spMaxW); x.fillStyle=B.ink; x.textAlign="left";
+    x.fillText(d.speaker||"", _spX, y+bodyFS*0.4);
+    if(d.role){ smFit(x,d.role,"500",bodyFS*0.9,_spMaxW); x.fillStyle=B.muted; x.fillText(d.role, _spX, y+bodyFS*1.75); }
+    // Kontextzeile umbrechen statt abschneiden (war die im Screenshot rechts abgeschnittene Zeile)
+    if(d.context){ smText(x,d.context,M,y+bodyFS*3.4,bodyFS*0.82,"500",B.muted,W-2*M,bodyFS*1.15); }
 
   } else if(id==="zero_sm_community_poll_result"){
     y=smKicker(ctx,d.kicker);
@@ -5494,8 +5510,8 @@ function smDrawContent(ctx){
     const maxP=Math.max(...opts.map(o=>o.p||0),1);
     opts.forEach((o,i)=>{
       const oy=y+i*W*0.125, isMax=(o.p||0)===maxP;
-      x.font="600 "+bodyFS*0.95+"px "+BRAND.font; x.fillStyle=B.dark?"rgba(255,255,255,.88)":B.ink;
-      x.fillText(o.l, M, oy);
+      x.fillStyle=B.dark?"rgba(255,255,255,.88)":B.ink;
+      smFit(x,o.l||"","600",bodyFS*0.95,(W-2*M)-W*0.12); x.textAlign="left"; x.fillText(o.l||"", M, oy);
       x.fillStyle=B.dark?"rgba(255,255,255,0.08)":"rgba(10,31,68,0.07)"; smRound(x,M,oy+W*0.014,W-2*M,W*0.052,W*0.012); x.fill();
       x.fillStyle=isMax?B.accent:(B.dark?"rgba(255,255,255,0.35)":"rgba(10,31,68,0.35)");
       smRound(x,M,oy+W*0.014,Math.max((W-2*M)*((o.p||0)/100),W*0.03),W*0.052,W*0.012); x.fill();
@@ -5503,20 +5519,20 @@ function smDrawContent(ctx){
       x.fillText((o.p||0).toString().replace(".",",")+" %", W-M, oy+W*0.052); x.textAlign="left";
     });
     y+=opts.length*W*0.125+W*0.01;
-    x.font="500 "+bodyFS*0.82+"px "+BRAND.font; x.fillStyle=B.muted;
-    x.fillText((d.sample?d.sample+" Teilnehmer · ":"")+(d.kanal||"")+(d.zeitraum?" · "+d.zeitraum:""), M, y+bodyFS);
+    { const _s=(d.sample?d.sample+" Teilnehmer · ":"")+(d.kanal||"")+(d.zeitraum?" · "+d.zeitraum:"");
+      smFit(x,_s,"500",bodyFS*0.82,W-2*M); x.fillStyle=B.muted; x.textAlign="left"; x.fillText(_s, M, y+bodyFS); }
 
   } else if(id==="zero_sm_event_announcement"){
     y=smKicker(ctx,d.kicker);
-    x.font="600 "+bodyFS+"px "+BRAND.font; x.fillStyle=B.accent;
-    x.fillText((d.etype||"")+(d.elocation?" · "+d.elocation:""), M, y+bodyFS*0.6); y+=bodyFS*1.8;
+    { const _e=(d.etype||"")+(d.elocation?" · "+d.elocation:"");
+      smFit(x,_e,"600",bodyFS,W-2*M); x.fillStyle=B.accent; x.textAlign="left"; x.fillText(_e, M, y+bodyFS*0.6); } y+=bodyFS*1.8;
     y=smText(x,d.ename||"Event-Name",M,y+headFS*0.85,headFS*0.9,"800",B.ink,W-2*M,headFS*1.1);
     y+=W*0.055;
     x.fillStyle=B.chip; smRound(x,M,y,W-2*M,W*0.135,W*0.02); x.fill();
     x.font="800 "+bodyFS*1.5+"px "+BRAND.font; x.fillStyle=B.ink;
     x.fillText((d.edate||"")+(d.etime?"  ·  "+d.etime:""), M+W*0.035, y+W*0.085);
     y+=W*0.135+W*0.045;
-    if(d.speakers){ x.font="600 "+bodyFS*0.9+"px "+BRAND.font; x.fillStyle=B.muted; x.fillText("Mit: "+d.speakers, M, y); y+=bodyFS*2; }
+    if(d.speakers){ smFit(x,"Mit: "+d.speakers,"600",bodyFS*0.9,W-2*M); x.fillStyle=B.muted; x.textAlign="left"; x.fillText("Mit: "+d.speakers, M, y); y+=bodyFS*2; }
     x.fillStyle=B.accent; smRound(x,M,y,W*0.4,headFS*1.2,headFS*0.6); x.fill();
     x.font="700 "+bodyFS+"px "+BRAND.font; x.fillStyle=B.dark?"#06210f":"#fff";
     x.fillText(d.cta||"Jetzt anmelden", M+W*0.04, y+headFS*0.78);
@@ -5526,14 +5542,15 @@ function smDrawContent(ctx){
     y=smText(x,d.headline||"Headline.",M,y+headFS*1.1,headFS*1.12,"800",B.ink,W-2*M,headFS*1.3);
     if(d.summary) y=smText(x,d.summary,M,y+W*0.04,bodyFS*1.1,"400",B.dark?"rgba(255,255,255,.85)":B.ink,W-2*M,bodyFS*1.6);
     y+=W*0.045;
-    [d.b1,d.b2,d.b3].filter(b=>(b||"").trim()).forEach((b,i)=>{
-      const by=y+i*W*0.06;
-      x.fillStyle=B.accent; x.beginPath(); x.arc(M+W*0.011,by-bodyFS*0.32,W*0.011,0,7); x.fill();
-      x.font="600 "+bodyFS+"px "+BRAND.font; x.fillStyle=B.dark?"rgba(255,255,255,.9)":B.ink;
-      x.fillText(b, M+W*0.04, by);
-    });
-    y+=[d.b1,d.b2,d.b3].filter(b=>(b||"").trim()).length*W*0.06+W*0.03;
-    if(d.adate){ x.font="500 "+bodyFS*0.85+"px "+BRAND.font; x.fillStyle=B.muted; x.fillText("Verfügbar ab "+d.adate, M, y); y+=bodyFS*2; }
+    { const _bl=[d.b1,d.b2,d.b3].filter(b=>(b||"").trim());
+      _bl.forEach((b)=>{
+        x.fillStyle=B.accent; x.beginPath(); x.arc(M+W*0.011,y-bodyFS*0.32,W*0.011,0,7); x.fill();
+        // Bullet-Text umbrechen statt rechts abschneiden; y je nach Zeilenzahl weiterschieben
+        const yEnd=smText(x,b,M+W*0.04,y,bodyFS,"600",B.dark?"rgba(255,255,255,.9)":B.ink,W-2*M-W*0.04,bodyFS*1.25);
+        y=Math.max(y+W*0.06, yEnd+W*0.02);
+      });
+      y+=W*0.03; }
+    if(d.adate){ smFit(x,"Verfügbar ab "+d.adate,"500",bodyFS*0.85,W-2*M); x.fillStyle=B.muted; x.textAlign="left"; x.fillText("Verfügbar ab "+d.adate, M, y); y+=bodyFS*2; }
     x.fillStyle=B.accent; smRound(x,M,y,W*0.36,headFS*1.15,headFS*0.58); x.fill();
     x.font="700 "+bodyFS+"px "+BRAND.font; x.fillStyle=B.dark?"#06210f":"#fff";
     x.fillText(d.cta||"Mehr erfahren", M+W*0.04, y+headFS*0.75);
