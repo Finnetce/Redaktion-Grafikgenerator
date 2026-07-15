@@ -2097,15 +2097,25 @@ function _fitTextLines(){
       o.set("text", o.text.replace(/([A-Za-zÄÖÜäöüß0-9])\n([a-zäöüß0-9])/g,"$1$2"));
       o.initDimensions&&o.initDimensions();
     }
-    /* Schutz 2 (Christian 15.07.): splitByGrapheme ist global AUS (Prototyp-Pin oben).
-       Folge: ein zu langes Einzelwort kann rechts überstehen statt zerhackt zu werden.
-       Dann Schrift verkleinern, bis das längste Wort in die Box passt (nie Buchstaben-Umbruch). */
+    /* Schutz 2 (Christian 15.07., korrigiert): splitByGrapheme ist global AUS (Prototyp-Pin oben).
+       Folge: ein zu langes "Wort" kann rechts überstehen. WICHTIG: oft ist das gar kein echtes
+       Wort, sondern eine per U+00A0 gekoppelte Gruppe aus noWrapUnits (z.B. langer Klammerinhalt).
+       Der frühere Fix schrumpfte dann bis 14px und zerschoss die Slide (Bug Slide 3, 15.07. abends).
+       Reihenfolge jetzt: (a) nbsp-Kopplung lösen -> normaler Wortumbruch, (b) erst danach
+       moderat schrumpfen, hartes Minimum 70% der Ausgangsgröße — nie Mini-Schrift. */
     { let gW=30;
+      const baseFs=o.fontSize, minFs2=Math.max(Math.round(baseFs*0.7),14);
       const tooWide=()=>{ if(!o.textLines||!o._getLineWidth) return false;
         for(let li=0;li<o.textLines.length;li++){ if(o._getLineWidth(li)>o.width+2) return true; }
         return false; };
       o.initDimensions&&o.initDimensions();
-      while(tooWide() && o.fontSize>14 && gW-->0){ o.set("fontSize",o.fontSize-1); o.initDimensions(); }
+      if(tooWide() && / /.test(o.text||"")){
+        o.set("text", o.text.replace(/ /g," "));
+        o.initDimensions&&o.initDimensions();
+      }
+      while(tooWide() && o.fontSize>minFs2 && gW-->0){ o.set("fontSize",o.fontSize-1); o.initDimensions(); }
+      /* Passt es selbst bei 70% nicht (extrem langes echtes Wort), Text satzbewusst kürzen */
+      if(tooWide() && (o.text||"").length>25){ o.set("text", smartShorten(o.text, Math.floor(o.text.length*0.85))); o.set("fontSize",baseFs); o.initDimensions(); }
     }
     const isSub=o.name==="subline";
     const maxLines = o.name==="headline" ? 2 : (isSub ? subMax : 0);
@@ -3907,7 +3917,7 @@ window.SM_PLATFORMS=[
   { id:"ig_feed",  label:"Instagram Feed / Karussell", w:1080, h:1350, master:"4:5"  },
   { id:"ig_story", label:"Instagram Story",            w:1080, h:1920, master:"9:16" },
   { id:"li_feed",  label:"LinkedIn Post",              w:1080, h:1350, master:"4:5"  },
-  { id:"li_quer",  label:"LinkedIn Querformat (Link)", w:1200, h:627,  master:"16:9" },
+  /* li_quer (LinkedIn Querformat) entfernt (Christian 15.07.) — wurde nicht gebraucht */
   { id:"x_post",   label:"X (Twitter)",                w:1080, h:1350, master:"4:5"  }
 ];
 
@@ -5365,6 +5375,9 @@ function smRender(){
   const sl=smSlides(); if(smSlide>=sl.length) smSlide=0;
   c.width=F.w*SM_SCALE; c.height=F.h*SM_SCALE;
   const x=c.getContext("2d"), B=SM_BRANDS[smBrand];
+  /* Marken-Font (Christian 15.07.): zero rendert IMMER in Plus Jakarta Sans — alle sm*-Zeichen-
+     funktionen nutzen BRAND.font, daher hier pro Render-Pass verbindlich setzen. */
+  BRAND.font=(smBrand==="zero")?"Plus Jakarta Sans":"Poppins";
   x._capTag=window._smCaptureOn?"main":null;   /* Text-Capture (editierbare Editor-Übergabe) */
   const W=c.width, H=c.height;
   /* Safe Zone: bei 9:16 Inhalt einrücken */
@@ -5789,7 +5802,10 @@ function smDrawContent(ctx){
     { const _ex=(d.exchange||"")+(d.stand?" · "+d.stand:"");
       smFit(x,_ex,"500",bodyFS*0.8,W-2*M); x.fillStyle=B.muted; x.textAlign="left"; x.fillText(_ex, M, y+bodyFS*3.7); }
     y+=bodyFS*4.6;
-    const facts=[1,2,3,4].map(i=>({l:d["f"+i+"l"],v:d["f"+i+"v"]})).filter(f=>(f.l||"").trim());
+    /* Harter Filter (Christian 15.07., 2. Anlauf): Bilanz-Detailposten wie Liquidität fliegen
+       deterministisch raus — die Prompt-Regel allein reichte nicht (Altbestand in smData). */
+    const _banFact=/liquidit|cash.?burn|verschuldung|eigenkapitalquote|working.?capital/i;
+    const facts=[1,2,3,4].map(i=>({l:d["f"+i+"l"],v:d["f"+i+"v"]})).filter(f=>(f.l||"").trim() && !_banFact.test(f.l||""));
     const fc=2, fw=(W-2*M-W*0.025)/fc;
     facts.forEach((f,i)=>{
       const fx=M+(i%fc)*(fw+W*0.025), fy=y+Math.floor(i/fc)*W*0.135;
