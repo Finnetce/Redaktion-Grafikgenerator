@@ -2935,7 +2935,47 @@ async function orChat(messages, extra){
   }
   throw new Error("kein Modell verbunden");
 }
-function parseJSON(s){ s=(s||"").trim().replace(/^```(json)?/i,"").replace(/```$/,"").trim(); return JSON.parse(s); }
+/* Robust gegen leicht defektes Modell-JSON (Yuki 15.07.: Fehler "Expected ',' or '}'"):
+   mehrere Reparaturstufen, bevor aufgegeben wird. Häufigste Ursache: ein nicht-escaptes
+   Anführungszeichen mitten in einem String-Wert (z.B. Zitat "aktuelle Gerüchte" im Fließtext). */
+function parseJSON(s){
+  s=(s||"").trim().replace(/^```(json)?/i,"").replace(/```\s*$/,"").trim();
+  // Nur den JSON-Kern zwischen erster { und letzter } behalten (entfernt Vor-/Nachgeschwätz)
+  const a=s.indexOf("{"), b=s.lastIndexOf("}");
+  if(a>=0 && b>a) s=s.slice(a,b+1);
+  const attempts=[];
+  attempts.push(s);
+  // Stufe 1: schließende Kommas vor } oder ] entfernen
+  attempts.push(s.replace(/,\s*([}\]])/g,"$1"));
+  // Stufe 2: typografische Anführungszeichen normalisieren + Trailing-Kommas
+  attempts.push(s.replace(/[“”„‟]/g,'\\"').replace(/,\s*([}\]])/g,"$1"));
+  // Stufe 3: aggressiver Reparaturversuch für nicht-escapte " INNERHALB von String-Werten.
+  //   Heuristik: Ein " ist ein Struktur-Delimiter, wenn direkt danach (ggf. mit Whitespace)
+  //   eines von : , } ] folgt ODER davor eines von : , { [ steht. Alle anderen " werden escapt.
+  attempts.push((function(raw){
+    let out="", inStr=false;
+    for(let i=0;i<raw.length;i++){
+      const ch=raw[i];
+      if(ch==="\\"){ out+=ch+(raw[i+1]||""); i++; continue; }
+      if(ch!=='"'){ out+=ch; continue; }
+      if(!inStr){ inStr=true; out+=ch; continue; }
+      // Wir sind in einem String und sehen ein ". Prüfen ob es der String-Terminator ist.
+      let j=i+1; while(j<raw.length && /\s/.test(raw[j])) j++;
+      const next=raw[j];
+      if(next===undefined || next===":" || next==="," || next==="}" || next==="]"){
+        inStr=false; out+=ch;            // echter Terminator
+      } else {
+        out+='\\"';                       // eingebettetes Zitat -> escapen
+      }
+    }
+    return out.replace(/,\s*([}\]])/g,"$1");
+  })(s));
+  let lastErr=null;
+  for(const cand of attempts){
+    try{ return JSON.parse(cand); }catch(e){ lastErr=e; }
+  }
+  throw lastErr||new Error("JSON konnte nicht geparst werden");
+}
 
 /* ============================================================
    Datei-Upload: Excel / PDF / JPG / PNG -> Text ins Zielfeld
