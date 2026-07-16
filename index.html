@@ -5672,7 +5672,7 @@ function smRender(){
      egal was im Feld steht. */
   const _src=(smBrand==="zero")?"finanzen.net":smData.source;
   const prov=[_src?("Quelle: "+_src):"", smData.stand?("Stand: "+smData.stand):""].filter(Boolean).join("  ·  ");
-  if(prov && smTpl.id!=="zero_sm_edu_explainer"){
+  if(prov && smTpl.id!=="zero_sm_edu_explainer" && smTpl.id!=="zero_sm_event_announcement"){
     /* Quelle-Zeile auf Logo-Hoehe (Yuki 16.07.2026): die Zeile soll bei ALLEN zero-Templates
        unten mit dem Logo auf EINER Linie abschliessen. Logo-Geometrie wie in smDrawLogo
        (mg=6% der Breite, Logo unten rechts ueber der Legal-Zone) -> Quelle vertikal auf der
@@ -6173,30 +6173,44 @@ function smDrawContent(ctx){
     y+=W*0.055;
     const kpis=[1,2,3].map(i=>({l:smTidyLabel(d["k"+i+"l"]),a:d["k"+i+"a"],e:d["k"+i+"e"]})).filter(k=>(k.l||"").trim()&&(k.a||"").trim());
     if(kpis.length){
-      const gap=W*0.025, colW=(W-2*M-(kpis.length-1)*gap)/kpis.length, pad=W*0.024;
-      const tileH=W*0.215;
-      /* Einheitliche Fontgrößen: kleinste, die in ALLEN Kacheln passt (Werte + Labels getrennt) */
-      const valMaxW=colW-2*pad, labMaxW=colW-2*pad;
-      /* Einheitliche Groesse je Reihe, aber mit lesbarem Mindestwert (Yuki 16.07.: Text war zu
-         klein). Nur so weit schrumpfen wie noetig, nie unter ~82% der Zielgroesse. */
-      const _lf=(base,weight,texts,maxW)=>{ let fs=base; texts.forEach(t=>{ fs=Math.min(fs, smFit(x,t||"",weight,base,maxW)); }); return Math.max(fs, Math.round(base*0.82)); };
-      let valFS=_lf(T.kpiValue,"800",kpis.map(k=>smProtect(k.a||"")),valMaxW);
-      let labFS=_lf(T.kpiLabel,"600",kpis.map(k=>smProtect(k.l||"")),labMaxW-W*0.02);
-      let subFS=_lf(T.kpiSub,"500",kpis.filter(k=>k.e).map(k=>"Erwartet: "+k.e),valMaxW);
+      /* NEUBAU KPI-Kacheln (Yuki 16.07.2026): garantiert KEINE Ueberlagerung. Feste vertikale Zonen
+         (Label oben, Wert Mitte, Erwartet unten) + horizontale Breitenbegrenzung je Zone. Der
+         BEAT/MISS-Badge bekommt eine eigene reservierte Breite oben rechts; das Label endet davor.
+         Groessen sind einheitlich ueber alle Kacheln = kleinste, die ueberall passt (ECHTER Fit,
+         KEIN Mindest-Boden mehr — Fit vor Groesse, damit nichts ueberlaeuft). */
+      const gap=W*0.028, colW=(W-2*M-(kpis.length-1)*gap)/kpis.length, pad=W*0.026;
+      const tileH=W*0.235;
+      const anyBeat=kpis.some(k=>k.e && smBeat(k.a,k.e)!==null);
+      /* Badge-Breite messen (nur wenn ueberhaupt ein Beat/Miss vorkommt) */
+      let badgeW=0, badgeFS=Math.round(T.kpiSub*0.92);
+      if(anyBeat){ x.font="800 "+badgeFS+"px "+BRAND.font; badgeW=x.measureText("✓ BEAT").width+pad*0.6; }
+      const innerW=colW-2*pad;
+      const labMaxW=innerW-(anyBeat?badgeW:0);   /* Label endet immer VOR dem Badge */
+      const valMaxW=innerW, subMaxW=innerW;
+      /* einheitliche Groessen = kleinster echter Fit ueber alle Kacheln (min 45% als Notanker) */
+      const _fit=(base,weight,texts,maxW)=>{ let fs=base; texts.forEach(t=>{ if((t||"")!=="") fs=Math.min(fs, smFit(x,t,weight,base,maxW)); }); return Math.max(fs,Math.round(base*0.45)); };
+      const labFS=_fit(T.kpiLabel,"600",kpis.map(k=>smProtect(k.l||"")),labMaxW);
+      const valFS=_fit(T.kpiValue,"800",kpis.map(k=>smProtect(k.a||"")),valMaxW);
+      const subFS=_fit(T.kpiSub,"500",kpis.filter(k=>k.e).map(k=>smProtect("Erw. "+k.e)),subMaxW);
       kpis.forEach((k,i)=>{
         const kx=M+i*(colW+gap);
         x.fillStyle=B.chip; smRound(x,kx,y,colW,tileH,W*0.018); x.fill();
-        x.textAlign="left";
-        x.font="600 "+labFS+"px "+BRAND.font; x.fillStyle=B.muted;
-        x.fillText(smProtect(k.l),kx+pad,y+tileH*0.24);
-        x.font="800 "+valFS+"px "+BRAND.font; x.fillStyle=B.ink;
+        /* Zone 1 — Label oben links (endet vor Badge) */
+        x.textAlign="left"; x.font="600 "+labFS+"px "+BRAND.font; x.fillStyle=B.muted;
+        x.fillText(smProtect(k.l),kx+pad,y+tileH*0.22);
+        /* Zone Badge — oben rechts, eigene Spalte */
+        if(k.e){ const beat=smBeat(k.a,k.e);
+          if(beat!==null){ x.font="800 "+badgeFS+"px "+BRAND.font; x.fillStyle=beat?(B.pos||B.accent):B.neg; x.textAlign="right";
+            x.fillText(beat?"✓ BEAT":"✗ MISS",kx+colW-pad,y+tileH*0.22); } }
+        /* Zone 2 — Wert Mitte */
+        x.textAlign="left"; x.font="800 "+valFS+"px "+BRAND.font; x.fillStyle=B.ink;
         x.fillText(smProtect(k.a),kx+pad,y+tileH*0.58);
-        if(k.e){ x.font="500 "+subFS+"px "+BRAND.font; x.fillStyle=B.muted;
-          x.fillText(smProtect("Erwartet: "+k.e),kx+pad,y+tileH*0.86);
-          const beat=smBeat(k.a,k.e); if(beat!==null){ x.font="800 "+subFS+"px "+BRAND.font; x.fillStyle=beat?(B.pos||B.accent):B.neg; x.textAlign="right";
-            x.fillText(beat?"✓ BEAT":"✗ MISS",kx+colW-pad,y+tileH*0.24); x.textAlign="left"; } }
+        /* Zone 3 — Erwartet unten */
+        if(k.e){ x.font="500 "+subFS+"px "+BRAND.font; x.fillStyle=B.muted; x.textAlign="left";
+          x.fillText(smProtect("Erw. "+k.e),kx+pad,y+tileH*0.87); }
       });
-      y+=tileH+W*0.055;
+      x.textAlign="left";
+      y+=tileH+W*0.06;
     }
     if(d.reaction){
       x.textAlign="left";
@@ -6209,6 +6223,12 @@ function smDrawContent(ctx){
     if(d.summary) smText(x,d.summary,M,y+T.body,T.body,"400",B.dark?"rgba(255,255,255,.85)":B.ink,W-2*M,T.body*T.lh);
 
   } else if(id==="zero_sm_instrument_snapshot"){
+    /* Platzhalter-Hinweis "Vor Publikation pruefen" NIE rendern (Yuki 16.07.2026) — weder in der
+       Mitte (Boersenplatz/Zeitraum) noch unten in der Quelle-Zeile. Deterministisch entfernen. */
+    { const _rx=/vor\s+publikation\s+pr(ü|ue)fen/i;
+      ["stand","cperiod","exchange"].forEach(function(k){ if(_rx.test(d[k]||"")) d[k]=(d[k]||"").replace(_rx,"").replace(/[·,\-\s]+$/,"").replace(/^[·,\-\s]+/,"").trim(); });
+      if(_rx.test(smData.stand||"")) smData.stand=(smData.stand||"").replace(_rx,"").replace(/[·,\-\s]+$/,"").trim();
+    }
     y=smKicker(ctx,(d.aclass||"Wertpapier")+" im Blick");
     y=smText(x,d.headline||((d.iname||"Instrument")+" im Überblick"),M,y+headFS*0.9,headFS*0.75,"800",B.ink,W-2*M,headFS*0.94);
     if(d.isin){ x.font="600 "+bodyFS*0.85+"px "+BRAND.font; x.fillStyle=B.muted; x.fillText((d.iname?d.iname+" · ":"")+d.isin, M, y+W*0.032); y+=W*0.045; }
@@ -6349,23 +6369,32 @@ function smDrawContent(ctx){
       smFit(x,_s,"500",bodyFS*0.82,W-2*M); x.fillStyle=B.muted; x.textAlign="left"; x.fillText(_s, M, y+bodyFS); }
 
   } else if(id==="zero_sm_event_announcement"){
+    /* Lesbarkeit auf KI-Bild (Yuki 16.07.2026): hinter der Header-Zone (Kicker + Typ/Ort + Titel)
+       einen weichen dunklen Scrim legen, damit pinke/weisse Zeilen sich klar abheben. Nur wenn ein
+       KI-Hintergrund aktiv ist. */
+    if(typeof smBgImg!=="undefined" && smBgImg){
+      const grd=x.createLinearGradient(0,ctx.top-M*0.5,0,ctx.top+H*0.42);
+      grd.addColorStop(0,"rgba(5,1,4,0.78)"); grd.addColorStop(1,"rgba(5,1,4,0)");
+      x.fillStyle=grd; x.fillRect(0,ctx.top-M*0.5,W,H*0.46);
+    }
     y=smKicker(ctx,d.kicker);
     /* Typ/Ort-Zeile buendig unter dem Kicker-Chip an der linken Kante M (Yuki 16.07.: lag nicht an). */
     { const _e=(d.etype||"")+(d.elocation?" · "+d.elocation:"");
       smFit(x,smProtect(_e),"600",bodyFS,W-2*M); x.fillStyle=B.accent; x.textAlign="left"; x.fillText(smProtect(_e), M, y+bodyFS*0.9); } y+=bodyFS*2.1;
-    y=smText(x,d.ename||"Event-Name",M,y+headFS*0.85,headFS*0.9,"800",B.ink,W-2*M,headFS*1.1);
+    y=smText(x,d.ename||"Event-Name",M,y+headFS*0.85,headFS*0.9,"800","#ffffff",W-2*M,headFS*1.1);
     y+=W*0.055;
     x.fillStyle=B.chip; smRound(x,M,y,W-2*M,W*0.135,W*0.02); x.fill();
     x.font="800 "+bodyFS*1.5+"px "+BRAND.font; x.fillStyle=B.ink;
-    x.fillText((d.edate||"")+(d.etime?"  ·  "+d.etime:""), M+W*0.035, y+W*0.085);
+    x.fillText(smProtect((d.edate||"")+(d.etime?"  ·  "+d.etime:"")), M+W*0.035, y+W*0.085);
     y+=W*0.135+W*0.045;
-    if(d.speakers){ smFit(x,"Mit: "+d.speakers,"600",bodyFS*0.9,W-2*M); x.fillStyle=B.muted; x.textAlign="left"; x.fillText("Mit: "+d.speakers, M, y); y+=bodyFS*2; }
-    x.fillStyle=B.accent; smRound(x,M,y,W*0.4,headFS*1.2,headFS*0.6); x.fill();
-    /* Button-Text zentriert im Pill (Christian 15.07. abends) */
-    x.font="700 "+bodyFS+"px "+BRAND.font; x.fillStyle=B.dark?"#06210f":"#fff";
-    { x.textAlign="center";
-      x.fillText(d.cta||"Jetzt anmelden", M+W*0.2, y+headFS*0.6+bodyFS*0.36);
-      x.textAlign="left"; }
+    if(d.speakers){ smFit(x,"Mit: "+d.speakers,"600",bodyFS*0.9,W-2*M); x.fillStyle=B.dark?"rgba(255,255,255,.85)":B.muted; x.textAlign="left"; x.fillText(smProtect("Mit: "+d.speakers), M, y); y+=bodyFS*2; }
+    /* CTA-Pill: Text horizontal UND vertikal exakt zentriert (Yuki 16.07.). */
+    { const _pillW=W*0.42, _pillH=headFS*1.2, _pillX=M;
+      x.fillStyle=B.accent; smRound(x,_pillX,y,_pillW,_pillH,_pillH*0.5); x.fill();
+      x.font="700 "+bodyFS+"px "+BRAND.font; x.fillStyle=B.dark?"#06210f":"#fff";
+      x.textAlign="center"; x.textBaseline="middle";
+      x.fillText(d.cta||"Jetzt anmelden", _pillX+_pillW/2, y+_pillH/2);
+      x.textBaseline="alphabetic"; x.textAlign="left"; }
 
   } else if(id==="zero_sm_brand_product_announcement"){
     y=smKicker(ctx,d.kicker);
@@ -6373,16 +6402,19 @@ function smDrawContent(ctx){
     if(d.summary) y=smText(x,d.summary,M,y+W*0.04,bodyFS*1.1,"400",B.dark?"rgba(255,255,255,.85)":B.ink,W-2*M,bodyFS*1.6);
     y+=W*0.045;
     { const _bl=[d.b1,d.b2,d.b3].filter(b=>(b||"").trim());
-      /* Bullet-Punkt exakt auf der ERSTEN Textzeile ausrichten (Yuki 16.07.: Punkt und Text lagen
-         nicht auf einer Linie). Punkt-Y = Textbaseline der 1. Zeile minus optischer Versatz. */
+      /* Bullets (Yuki 16.07.2026): (a) mehrzeilige Bullets ENGER setzen (lineHeight 1.16 statt 1.3),
+         (b) Punkt exakt auf der 1. Textzeile, (c) fester, klarer Abstand ZWISCHEN Bullets, damit der
+         naechste Punkt sauber auf einer Linie mit SEINEM Text sitzt und nichts verrutscht. */
+      const _blh=bodyFS*1.16, _bgap=bodyFS*0.85;
       _bl.forEach((b)=>{
-        x.fillStyle=B.accent; x.beginPath(); x.arc(M+W*0.012,y-bodyFS*0.30,W*0.010,0,7); x.fill();
-        const yEnd=smText(x,b,M+W*0.045,y,bodyFS,"600",B.dark?"rgba(255,255,255,.9)":B.ink,W-2*M-W*0.045,bodyFS*1.3);
-        y=Math.max(y+bodyFS*1.4, yEnd+bodyFS*0.7);
+        x.fillStyle=B.accent; x.beginPath(); x.arc(M+W*0.013,y-bodyFS*0.30,W*0.010,0,7); x.fill();
+        const yEnd=smText(x,b,M+W*0.045,y,bodyFS,"600",B.dark?"rgba(255,255,255,.9)":B.ink,W-2*M-W*0.045,_blh);
+        y=yEnd+_bgap;   /* naechster Bullet startet fix unter dem Ende des vorigen Textes */
       });
-      y+=W*0.03; }
+      y+=W*0.04; }
     /* CTA-Block (Verfuegbarkeit + Button) horizontal ZENTRIERT, weiter unten (Yuki 16.07.).
        Grammatik-Fix: doppeltes "ab" vermeiden ("Verfuegbar ab Ab sofort" -> "Verfuegbar ab sofort"). */
+    y+=W*0.03;   /* Verfuegbar-ab-Block weiter nach unten (Yuki 16.07.: war in Bullet 3 gerutscht) */
     { let _av=(d.adate||"").trim();
       if(_av){
         let _txt;
