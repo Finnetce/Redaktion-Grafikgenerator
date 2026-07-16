@@ -2525,7 +2525,7 @@ $("tBgLock")&&($("tBgLock").onclick=()=>{
   toast(lock?"Hintergrund gesperrt — kann nicht mehr verschoben werden":"Hintergrund entsperrt — verschieb-/skalierbar");
 });
 $("tDelete").onclick=()=>{ const o=canvas.getActiveObject(); if(o){ canvas.remove(o); clearProps(); canvas.renderAll(); } };
-$("tBack").onclick=()=>{ snapshotCurrent(); $("editorView").classList.remove("active"); $("genView").classList.add("active"); };
+$("tBack").onclick=()=>{ snapshotCurrent(); showView(window._editorReturn||"social"); };   /* echt zurück: dorthin, wo der Editor geöffnet wurde (finnet-Generator / zero-Maske / Grafik) */
 function modelLabel(){ const o=[...$("fModel").options].find(x=>x.value===curModel); return o?o.textContent.split(" · ")[0]:"GPT Image 2"; }
 const tGenImgHandler=async()=>{
   // FIX: Button war ohne Wirkung, wenn _content fehlte oder der Prompt leer war (z.B. aus "Grafiken Redaktion" geöffnet).
@@ -2735,6 +2735,7 @@ $("goStudio").onclick=async()=>{
   if($("edTitle")) $("edTitle").value=content.head||"";
 
   DISP=dispDims(curFmt); exportMult=FORMATS[curFmt].w/DISP.w;
+  window._editorReturn="social";   /* Zurück-Ziel merken: hierher kam der Nutzer (finnet-Generator) */
   $("genView").classList.remove("active"); $("editorView").classList.add("active");
   await document.fonts.ready;
 
@@ -3022,6 +3023,7 @@ async function openGraphicInEditor(){
   curFmt = uc.fmt;
   window._content={ head:"", sub:"", bullets:[], close:"", closeHead:"", prompt:"", brand:"", bg:_grLastImg };
   DISP=dispDims(curFmt); exportMult=FORMATS[curFmt].w/DISP.w;
+  window._editorReturn="graphic";   /* Zurück-Ziel: Grafiken-Redaktion */
   showView("home"); // views zurücksetzen
   $("homeView").classList.remove("active");
   $("editorView").classList.add("active");
@@ -6001,13 +6003,22 @@ function smDrawContent(ctx){
       x.lineTo(cx1,cy1); x.lineTo(cx0,cy1); x.closePath(); x.fillStyle=grd; x.fill();
       x.beginPath(); x.moveTo(xv(0),yv(vals[0])); vals.forEach((v,i)=>x.lineTo(xv(i),yv(v)));
       x.strokeStyle=B.accent; x.lineWidth=Math.max(4,W*0.005); x.lineJoin="round"; x.stroke();
-      /* Endpunkt + Annotation */
+      /* Endpunkt + Annotation (Yuki 16.07.2026): Text auf dem Chart MUSS sich von der Linie abheben.
+         Regeln: (a) Label/Annotation NIE in der Linienfarbe (B.accent) — stattdessen B.ink (weiss/navy),
+         (b) dezenter Kontrast-Hintergrund (halbtransparente Pill in bg-Farbe) hinter dem Text,
+         damit er ueber Linie/Flaeche lesbar bleibt. Minimalistisch: nur hinter dem Endpunkt-Wert. */
       const ex=xv(vals.length-1), ey=yv(vals[vals.length-1]);
       x.beginPath(); x.arc(ex,ey,W*0.008,0,7); x.fillStyle=B.accent; x.fill();
-      x.font="800 "+bodyFS*1.1+"px "+BRAND.font; x.fillStyle=B.ink; x.textAlign="right";
-      const eLblY=Math.max(ey-S*0.018, cy0+bodyFS*1.3);   /* clamp: nie über den Chart-Rand in Deck/Label */
-      x.fillText(smNum(vals[vals.length-1])+(d.yunit?" "+d.yunit:""), ex-4, eLblY);
-      if(d.anno && eLblY-bodyFS*1.3>cy0+bodyFS*0.6){ x.font="600 "+bodyFS*0.9+"px "+BRAND.font; x.fillStyle=B.accent; x.fillText(d.anno, ex-4, eLblY-bodyFS*1.3); }
+      var _elFS=bodyFS*1.1, _elTxt=smProtect(smNum(vals[vals.length-1])+(d.yunit?" "+d.yunit:""));
+      x.font="800 "+_elFS+"px "+BRAND.font; x.textAlign="right";
+      const eLblY=Math.max(ey-S*0.024, cy0+bodyFS*1.6);   /* etwas hoeher ueber dem Punkt, klarer Abstand */
+      /* Kontrast-Pill hinter dem Endpunkt-Wert */
+      var _elW=x.measureText(_elTxt).width, _elPadX=W*0.016, _elPadY=_elFS*0.34;
+      x.fillStyle=B.dark?"rgba(8,1,4,0.72)":"rgba(255,255,255,0.82)";
+      smRound(x, ex-4-_elW-_elPadX, eLblY-_elFS-_elPadY, _elW+2*_elPadX, _elFS+2*_elPadY, _elFS*0.4); x.fill();
+      x.fillStyle=B.ink; x.textAlign="right"; x.fillText(_elTxt, ex-4, eLblY);
+      /* Annotation darueber: gedaempft, ebenfalls nicht in Linienfarbe */
+      if(d.anno && eLblY-_elFS-bodyFS*1.4>cy0+bodyFS*0.6){ x.font="600 "+bodyFS*0.9+"px "+BRAND.font; x.fillStyle=B.muted; x.textAlign="right"; x.fillText(smProtect(d.anno), ex-4, eLblY-_elFS-bodyFS*0.7); }
       /* X-Achse */
       x.font="500 "+bodyFS*0.85+"px "+BRAND.font; x.fillStyle=B.muted;
       if(!chartTight){
@@ -6029,8 +6040,10 @@ function smDrawContent(ctx){
        neutrale Zahlen im Akzent-Pink */
     x.fillStyle=/^[+\-−]/.test(d.value||"") ? smChangeColor(d.value,B) : B.accent;
     x.textAlign="left"; x.fillText(smProtect(v), M-W*0.005, y+bfs*1.05);
-    y+=bfs*1.25;
-    y=smText(x,d.context||"",M,y+W*0.02,bodyFS*1.12,"400",B.dark?"rgba(255,255,255,.85)":B.ink,W-2*M,bodyFS*1.62);
+    /* Abstand Zahl -> Kontexttext (Yuki 16.07.2026): vorher bfs*1.25 -> Kontext ueberlappte die
+       grosse Zahl (Unterlaengen). Jetzt klarer, aber nicht zu grosser Abstand unter der Grundlinie. */
+    y+=bfs*1.42;
+    y=smText(x,d.context||"",M,y+W*0.03,bodyFS*1.12,"400",B.dark?"rgba(255,255,255,.85)":B.ink,W-2*M,bodyFS*1.62);
     if(d.compare){ x.fillStyle=B.chip; const fs2=bodyFS; x.font="600 "+fs2+"px "+BRAND.font;
       const cw=x.measureText(d.compare).width; smRound(x,M,y+W*0.03,cw+fs2*1.8,fs2*2.15,fs2); x.fill();
       x.fillStyle=B.accent; x.fillText(smProtect(d.compare),M+fs2*0.9,y+W*0.03+fs2*1.48); }
@@ -6363,6 +6376,7 @@ async function smOpenInEditor(){
   const smPromptNow=(($("smBgPrompt")&&$("smBgPrompt").value.trim())||smTpl.bgPrompt||"");
   window._content={ head:smData.headline||smData.term||smTpl.name, sub:"", bullets:[], close:"", closeHead:"", prompt:smPromptNow, brand:"", bg:imgs[0], origin:"sm" };
   DISP=dispDims(curFmt); exportMult=FORMATS[curFmt].w/DISP.w;
+  window._editorReturn="socialmedia";   /* Zurück-Ziel: zero-Maske (smView) */
   showView("home"); $("homeView").classList.remove("active");
   $("editorView").classList.add("active");
   await document.fonts.ready;
