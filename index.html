@@ -2140,11 +2140,14 @@ function _fitTextLines(){
     const maxLines = o.name==="headline" ? 2 : (isSub ? subMax : 0);
     if(!maxLines) return;
     // Zeilenzahl-VORGABE (Yuki): Headline max 2 Zeilen, Subline finnet 1 / zero 2 Zeilen.
-    // Umsetzung (Regel Christian 16.07.): NUR über Schrift-Verkleinern versuchen, das Ziel zu
-    // erreichen — Text wird NIEMALS abgeschnitten. Wird die Vorgabe selbst am Minimum nicht
-    // erreicht, darf der Text zusätzlich umbrechen (mehr Zeilen), aber nie gekürzt werden.
-    const minFs=Math.round(o.fontSize*(isSub?0.78:0.7));
-    let guard=40;
+    // Umsetzung (Regel Christian 16.07.): NUR über Schrift-Verkleinern, Text wird NIE abgeschnitten.
+    // Subline finnet MUSS einzeilig sein (Yuki 16.07.2026, verbindlich): dafuer haerter shrinken
+    // (bis 55% statt 78%), damit auch laengere Sublines wie "Fanuc und Yaskawa als Antwort auf
+    // China-Konkurrenz" auf EINE Zeile passen. Nur wenn selbst am harten Minimum unmoeglich,
+    // bleibt es mehrzeilig (statt zu kuerzen).
+    const subFloor=(isSub && window._smBrand!=="zero") ? 0.55 : (isSub?0.78:0.7);
+    const minFs=Math.round(o.fontSize*subFloor);
+    let guard=60;
     while(o.textLines && o.textLines.length>maxLines && o.fontSize>minFs && guard-->0){
       o.set("fontSize", o.fontSize-1); o.initDimensions();
     }
@@ -6025,12 +6028,12 @@ function smDrawContent(ctx){
     /* Zahlen-Farbregel (Christian 15.07.): vorzeichenbehaftete Zahlen grün (#34CD6A) / rot (#F83A3E),
        neutrale Zahlen im Akzent-Pink */
     x.fillStyle=/^[+\-−]/.test(d.value||"") ? smChangeColor(d.value,B) : B.accent;
-    x.textAlign="left"; x.fillText(v, M-W*0.005, y+bfs*1.05);
+    x.textAlign="left"; x.fillText(smProtect(v), M-W*0.005, y+bfs*1.05);
     y+=bfs*1.25;
     y=smText(x,d.context||"",M,y+W*0.02,bodyFS*1.12,"400",B.dark?"rgba(255,255,255,.85)":B.ink,W-2*M,bodyFS*1.62);
     if(d.compare){ x.fillStyle=B.chip; const fs2=bodyFS; x.font="600 "+fs2+"px "+BRAND.font;
       const cw=x.measureText(d.compare).width; smRound(x,M,y+W*0.03,cw+fs2*1.8,fs2*2.15,fs2); x.fill();
-      x.fillStyle=B.accent; x.fillText(d.compare,M+fs2*0.9,y+W*0.03+fs2*1.48); }
+      x.fillStyle=B.accent; x.fillText(smProtect(d.compare),M+fs2*0.9,y+W*0.03+fs2*1.48); }
 
   } else if(id==="zero_sm_market_pulse"){
     const kindMap={"Börsenschluss":"CLOSING BELL","Handelsstart":"OPENING","Intraday":"INTRADAY","Wochenrückblick":"WOCHE","Breaking":"BREAKING"};
@@ -6045,9 +6048,9 @@ function smDrawContent(ctx){
       x.fillRect(M-W*0.015,ry,W-2*M+W*0.03,rh);
       const avail=W-2*M;
       smFit(x,r.l,"700",bodyFS*1.15,avail*0.40); x.fillStyle=B.ink; x.textAlign="left";
-      x.fillText(r.l, M, ry+rh*0.62);
+      x.fillText(smProtect(r.l), M, ry+rh*0.62);
       smFit(x,r.v||"","600",bodyFS*1.15,avail*0.26); x.textAlign="right"; x.fillStyle=B.dark?"rgba(255,255,255,.9)":B.ink;
-      x.fillText(r.v||"", W-M-W*0.17, ry+rh*0.62);
+      x.fillText(smProtect(r.v||""), W-M-W*0.17, ry+rh*0.62);
       const cc=smChangeColor(r.c,B), chTxt=smArrow(r.c)+" "+smFmtPct(r.c);
       smFit(x,chTxt,"800",bodyFS*1.15,W*0.16); x.fillStyle=cc;
       x.fillText(chTxt, W-M, ry+rh*0.62);
@@ -6066,9 +6069,9 @@ function smDrawContent(ctx){
       x.font="800 "+bodyFS*1.25+"px "+BRAND.font; x.fillStyle=B.accent; x.textAlign="center";
       x.fillText(""+(i+1), M+rh*0.34, ry+rh*0.12+rh*0.48);
       x.textAlign="left"; smFit(x,r.l,"700",bodyFS*1.15,(W-2*M)*0.52); x.fillStyle=B.ink;
-      x.fillText(r.l, M+rh*0.95, ry+rh*0.56);
+      x.fillText(smTidyLabel(r.l), M+rh*0.95, ry+rh*0.56);
       x.textAlign="right"; smFit(x,r.v||"","800",bodyFS*1.15,(W-2*M)*0.28); x.fillStyle=smChangeColor(r.v,B);
-      x.fillText(r.v||"", W-M, ry+rh*0.56); x.textAlign="left";
+      x.fillText(smProtect(r.v||""), W-M, ry+rh*0.56); x.textAlign="left";
     });
     if(d.methodology){ y=y+rows.length*rh+W*0.035;
       smText(x,"Methodik: "+d.methodology,M,y,bodyFS*0.82,"500",B.muted,W-2*M,bodyFS*1.25); }
