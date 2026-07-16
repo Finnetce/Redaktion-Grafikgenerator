@@ -2096,6 +2096,13 @@ async function renderTemplate(type,content){
   _fitTextLines();  // Vorgabe Yuki: Headline max 2 Zeilen, Subline (Cover) 1 Zeile
   // Sicherstellen: ALLE Texte editier- und wählbar + Klickflächen aktuell (Yuki 13./14.07.)
   canvas.getObjects().forEach(o=>{ if(o.type==="textbox"||o.type==="i-text"){ o.editable=true; o.selectable=true; o.evented=true; } o.setCoords&&o.setCoords(); });
+  /* Editor-UX (Christian 16.07.2026): Hintergrundbild standardmäßig gesperrt, damit ein Klick-Ziehen
+     auf leere/Bildflächen eine Rahmen-/Mehrfachauswahl (Marquee) startet statt das Bild zu verschieben.
+     Entsperren jederzeit über den Toolbar-Button "Hintergrund". Marquee-Auswahl bleibt aktiv. */
+  canvas.selection=true;
+  const _bgo=canvas.getObjects().find(o=>o.name==="bg");
+  if(_bgo){ _bgo.set({lockMovementX:true,lockMovementY:true,lockScalingX:true,lockScalingY:true,lockRotation:true,hoverCursor:"default",_bgLocked:true}); }
+  canvas.requestRenderAll&&canvas.requestRenderAll();
 }
 /* Zeilen-Regeln (Yuki): Headline max. 2 Zeilen (3-Zeiler vermeiden);
    Subline finnet = 1 Zeile, ZERO = max. 2 Zeilen (3-Zeiler vermeiden).
@@ -3400,6 +3407,21 @@ async function extractSM(txt,opts){
   smBgImg=null; smBgUrl=null;
   if($("smBgClear")) $("smBgClear").style.display="none";
   smRender();
+  /* AUSNAHME Event-Ankuendigung (Yuki 16.07.2026): bekommt AUTOMATISCH ein KI-Bild im Hintergrund,
+     Modell fest Nano Banana Pro. Alle anderen zero-Einzel-Templates bleiben clean. */
+  if(smTpl.id==="zero_sm_event_announcement" && genMode()!=="demo"){
+    try{
+      const _mSel=$("smModel"); if(_mSel){ _mSel.value="google/gemini-3-pro-image"; }
+      if(!($("smBgPrompt")&&$("smBgPrompt").value.trim())){
+        /* aus dem Event ein passendes Stimmungsmotiv ableiten (ohne Text/Logos) */
+        const _ev=(smData.ename||"")+" "+(smData.etype||"")+" "+(smData.elocation||"");
+        if($("smBgPrompt")) $("smBgPrompt").value="Premium event/webinar atmosphere related to: "+_ev.trim()+", modern finance audience, stage or studio lighting, no text, no logos, no charts";
+      }
+      if(info2) info2.textContent="Event-Ankündigung: KI-Hintergrund (Nano Banana Pro) wird automatisch erzeugt …";
+      await smGenBg();
+    }catch(e){ if(info2) info2.textContent="Fertig — KI-Hintergrund konnte nicht automatisch erzeugt werden, bitte manuell."; }
+    return;
+  }
   if(info2) info2.textContent="Fertig: Felder gesetzt — cleaner zero-Hintergrund. Optional: unten „KI-Hintergrund generieren“ klicken.";
 }
 
@@ -4769,7 +4791,7 @@ async function smDownloadPlatform(p, btn){
       }
     }
     /* Nur die Texte dieser Plattform */
-    var lines=["Marke: "+b.label, "Plattform: "+(SM_GROUP_SHORT[p.id]||p.label), "Erstellt: "+new Date().toLocaleString("de-DE"), ""];
+    var lines=["Marke: "+b.label, "Plattform: "+(SM_GROUP_SHORT[p.id]||p.label), "Erstellt: "+new Date().toLocaleString("de-DE"), ""].concat(smMetaLines());
     var cap=t.captions||{}, ht=t.hashtags||{};
     if(p.id.indexOf("ig")===0){
       if(cap.instagram){ lines.push("=== CAPTION ==="); lines.push(cap.instagram); lines.push(""); }
@@ -4882,6 +4904,47 @@ if(goBtn && typeof goBtn.onclick==="function"){
   };
 }
 
+/* ---------- TXT-Metadaten (Yuki 16.07.2026): Nachvollziehbarkeit ----------
+   Kopf fuer alle Text-Downloads (zero UND finnet): was war vorne ausgewaehlt — Template/Serie,
+   Slide-Anzahl, Textstil, Format, Plattformen, Bildprompt(s). Damit man einen Export spaeter
+   rekonstruieren kann. */
+function smMetaLines(){
+  var isZero=(window._smBrand==="zero");
+  var L=[]; L.push("===== EINSTELLUNGEN (zur Nachvollziehbarkeit) =====");
+  try{
+    if(isZero){
+      L.push("Template: "+((typeof smTpl!=="undefined"&&smTpl)?(smTpl.name+" ("+smTpl.id+")"):"—"));
+      L.push("Format: "+((typeof smFmt!=="undefined")?smFmt:"—"));
+      var nSl=(typeof smSlides==="function")?smSlides().length:1;
+      L.push("Slides: "+nSl+((typeof smTpl!=="undefined"&&smTpl&&smTpl.carousel)?" (Karussell)":" (Einzel-Slide)"));
+      var bgp=(document.getElementById("smBgPrompt")&&document.getElementById("smBgPrompt").value.trim())||"";
+      L.push("KI-Hintergrund: "+((typeof smBgImg!=="undefined"&&smBgImg)?"ja":"nein (cleaner Hintergrund)"));
+      if(bgp) L.push("Bild-Prompt: "+bgp);
+      var mdl=(document.getElementById("smModel")&&document.getElementById("smModel").options[document.getElementById("smModel").selectedIndex]);
+      if(mdl) L.push("Bild-Modell: "+mdl.textContent.split(" · ")[0]);
+    } else {
+      var uc=(typeof curUseCase!=="undefined"&&curUseCase&&curUseCase!=="frei")?curUseCase:"frei/Auto";
+      L.push("Use Case: "+uc);
+      var serie=(window._smSeries||"k3");
+      var serieN=({k3:"Cover + Kernpunkte + Fazit",k2:"Cover + Info",z3:"Cover + Zitat + Info",d4:"Cover + Kernpunkte + Info + Fazit"})[serie]||serie;
+      L.push("Slide-Serie: "+serie+" ("+serieN+")");
+      L.push("Slides: "+((typeof slides!=="undefined"&&slides)?slides.length:"—"));
+      var ts=(window._smTextStyle||"auto");
+      var tsN=(typeof SM_TEXTSTYLES!=="undefined"&&SM_TEXTSTYLES[ts])?SM_TEXTSTYLES[ts].label:ts;
+      L.push("Textstil: "+tsN);
+      L.push("Format: "+((typeof curFmt!=="undefined")?curFmt:"—"));
+      var fp=(document.getElementById("fPrompt")&&document.getElementById("fPrompt").value.trim())||"";
+      if(fp) L.push("Bild-Prompt: "+fp);
+      var fm=(document.getElementById("fModel")&&document.getElementById("fModel").options[document.getElementById("fModel").selectedIndex]);
+      if(fm) L.push("Bild-Modell: "+fm.textContent.split(" · ")[0]);
+    }
+    /* Plattformen */
+    var plats=(typeof smSelectedPlatforms==="function")?smSelectedPlatforms():[];
+    if(plats&&plats.length){ L.push("Plattformen: "+plats.map(function(p){ return (typeof SM_GROUP_SHORT!=="undefined"&&SM_GROUP_SHORT[p.id])||p.label||p.id; }).join(", ")); }
+  }catch(e){ L.push("(Einstellungen teilweise nicht verfuegbar)"); }
+  L.push(""); return L;
+}
+
 /* ---------- Download Bundle (ZIP) ---------- */
 async function smDownloadBundle(){
   if(typeof JSZip==="undefined"){ toast("ZIP-Bibliothek nicht geladen — Internetverbindung prüfen"); return; }
@@ -4914,7 +4977,7 @@ async function smDownloadBundle(){
         }
       }
       var t0=window._smText, l0=[];
-      l0.push("Marke: "+b.label); l0.push("Erstellt: "+new Date().toLocaleString("de-DE")); l0.push("");
+      l0.push("Marke: "+b.label); l0.push("Erstellt: "+new Date().toLocaleString("de-DE")); l0.push(""); smMetaLines().forEach(function(ml){ l0.push(ml); });
       if(t0&&t0.captions){
         if(t0.captions.instagram){ l0.push("=== INSTAGRAM CAPTION ==="); l0.push(t0.captions.instagram); l0.push(""); l0.push("=== INSTAGRAM HASHTAGS ==="); l0.push((t0.hashtags&&t0.hashtags.instagram||[]).join(" ")); l0.push(""); }
         if(t0.captions.linkedin){ l0.push("=== LINKEDIN CAPTION ==="); l0.push(t0.captions.linkedin); l0.push(""); l0.push("=== LINKEDIN HASHTAGS ==="); l0.push((t0.hashtags&&t0.hashtags.linkedin||[]).join(" ")); l0.push(""); }
@@ -4977,6 +5040,7 @@ async function smDownloadBundle(){
     if(window._smFormat) lines.push("Format: "+(SM_FORMAT_LABELS[window._smFormat]||window._smFormat));
     lines.push("Erstellt: "+new Date().toLocaleString("de-DE"));
     lines.push("");
+    smMetaLines().forEach(function(ml){ lines.push(ml); });
     if(t&&t.captions){
       if(t.captions.instagram){ lines.push("=== INSTAGRAM CAPTION ==="); lines.push(t.captions.instagram); lines.push(""); lines.push("=== INSTAGRAM HASHTAGS ==="); lines.push((t.hashtags&&t.hashtags.instagram||[]).join(" ")); lines.push(""); }
       if(t.captions.linkedin){ lines.push("=== LINKEDIN CAPTION (@-Tags vor dem Posten prüfen) ==="); lines.push(t.captions.linkedin); lines.push(""); lines.push("=== LINKEDIN HASHTAGS ==="); lines.push((t.hashtags&&t.hashtags.linkedin||[]).join(" ")); lines.push(""); }
@@ -5219,7 +5283,7 @@ const SM_TEMPLATES=[
     {k:"exchange",l:"Börsenplatz",type:"text",max:24,ph:"Xetra"},
     {k:"change",l:"Δ %",type:"text",max:8,ph:"-0,4"},
     {k:"cperiod",l:"Δ-Zeitraum (wörtlich aus dem Artikel)",type:"sel",opts:["1 Tag","vorbörslich","nachbörslich","1 Woche","1 Monat","1 Jahr","YTD"]},
-    {k:"f1l",l:"Fakt 1 – Label (anlegerrelevant: Kursziel, Rating, Potenzial in % — KEINE Bilanz-Detailposten wie Liquidität; AUSGESCHRIEBEN, gängige Formulierung)",type:"text",max:28,ph:"Kursziel"},{k:"f1v",l:"Wert (Einheit ausschreiben, z.B. USD/Jahr)",type:"text",max:26,ph:"330 USD"},
+    {k:"f1l",l:"Fakt 1 – Label (anlegerrelevanteste Kennzahl zuerst. Aktie: Kursziel, Rating, Potenzial in %, Marktkap., KGV, Dividendenrendite. ETF/Fonds: TER/Kosten, Anzahl Titel, Region/Länder, Ausschüttung (thesaurierend/ausschüttend), Fondsvolumen. NUR was den Anleger interessiert; Replikationsmethode/technische Detailposten nur wenn sonst nichts Relevanteres da ist. KEINE Bilanz-Detailposten wie Liquidität. AUSGESCHRIEBEN)",type:"text",max:28,ph:"Kursziel"},{k:"f1v",l:"Wert (Einheit ausschreiben, z.B. USD/Jahr)",type:"text",max:26,ph:"330 USD"},
     {k:"f2l",l:"Fakt 2 – Label (z.B. Potenzial zum Kursziel in %, wenn Kurs+Kursziel im Artikel stehen; AUSGESCHRIEBEN)",type:"text",max:28,ph:"Potenzial"},{k:"f2v",l:"Wert",type:"text",max:26,ph:"+81 %"},
     {k:"f3l",l:"Fakt 3 – Label (optional, AUSGESCHRIEBEN)",type:"text",max:28},{k:"f3v",l:"Wert",type:"text",max:26},
     {k:"f4l",l:"Fakt 4 – Label (optional, AUSGESCHRIEBEN)",type:"text",max:28},{k:"f4v",l:"Wert",type:"text",max:26},
@@ -5609,10 +5673,18 @@ function smRender(){
   const _src=(smBrand==="zero")?"finanzen.net":smData.source;
   const prov=[_src?("Quelle: "+_src):"", smData.stand?("Stand: "+smData.stand):""].filter(Boolean).join("  ·  ");
   if(prov && smTpl.id!=="zero_sm_edu_explainer"){
-    /* Logo-Zone rechts freihalten (Logo-Vertrag: 16% Breite + 3,5% Margin) */
-    const provMaxW=W - 2*M - W*((((LOGOS[B.logo]||{}).breite_prozent||16)/100)+0.055);
-    smFit(x,prov,"500",Math.round(legalFS*1.02),provMaxW); x.fillStyle=B.muted; x.textAlign="left";
-    x.fillText(prov, M, bottomY - legalFS*0.4);
+    /* Quelle-Zeile auf Logo-Hoehe (Yuki 16.07.2026): die Zeile soll bei ALLEN zero-Templates
+       unten mit dem Logo auf EINER Linie abschliessen. Logo-Geometrie wie in smDrawLogo
+       (mg=6% der Breite, Logo unten rechts ueber der Legal-Zone) -> Quelle vertikal auf der
+       Logo-Mitte ausrichten. */
+    const _lmg=Math.round(W*0.06);
+    const _lpct2=(((LOGOS[(document.getElementById("smLogoSel")&&document.getElementById("smLogoSel").value)||B.logo]||{}).breite_prozent||16)/100);
+    const _lid=(document.getElementById("smLogoSel")&&document.getElementById("smLogoSel").value)||B.logo;
+    const _lh2=Math.round(W*_lpct2*_logoAspect(_lid,B.dark));
+    const _logoCenterY=H - safeBot - legalH - _lmg - _lh2/2;
+    const provMaxW=W - 2*M - W*(_lpct2+0.075);
+    const provFS=smFit(x,prov,"500",Math.round(legalFS*1.02),provMaxW); x.fillStyle=B.muted; x.textAlign="left";
+    x.fillText(prov, M, _logoCenterY + provFS*0.36);
   }
 
   /* Legal-Fußzeile */
@@ -5931,9 +6003,9 @@ function smType(S){
     kicker:Math.round(S*0.026),
     h1:Math.round(S*0.052),    /* Template-Headline */
     h2:Math.round(S*0.040),    /* Sekundär-Headline / Big-Label */
-    kpiLabel:Math.round(S*0.026),
+    kpiLabel:Math.round(S*0.030),   /* Yuki 16.07.: Kaestchen-Label war zu klein -> groesser */
     kpiValue:Math.round(S*0.050),
-    kpiSub:Math.round(S*0.024),
+    kpiSub:Math.round(S*0.027),   /* Yuki 16.07.: Erwartet-Zeile lesbarer */
     big:Math.round(S*0.078),   /* prominente Einzelzahl (z.B. Kursreaktion) */
     body:Math.round(S*0.031),
     small:Math.round(S*0.024),
@@ -6054,7 +6126,10 @@ function smDrawContent(ctx){
     y=smText(x,d.headline||"Die Märkte im Überblick",M,y+headFS*0.9,headFS*0.8,"800",B.ink,W-2*M,headFS*0.98);
     y+=W*0.045;
     const rows=[1,2,3,4,5,6].map(i=>({l:d["m"+i+"l"],v:d["m"+i+"v"],c:d["m"+i+"c"]})).filter(r=>(r.l||"").trim()&&((r.v||"").trim()||(r.c||"").trim()));
-    const rh=Math.min(W*0.115,(ctx.bottom-y-W*0.02)/Math.max(rows.length,1));
+    /* Tabelle nach oben (Yuki 16.07.2026): unter der letzten Zeile Platz fuer die Quelle-Zeile
+       reservieren, damit die Tabelle nicht in "Quelle ..." rutscht. */
+    const mpBottom=ctx.bottom-W*0.06;
+    const rh=Math.min(W*0.115,(mpBottom-y)/Math.max(rows.length,1));
     rows.forEach((r,i)=>{
       const ry=y+i*rh;
       x.fillStyle=i%2?(B.dark?"rgba(255,255,255,0.035)":"rgba(10,31,68,0.03)"):"rgba(0,0,0,0)";
@@ -6073,7 +6148,8 @@ function smDrawContent(ctx){
   } else if(id==="zero_sm_data_ranking"){
     y=smKicker(ctx,d.kicker);
     y=smText(x,d.headline||"Ranking",M,y+headFS*0.9,headFS*0.78,"800",B.ink,W-2*M,headFS*0.96);
-    if(d.metric){ x.font="600 "+bodyFS+"px "+BRAND.font; x.fillStyle=B.muted; x.fillText(d.metric, M, y+W*0.035); y+=W*0.05; }
+    /* Metrik-Subline in einheitlicher body-Groesse, mit klarem Abstand zur Headline (Yuki 16.07.) */
+    if(d.metric){ x.font="600 "+bodyFS+"px "+BRAND.font; x.fillStyle=B.muted; x.textAlign="left"; x.fillText(smProtect(d.metric), M, y+W*0.05); y+=W*0.075; }
     const rows=[1,2,3,4,5].map(i=>({l:d["r"+i+"l"],v:d["r"+i+"v"]})).filter(r=>(r.l||"").trim());
     const rh=Math.min(W*0.125,(ctx.bottom-y-W*0.11)/Math.max(rows.length,1));
     rows.forEach((r,i)=>{
@@ -6086,8 +6162,7 @@ function smDrawContent(ctx){
       x.textAlign="right"; smFit(x,r.v||"","800",bodyFS*1.15,(W-2*M)*0.28); x.fillStyle=smChangeColor(r.v,B);
       x.fillText(smProtect(r.v||""), W-M, ry+rh*0.56); x.textAlign="left";
     });
-    if(d.methodology){ y=y+rows.length*rh+W*0.035;
-      smText(x,"Methodik: "+d.methodology,M,y,bodyFS*0.82,"500",B.muted,W-2*M,bodyFS*1.25); }
+    /* Methodik-Zeile entfernt (Yuki 16.07.2026): nicht gewuenscht auf der Grafik. */
 
   } else if(id==="zero_sm_company_earnings"){
     /* STRUKTUR-REFACTOR (Yuki/Christian 16.07.2026): EINE gemeinsame Schriftgröße für alle
@@ -6102,9 +6177,12 @@ function smDrawContent(ctx){
       const tileH=W*0.215;
       /* Einheitliche Fontgrößen: kleinste, die in ALLEN Kacheln passt (Werte + Labels getrennt) */
       const valMaxW=colW-2*pad, labMaxW=colW-2*pad;
-      let valFS=T.kpiValue; kpis.forEach(k=>{ valFS=Math.min(valFS, smFit(x,k.a||"","800",T.kpiValue,valMaxW)); });
-      let labFS=T.kpiLabel; kpis.forEach(k=>{ labFS=Math.min(labFS, smFit(x,k.l||"","600",T.kpiLabel,labMaxW-(k.e?W*0.10:0))); });
-      let subFS=T.kpiSub;   kpis.forEach(k=>{ if(k.e) subFS=Math.min(subFS, smFit(x,"Erwartet: "+k.e,"500",T.kpiSub,valMaxW)); });
+      /* Einheitliche Groesse je Reihe, aber mit lesbarem Mindestwert (Yuki 16.07.: Text war zu
+         klein). Nur so weit schrumpfen wie noetig, nie unter ~82% der Zielgroesse. */
+      const _lf=(base,weight,texts,maxW)=>{ let fs=base; texts.forEach(t=>{ fs=Math.min(fs, smFit(x,t||"",weight,base,maxW)); }); return Math.max(fs, Math.round(base*0.82)); };
+      let valFS=_lf(T.kpiValue,"800",kpis.map(k=>smProtect(k.a||"")),valMaxW);
+      let labFS=_lf(T.kpiLabel,"600",kpis.map(k=>smProtect(k.l||"")),labMaxW-W*0.02);
+      let subFS=_lf(T.kpiSub,"500",kpis.filter(k=>k.e).map(k=>"Erwartet: "+k.e),valMaxW);
       kpis.forEach((k,i)=>{
         const kx=M+i*(colW+gap);
         x.fillStyle=B.chip; smRound(x,kx,y,colW,tileH,W*0.018); x.fill();
@@ -6134,12 +6212,22 @@ function smDrawContent(ctx){
     y=smKicker(ctx,(d.aclass||"Wertpapier")+" im Blick");
     y=smText(x,d.headline||((d.iname||"Instrument")+" im Überblick"),M,y+headFS*0.9,headFS*0.75,"800",B.ink,W-2*M,headFS*0.94);
     if(d.isin){ x.font="600 "+bodyFS*0.85+"px "+BRAND.font; x.fillStyle=B.muted; x.fillText((d.iname?d.iname+" · ":"")+d.isin, M, y+W*0.032); y+=W*0.045; }
-    /* Kurszeile */
-    smFit(x,d.quote||"–","800",bodyFS*2.3,(W-2*M)*0.52); x.fillStyle=B.ink; x.fillText(d.quote||"–", M, y+bodyFS*2.6);
-    const qw=x.measureText(d.quote||"–").width;
-    const chS=smArrow(d.change)+" "+smFmtPct(d.change)+(d.cperiod?" ("+d.cperiod+")":"");
-    smFit(x,chS,"800",bodyFS*1.2,(W-M)-(M+qw+W*0.03)); x.fillStyle=smChangeColor(d.change,B);
-    x.fillText(chS, M+qw+W*0.03, y+bodyFS*2.55);
+    /* Kurszeile — Delta nur zeichnen, wenn wirklich eine Kursveraenderung vorliegt (Yuki 16.07.:
+       ETF-Stammdaten ohne Kurswert zeigten "– → (1 Tag)"). Ohne d.change: kein Pfeil, kein Zeitraum. */
+    const _hasChange=(""+(d.change||"")).replace(/[^0-9]/g,"")!=="";
+    const _hasQuote=(""+(d.quote||"")).trim()!=="" && (""+(d.quote||"")).trim()!=="–";
+    if(_hasQuote){
+      smFit(x,d.quote,"800",bodyFS*2.3,(W-2*M)*0.52); x.fillStyle=B.ink; x.fillText(smProtect(d.quote), M, y+bodyFS*2.6);
+      const qw=x.measureText(d.quote).width;
+      if(_hasChange){
+        const chS=smArrow(d.change)+" "+smFmtPct(d.change)+(d.cperiod?" ("+d.cperiod+")":"");
+        smFit(x,chS,"800",bodyFS*1.2,(W-M)-(M+qw+W*0.03)); x.fillStyle=smChangeColor(d.change,B);
+        x.fillText(chS, M+qw+W*0.03, y+bodyFS*2.55);
+      }
+    } else if(_hasChange){
+      const chS=smArrow(d.change)+" "+smFmtPct(d.change)+(d.cperiod?" ("+d.cperiod+")":"");
+      smFit(x,chS,"800",bodyFS*2.0,(W-2*M)*0.7); x.fillStyle=smChangeColor(d.change,B); x.fillText(chS, M, y+bodyFS*2.6);
+    }
     { /* Dedupe (Christian 15.07.): Zeitbezug wie "vorbörslich" nicht doppelt in Börsenplatz UND Stand */
       let _st=d.stand||"";
       ["vorbörslich","nachbörslich"].forEach(w=>{ if((d.exchange||"").toLowerCase().includes(w)) _st=_st.replace(new RegExp("[,·\\s]*"+w,"i"),"").trim(); });
@@ -6216,17 +6304,20 @@ function smDrawContent(ctx){
       x.fillText(b[0], M, by);
       x.fillStyle=B.dark?"rgba(255,255,255,0.08)":"rgba(10,31,68,0.07)"; smRound(x,M,by+W*0.015,bw,W*0.062,W*0.014); x.fill();
       x.fillStyle=b[2]; smRound(x,M,by+W*0.015,Math.max(bw*(b[1]/maxV),W*0.05),W*0.062,W*0.014); x.fill();
+      /* Wert am Balkenende mit Abstand zum Rand (Yuki 16.07.: klebte am rechten Rand) */
       x.font="800 "+bodyFS*1.05+"px "+BRAND.font; x.fillStyle=B.ink; x.textAlign="right";
-      x.fillText(smEur(b[1]), W-M, by+W*0.062); x.textAlign="left";
+      x.fillText(smProtect(smEur(b[1])), W-M-W*0.025, by+W*0.062); x.textAlign="left";
     });
     y+=2*W*0.15+W*0.02;
     x.font="800 "+bodyFS*1.4+"px "+BRAND.font; x.fillStyle=B.pos||B.accent;   /* positive Zahl -> grün */
     x.fillText("+ "+smEur(r.gain)+" möglicher Wertzuwachs", M, y+bodyFS*1.4);
 
   } else if(id==="zero_sm_editorial_quote"){
-    y=ctx.top+W*0.09;
-    x.font="800 "+W*0.14+"px Georgia, serif"; x.fillStyle=B.accent; x.fillText("„", M-W*0.01, y+W*0.06);
-    y=smText(x,d.quote||"Zitat …",M,y+W*0.13,headFS*0.82,"700",B.ink,W-2*M,headFS*1.1);
+    y=ctx.top+W*0.06;
+    /* Grosses Anfuehrungszeichen; Zitattext mit klarem Abstand DARUNTER (Yuki 16.07.: Symbol und
+       Headline ueberlappten). Symbol-Baseline bei y+0.11, Text beginnt bei y+0.20. */
+    x.font="800 "+W*0.14+"px Georgia, serif"; x.fillStyle=B.accent; x.fillText("„", M-W*0.01, y+W*0.11);
+    y=smText(x,d.quote||"Zitat …",M,y+W*0.20,headFS*0.82,"700",B.ink,W-2*M,headFS*1.1);
     y+=W*0.06;
     x.fillStyle=B.accent; x.fillRect(M,y,W*0.045,W*0.006);
     // Name/Rolle rechts vom Akzentstrich, auf verfügbare Breite eingepasst (nie über den Rand)
@@ -6259,8 +6350,9 @@ function smDrawContent(ctx){
 
   } else if(id==="zero_sm_event_announcement"){
     y=smKicker(ctx,d.kicker);
+    /* Typ/Ort-Zeile buendig unter dem Kicker-Chip an der linken Kante M (Yuki 16.07.: lag nicht an). */
     { const _e=(d.etype||"")+(d.elocation?" · "+d.elocation:"");
-      smFit(x,_e,"600",bodyFS,W-2*M); x.fillStyle=B.accent; x.textAlign="left"; x.fillText(_e, M, y+bodyFS*0.6); } y+=bodyFS*1.8;
+      smFit(x,smProtect(_e),"600",bodyFS,W-2*M); x.fillStyle=B.accent; x.textAlign="left"; x.fillText(smProtect(_e), M, y+bodyFS*0.9); } y+=bodyFS*2.1;
     y=smText(x,d.ename||"Event-Name",M,y+headFS*0.85,headFS*0.9,"800",B.ink,W-2*M,headFS*1.1);
     y+=W*0.055;
     x.fillStyle=B.chip; smRound(x,M,y,W-2*M,W*0.135,W*0.02); x.fill();
@@ -6281,19 +6373,31 @@ function smDrawContent(ctx){
     if(d.summary) y=smText(x,d.summary,M,y+W*0.04,bodyFS*1.1,"400",B.dark?"rgba(255,255,255,.85)":B.ink,W-2*M,bodyFS*1.6);
     y+=W*0.045;
     { const _bl=[d.b1,d.b2,d.b3].filter(b=>(b||"").trim());
+      /* Bullet-Punkt exakt auf der ERSTEN Textzeile ausrichten (Yuki 16.07.: Punkt und Text lagen
+         nicht auf einer Linie). Punkt-Y = Textbaseline der 1. Zeile minus optischer Versatz. */
       _bl.forEach((b)=>{
-        x.fillStyle=B.accent; x.beginPath(); x.arc(M+W*0.011,y-bodyFS*0.32,W*0.011,0,7); x.fill();
-        // Bullet-Text umbrechen statt rechts abschneiden; y je nach Zeilenzahl weiterschieben
-        const yEnd=smText(x,b,M+W*0.04,y,bodyFS,"600",B.dark?"rgba(255,255,255,.9)":B.ink,W-2*M-W*0.04,bodyFS*1.25);
-        y=Math.max(y+W*0.06, yEnd+W*0.02);
+        x.fillStyle=B.accent; x.beginPath(); x.arc(M+W*0.012,y-bodyFS*0.30,W*0.010,0,7); x.fill();
+        const yEnd=smText(x,b,M+W*0.045,y,bodyFS,"600",B.dark?"rgba(255,255,255,.9)":B.ink,W-2*M-W*0.045,bodyFS*1.3);
+        y=Math.max(y+bodyFS*1.4, yEnd+bodyFS*0.7);
       });
       y+=W*0.03; }
-    if(d.adate){ smFit(x,"Verfügbar ab "+d.adate,"500",bodyFS*0.85,W-2*M); x.fillStyle=B.muted; x.textAlign="left"; x.fillText("Verfügbar ab "+d.adate, M, y); y+=bodyFS*2; }
-    x.fillStyle=B.accent; smRound(x,M,y,W*0.36,headFS*1.15,headFS*0.58); x.fill();
-    /* Button-Text zentriert im Pill (Christian 15.07. abends) */
-    x.font="700 "+bodyFS+"px "+BRAND.font; x.fillStyle=B.dark?"#06210f":"#fff";
-    { x.textAlign="center";
-      x.fillText(d.cta||"Mehr erfahren", M+W*0.18, y+headFS*0.575+bodyFS*0.36);
+    /* CTA-Block (Verfuegbarkeit + Button) horizontal ZENTRIERT, weiter unten (Yuki 16.07.).
+       Grammatik-Fix: doppeltes "ab" vermeiden ("Verfuegbar ab Ab sofort" -> "Verfuegbar ab sofort"). */
+    { let _av=(d.adate||"").trim();
+      if(_av){
+        let _txt;
+        if(/^ab\s+/i.test(_av)) _txt="Verfügbar "+_av.replace(/^ab\s+/i,"ab ");   // "Ab sofort" -> "Verfügbar ab sofort"
+        else if(/^(sofort|jetzt)$/i.test(_av)) _txt="Verfügbar ab "+_av.toLowerCase();
+        else _txt="Verfügbar ab "+_av;
+        _txt=_txt.replace(/\bab\s+ab\b/gi,"ab");
+        const _avFS=smFit(x,_txt,"500",bodyFS*0.9,W-2*M); x.fillStyle=B.muted; x.textAlign="center";
+        x.fillText(smProtect(_txt), W/2, y); y+=bodyFS*2.0;
+      }
+      /* Button horizontal zentriert */
+      const _pillW=W*0.42, _pillH=headFS*1.15, _pillX=(W-_pillW)/2;
+      x.fillStyle=B.accent; smRound(x,_pillX,y,_pillW,_pillH,_pillH*0.5); x.fill();
+      x.font="700 "+bodyFS+"px "+BRAND.font; x.fillStyle=B.dark?"#06210f":"#fff"; x.textAlign="center";
+      x.fillText(d.cta||"Mehr erfahren", W/2, y+_pillH/2+bodyFS*0.36);
       x.textAlign="left"; }
   }
 }
