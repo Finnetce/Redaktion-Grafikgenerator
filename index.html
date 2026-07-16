@@ -1778,13 +1778,12 @@ function buildContent(content){
       };
       let boxes=make(fs);
       const total=(bs)=>bs.reduce((s,b)=>s+Math.max(b.height,62*sx),0)+gap*(bs.length-1);
-      // FIX (Yuki 13.07.): Schriftgröße bleibt FIX bei 30pt/40px (identisch zu Slide 3) —
-      // bei Überlauf werden die Bullets satzbewusst gekürzt, NICHT die Schrift verkleinert.
-      let guard=10;
-      while(430*sy+total(boxes)>maxBottom && guard-->0){
-        const longest=(content.bullets||[]).reduce((a,b,i)=>((content.bullets[a]||"").length>=(b||"").length?a:i),0);
-        content.bullets[longest]=smartShorten(content.bullets[longest], Math.floor(content.bullets[longest].length*0.85));
-        boxes=make(fs);
+      // FIX (Regel Christian 16.07.2026): Text wird NIEMALS abgeschnitten. Bei Überlauf wird die
+      // Schriftgröße einheitlich verkleinert (bis zu einem harten Minimum), damit ALLE Bullets
+      // vollständig oberhalb der Fußzone bleiben. Kein smartShorten mehr.
+      const minFs=Math.max(Math.round(spec.bodyPx*sx*0.6),18); let guard=40;
+      while(430*sy+total(boxes)>maxBottom && fs>minFs && guard-->0){
+        fs-=1; boxes=make(fs);
       }
       boxes.forEach((tb)=>{
         objs.push({kind:"obj",obj:makeChevron(81*sx, y, 62*sx)});
@@ -1832,9 +1831,11 @@ function buildClosing(content){
       const bodyTop=clHead.top+clHead.height+42*sy, bodyMax=1216*sy-40*sy;
       let bfs=spec.bodyPx*sx, btxt=content.close||"";
       const mk=(f,t)=>{ const tb=new fabric.Textbox(noWrapUnits(t),{left:108*sx,top:bodyTop,width:864*sx,fontFamily:spec.font,fontWeight:500,fontSize:f,fill:REF.text,lineHeight:1.3,name:"body"}); tb.initDimensions&&tb.initDimensions(); return tb; };
-      // FIX (Yuki 13.07.): Schrift bleibt FIX bei 30pt/40px (identisch zu Slide 2) — nur Text kürzen
-      let tb=mk(bfs,btxt), guard=8;
-      while(bodyTop+tb.height>bodyMax && btxt.length>60 && guard-->0){ btxt=smartShorten(btxt,Math.floor(btxt.length*0.85)); tb=mk(bfs,btxt); }
+      // FIX (Regel Christian 16.07.2026): Text wird NIEMALS abgeschnitten. Bei Überlauf in die
+      // Quelle wird die Schrift verkleinert (bis zu einem harten Minimum), nie der Text gekürzt.
+      const bmin=Math.max(Math.round(spec.bodyPx*sx*0.6),18);
+      let tb=mk(bfs,btxt), guard=40;
+      while(bodyTop+tb.height>bodyMax && bfs>bmin && guard-->0){ bfs-=1; tb=mk(bfs,btxt); }
       objs.push({kind:"obj",obj:tb});
     }
     // "Quelle:" auf einer Linie mit der visuellen Unterkante des Logos (Logo Y1213.5 + H26.4 => Unterkante ~1239.9)
@@ -1958,14 +1959,15 @@ function buildTextInfo(content){
     }
     return {items,bottom:y};
   }
-  // FIX Überlauf in "Quelle:": erst Schrift schrittweise verkleinern (bis -25%),
-  // reicht das nicht, Box-Text satzweise sinnvoll kürzen (nie hart abschneiden).
-  // FIX (Yuki 13.07.): Schrift bleibt FIX bei 30pt/40px (einheitlich auf allen Text-Slides) — nur Text kürzen
+  // FIX (Regel Christian 16.07.2026): Text wird NIEMALS abgeschnitten. Läuft der Inhalt in die
+  // "Quelle:"-Zone, wird die (einheitliche) Schriftgröße aller Blöcke verkleinert, bis alles
+  // oberhalb der Quelle passt — bis zu einem harten Minimum. Kein smartShorten mehr.
   let fs=spec.bodyPx*sx;
+  const tiMin=Math.max(Math.round(spec.bodyPx*sx*0.6),18);
   let res=layout(fs,boxTxt);
-  let guard=8;
-  while(res.bottom>maxBottom && boxTxt.length>80 && guard-->0){
-    boxTxt=smartShorten(boxTxt, Math.floor(boxTxt.length*0.85));
+  let guard=40;
+  while(res.bottom>maxBottom && fs>tiMin && guard-->0){
+    fs-=1;
     res=layout(fs,boxTxt);
   }
   res.items.forEach(it=>objs.push(it));
@@ -2126,23 +2128,23 @@ function _fitTextLines(){
         o.initDimensions&&o.initDimensions();
       }
       while(tooWide() && o.fontSize>minFs2 && gW-->0){ o.set("fontSize",o.fontSize-1); o.initDimensions(); }
-      /* Passt es selbst bei 70% nicht (extrem langes echtes Wort), Text satzbewusst kürzen */
-      if(tooWide() && (o.text||"").length>25){ o.set("text", smartShorten(o.text, Math.floor(o.text.length*0.85))); o.set("fontSize",baseFs); o.initDimensions(); }
+      /* Passt es selbst bei 70% nicht (extrem langes echtes Wort): Text NIEMALS abschneiden
+         (harte Regel Christian 16.07.2026). Stattdessen die Schrift bis zu einem harten Minimum
+         weiter verkleinern, bis das lange Wort in die Box passt. Kein smartShorten mehr. */
+      if(tooWide()){ let gW2=60; const hardMin=Math.max(Math.round(baseFs*0.45),12);
+        while(tooWide() && o.fontSize>hardMin && gW2-->0){ o.set("fontSize",o.fontSize-1); o.initDimensions(); } }
     }
     const isSub=o.name==="subline";
     const maxLines = o.name==="headline" ? 2 : (isSub ? subMax : 0);
     if(!maxLines) return;
-    // Subline (Yuki): 30-35pt halten! Nur minimal schrumpfen (35pt->30pt = Faktor 0.855),
-    // reicht das nicht für eine Zeile, TEXT satzbewusst kürzen statt Schrift verkleinern.
-    const minFs=Math.round(o.fontSize*(isSub?0.855:0.7));
+    // Zeilenzahl-VORGABE (Yuki): Headline max 2 Zeilen, Subline finnet 1 / zero 2 Zeilen.
+    // Umsetzung (Regel Christian 16.07.): NUR über Schrift-Verkleinern versuchen, das Ziel zu
+    // erreichen — Text wird NIEMALS abgeschnitten. Wird die Vorgabe selbst am Minimum nicht
+    // erreicht, darf der Text zusätzlich umbrechen (mehr Zeilen), aber nie gekürzt werden.
+    const minFs=Math.round(o.fontSize*(isSub?0.78:0.7));
     let guard=40;
     while(o.textLines && o.textLines.length>maxLines && o.fontSize>minFs && guard-->0){
       o.set("fontSize", o.fontSize-1); o.initDimensions();
-    }
-    if(isSub){ let g2=8;
-      while(o.textLines && o.textLines.length>maxLines && (o.text||"").length>25 && g2-->0){
-        o.set("text", smartShorten(o.text, Math.floor(o.text.length*0.85))); o.initDimensions();
-      }
     }
     o.setCoords();
   });
@@ -4292,11 +4294,13 @@ extractSocial = async function(txt){
   var out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,9000)}]));
   if(out.head) $id("fHead").value=out.head;
   if(out.sub) $id("fSub").value=out.sub;
-  // Harte Zeichengrenze pro Bullet (Layout-Schutz): bei Ueberlaenge am letzten Satz-/Wortende kappen
+  // Zeichengrenze pro Bullet: nur bei extremer Ueberlaenge greifen und dann SAUBER am letzten
+  // Satz-/Wortende enden (Regel Christian 16.07.2026: NIE ein "\u2026" auf der Grafik; der Renderer
+  // verkleinert die Schrift und schneidet nie ab). Kein Ellipsis-Anhang mehr.
   function smCap(t,n){ t=(t||"").trim(); if(t.length<=n) return t;
-    var cut=t.slice(0,n); var p=Math.max(cut.lastIndexOf(". "),cut.lastIndexOf(" \u2013 "),cut.lastIndexOf("; "));
+    var cut=t.slice(0,n); var p=Math.max(cut.lastIndexOf(". "),cut.lastIndexOf("! "),cut.lastIndexOf("? "),cut.lastIndexOf(" \u2013 "),cut.lastIndexOf("; "));
     if(p>n*0.5) return cut.slice(0,p+1).trim();
-    var sp=cut.lastIndexOf(" "); return (sp>n*0.6?cut.slice(0,sp):cut).trim()+" \u2026"; }
+    var sp=cut.lastIndexOf(" "); return (sp>n*0.6?cut.slice(0,sp):cut).trim().replace(/[,;:\u2013-]+$/,"")+"."; }
   if(Array.isArray(out.bullets)){ out.bullets=out.bullets.map(function(b){return smCap(b,140);});
     $id("fB1").value=out.bullets[0]||""; $id("fB2").value=out.bullets[1]||""; $id("fB3").value=out.bullets[2]||""; }
   if(out.close) $id("fClose").value=out.close;
