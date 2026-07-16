@@ -3261,7 +3261,8 @@ async function runFill(view){
 }
 
 async function extractSocial(txt){
-  const sys="Du bist Redakteur bei finanzen.net und schreibst professionelles, korrektes Deutsch mit Umlauten und richtiger Gross- und Kleinschreibung. Lies den Text und fülle Felder für eine Social-Media-Karussell-Grafik. Antworte NUR mit reinem JSON, ohne Markdown, ohne Erklärung. Schema: {\"head\":\"prägnante Schlagzeile, max 55 Zeichen\",\"sub\":\"Unterzeile, STRIKT max 40 Zeichen (muss bei gro\u00dfer Schrift auf EINE Zeile passen), pr\u00e4gnanter Zusatz zur Schlagzeile\",\"bullets\":[\"drei Kernaussagen, je max 120 Zeichen\"],\"close\":\"Schluss-Statement, max 140 Zeichen\",\"brand\":\"die zentrale Firma oder Marke, sonst leerer String\",\"prompt\":\"kurzer englischer Bild-Prompt für ein passendes Hintergrundfoto ohne Text und ohne Logos\"}. Alles auf Deutsch ausser prompt. Sachlich, deskriptiv, keine Kaufempfehlung.";
+  const sys="Du bist Redakteur bei finanzen.net und schreibst professionelles, korrektes Deutsch mit Umlauten und richtiger Gross- und Kleinschreibung. Lies den Text und fülle Felder für eine Social-Media-Karussell-Grafik. Antworte NUR mit reinem JSON, ohne Markdown, ohne Erklärung. Schema: {\"head\":\"prägnante Schlagzeile, max 55 Zeichen\",\"sub\":\"Unterzeile, STRIKT max 40 Zeichen (muss bei gro\u00dfer Schrift auf EINE Zeile passen), pr\u00e4gnanter Zusatz zur Schlagzeile\",\"bullets\":[\"drei Kernaussagen, je max 120 Zeichen\"],\"close\":\"Schluss-Statement, max 140 Zeichen\",\"brand\":\"die zentrale Firma oder Marke, sonst leerer String\",\"prompt\":\"kurzer englischer Bild-Prompt für ein passendes Hintergrundfoto ohne Text und ohne Logos\"}. Alles auf Deutsch ausser prompt. Sachlich, deskriptiv, keine Kaufempfehlung. "+
+    "HEAD+SUB SELBSTERKLAEREND (oberste Pflicht, Redakteurs-Feedback Yuki 16.07.2026): Head und Sub werden GEMEINSAM als Titelbild gelesen — ganz OHNE Artikel und OHNE Bild. Ein fremder Leser muss allein aus diesen zwei Zeilen verstehen, WORUM es geht (Thema/Akteur) und WAS die Aussage ist. Die Sub darf NIEMALS ein kontextloses Fragment sein, das erst durch den Artikel Sinn ergibt. NEGATIV-BEISPIEL (verboten): head 'Hormus: Nur noch 6 Schiffe pro Nacht', sub 'IEA warnt: Wochen, nicht Monate' — 'Wochen, nicht Monate' WAS? voellig kontextlos. BESSER: sub 'IEA: Oel-Route in Wochen dicht'. REGEL: Enthaelt die Sub einen Vergleich/Gegensatz ('X, nicht Y', 'statt', 'mehr/weniger als'), MUSS das Bezugswort dabei stehen (WAS ist in Wochen? WAS steigt?). Nenne den Akteur/das Subjekt in Head ODER Sub konkret (Firma, Institution, Markt). Kein reiner Teaser ohne Substanz. Wenn die Sub fuer sich genommen die Frage 'was genau?' offenlaesst, formuliere sie um.";
   const out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,8000)}]));
   if(out.head) $("fHead").value=out.head;
   if(out.sub) $("fSub").value=out.sub;
@@ -3321,7 +3322,7 @@ async function extractSM(txt,opts){
     "Antworte NUR mit reinem JSON, ohne Markdown. Schema (Feldname: Bedeutung): "+JSON.stringify(schema)+". COMPLIANCE ZWINGEND: keine Kauf- oder Verkaufsempfehlung aus persönlicher Sicht, keine Formulierungen wie 'jetzt kaufen', 'lohnt sich', 'Top-Pick'. Erlaubt: neutrale Fakten, Analysten-Bezug mit Quelle, oder Frage-Framing. Nutze NUR Zahlen, die im Text stehen; erfinde keine. Felder, für die der Text nichts hergibt, als leeren String lassen. Zahlen in deutscher Schreibweise (Komma). "+
     "KURSDATEN-GROUNDING (absolut kritisch, Fehler = unbrauchbar, Redakteurs-Feedback Christian 15.07.): Kurs, Veränderung (Δ %), Vorzeichen und Zeitraum MÜSSEN exakt so im Artikel stehen — NIEMALS Richtung oder Wert erfinden oder umdrehen (Negativ-Beispiel: Grafik zeigte '-6,06 % (1 Tag)', obwohl der Artikel einen zweistelligen KursANSTIEG meldete). Prüfe explizit: Steigt oder fällt der Kurs laut Artikel? Übernimm das Vorzeichen daraus. Steht kein konkreter aktueller Kurs oder keine konkrete Prozent-Veränderung im Artikel, lasse das Feld LEER statt zu schätzen. QUELLEN-WAHL BEI MEHREREN KURSEN (Christian 15.07.): finanzen.net-Artikel enthalten oft ZWEI Kurse — (a) das eingebettete Kurs-Widget ('Werte in diesem Artikel', meist EUR vom deutschen Handelsplatz, Live-Momentaufnahme) und (b) die Kurse im redaktionellen Fließtext. Nimm IMMER den Kurs aus dem Fließtext, der zum Hauptkontext des Artikels passt (gleiche Börse/Währung wie Kursziel und Story); das Widget ignorieren. ZEITRAUM: Das Feld cperiod/Δ-Zeitraum NIEMALS pauschal mit '1 Tag' belegen — übernimm den Zeitbezug WÖRTLICH aus dem Artikel ('vorbörslich', 'nachbörslich', 'im Seoul-Handel', 'seit Jahresbeginn'). Passt keine der Dropdown-Optionen, wähle keine und nenne den Zeitbezug stattdessen NUR im Börsenplatz-Feld (z.B. 'NASDAQ, vorbörslich') — denselben Zeitbezug nie doppelt in Δ-Zeitraum UND Börsenplatz/Stand schreiben. Beachte das Artikeldatum: Formuliere Stand/Zeitraum relativ zum Artikel, nicht zum heutigen Tag. "+
     "GRAMMATIK & UMLAUTE (Pflicht, Redakteurs-Feedback 15.07.): Fehlerfreies Deutsch in JEDEM Feld. Umlaute ä/ö/ü/ß IMMER korrekt verwenden — niemals Transliterationen oder Fremdschreibweisen (FALSCH: 'Folgekvartal', 'Gewinnschaetzung', 'Boerse' — RICHTIG: 'Folgequartal', 'Gewinnschätzung', 'Börse'). SELBSTTEST: Lies jedes Feld auf Rechtschreibung und Grammatik, korrigiere vor der Antwort. "+
-    "HOOK & KONTEXT (Pflicht, Redakteurs-Feedback Yuki 15.07.): Kein Feld darf so generisch sein, dass man es ohne Vorwissen nicht einordnen kann. Headline/Kicker müssen konkret benennen, WER was tut und WARUM es relevant ist — mit Firma und Zahl statt Schlagwort. Die erste Slide muss neugierig machen weiterzulesen/weiterzuswipen (stärkster Fakt + offene Konsequenz), keine austauschbaren Etiketten. "+"KACHEL- UND LABEL-FORMULIERUNG (Pflicht, Redakteurs-Feedback Yuki 16.07.2026): Kachel-LABELS sind KURZE SUBSTANTIV-ETIKETTEN (1-3 Woerter), KEINE Saetze und KEINE Halbsaetze. Das Label benennt NUR die Kennzahl, der zugehoerige WERT steht separat im Wert-Feld. VERBOTEN sind haengende Füll-/Funktionswoerter am Label-Ende (laut, von, mit, fuer, je, ca., mögliche, geschätzte) und Quellen-/Attributionszusaetze im Label (FALSCH: 'Aufwärtspotenzial laut', 'Kursziel laut Wells Fargo' als Label -> RICHTIG: Label 'Kursziel' bzw. 'Aufwärtspotenzial', die Quelle/das Haus kommt in den WERT oder entfaellt). Gute Labels: 'Kursziel', 'Aufwärtspotenzial', 'Dividendenrendite', 'KGV', 'Marktkapitalisierung', 'Lizenzeinnahmen', 'Performance 12 Monate'. WERTE muessen VOLLSTAENDIG und gaengig ausgeschrieben sein, nie abgehackt: Einheiten/Zeitbezuege ausschreiben ('USD/Jahr' statt 'USD/Ja', 'Mrd. USD pro Jahr', 'p.a.'). Erfinde keine Zeitraeume, wenn der Artikel keinen nennt (dann Label nur 'Performance'). Fasse dich so kurz wie moeglich, aber das Label MUSS fuer sich allein Sinn ergeben.";
+    "HOOK & KONTEXT (Pflicht, Redakteurs-Feedback Yuki 15.07.): Kein Feld darf so generisch sein, dass man es ohne Vorwissen nicht einordnen kann. Headline/Kicker müssen konkret benennen, WER was tut und WARUM es relevant ist — mit Firma und Zahl statt Schlagwort. Die erste Slide muss neugierig machen weiterzulesen/weiterzuswipen (stärkster Fakt + offene Konsequenz), keine austauschbaren Etiketten. "+"KACHEL- UND LABEL-FORMULIERUNG (Pflicht, Redakteurs-Feedback Yuki 16.07.2026): Kachel-LABELS sind KURZE SUBSTANTIV-ETIKETTEN (1-3 Woerter), KEINE Saetze und KEINE Halbsaetze. Das Label benennt NUR die Kennzahl, der zugehoerige WERT steht separat im Wert-Feld. VERBOTEN sind haengende Füll-/Funktionswoerter am Label-Ende (laut, von, mit, fuer, je, ca., mögliche, geschätzte) und Quellen-/Attributionszusaetze im Label (FALSCH: 'Aufwärtspotenzial laut', 'Kursziel laut Wells Fargo' als Label -> RICHTIG: Label 'Kursziel' bzw. 'Aufwärtspotenzial', die Quelle/das Haus kommt in den WERT oder entfaellt). Gute Labels: 'Kursziel', 'Aufwärtspotenzial', 'Dividendenrendite', 'KGV', 'Marktkapitalisierung', 'Lizenzeinnahmen', 'Performance 12 Monate'. WERTE muessen VOLLSTAENDIG und gaengig ausgeschrieben sein, nie abgehackt: Einheiten/Zeitbezuege ausschreiben ('USD/Jahr' statt 'USD/Ja', 'Mrd. USD pro Jahr', 'p.a.'). Erfinde keine Zeitraeume, wenn der Artikel keinen nennt (dann Label nur 'Performance'). Fasse dich so kurz wie moeglich, aber das Label MUSS fuer sich allein Sinn ergeben. KEINE Klammer-Zusaetze, Doppelpunkte oder Nebensaetze im Label (FALSCH: 'Lizenzeinnahmen (Szenario)', 'Umsatz: Q2' -> RICHTIG: 'Lizenzeinnahmen', 'Umsatz Q2'). Ein Label ist NIE ein angefangener Satz.";
   const out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,8000)}]));
   smTpl.fields.forEach(f=>{
     if(out[f.k]===undefined||out[f.k]===null) return;
@@ -3329,6 +3330,8 @@ async function extractSM(txt,opts){
     /* Max-Char-Logik (Christian 16.07.2026): KI-Text sauber auf das Feldlimit bringen —
        am letzten Satz-/Wortende enden, NIE ein "…" (harte Nie-Abschneiden-Regel gilt fürs Bild;
        die Engine verkleinert zusätzlich per Shrink-to-fit). smCapClean hängt kein Ellipsis an. */
+    /* Kachel-Label-Felder zusaetzlich saeubern (Etikett, kein Satz/Klammer) — Yuki 16.07. */
+    if(/^(k\d+l|f\d+l|r\d+l|m\d+l)$/.test(f.k)) v=smTidyLabel(v);
     if(f.max) v=smCapClean(v,f.max);
     const inp=$("smFields").querySelector('[data-smk="'+f.k+'"]'); if(!inp) return;
     if(f.type==="sel"){ if([...inp.options].some(o=>o.value===v||o.text===v)) inp.value=v; }
@@ -3336,6 +3339,17 @@ async function extractSM(txt,opts){
     smData[f.k]=inp.value;
     smUpdateCnt(inp,f);
   });
+  /* HEAD+SUB-GARANTIE zero (Yuki 16.07.): nur Templates mit Headline+Kontextsatz (deck). */
+  try{
+    if(smTpl.fields.some(f=>f.k==="headline") && smTpl.fields.some(f=>f.k==="deck") && (out.headline||smData.headline)){
+      var _z={head:out.headline||smData.headline||"", sub:out.deck||smData.deck||""};
+      var _zr=await ensureHeadSub(_z, txt);
+      if(_zr.changed){
+        if(_z.head){ smData.headline=smCapClean(_z.head,64); var hi=$("smFields").querySelector('[data-smk="headline"]'); if(hi) hi.value=smData.headline; }
+        if(_z.sub){ var dmax=(smTpl.fields.find(f=>f.k==="deck")||{}).max||110; smData.deck=smCapClean(_z.sub,dmax); var di=$("smFields").querySelector('[data-smk="deck"]'); if(di) di.value=smData.deck; }
+      }
+    }
+  }catch(e){ /* darf nie blockieren */ }
   if(out.theme && $("smTheme") && ["clean","cinematic","metaphor"].includes(out.theme)) $("smTheme").value=out.theme;
   // Bildmotiv (Cover-Varianz, wie finanzen.net): bei Auto das von Claude empfohlene Motiv übernehmen,
   // bei manuell bereits gewähltem Motiv dessen Prompt nehmen. Fallback: genereller bg_prompt.
@@ -4226,6 +4240,54 @@ function groundingCheck(out, article){
   });
   return issues;
 }
+/* ============================================================================
+   HEAD+SUB-QUALITAETSGARANTIE (Yuki 16.07.2026)
+   Ziel: Head und Sub muessen IMMER zusammen selbsterklaerend sein — auch ohne Artikel/Bild.
+   Zweistufig: (A) deterministischer Backstop erkennt typische kontextlose Muster,
+   (B) fokussierter KI-Repair schreibt Head/Sub bei Bedarf um. Beides automatisch, kein Klick.
+   ============================================================================ */
+/* (A) Heuristik: liefert einen Grund-String, wenn die Sub wahrscheinlich kontextlos ist, sonst "". */
+function smHeadSubIssue(head,sub){
+  head=(""+(head||"")).trim(); sub=(""+(sub||"")).trim();
+  if(!sub) return "";
+  var low=sub.toLowerCase();
+  /* Vergleich/Gegensatz ohne Bezugswort: "Wochen, nicht Monate", "mehr, nicht weniger" —
+     kurze Sub (<=5 Woerter) die NUR aus Gegensatz-Floskel besteht, ohne Substantiv-Anker. */
+  var contrast=/(^|[\s,])(nicht|statt|kein|keine|weniger als|mehr als|eher)([\s,]|$)/i.test(sub);
+  /* Woerter ohne Satzzeichen betrachten, damit "Wochen," korrekt als Zeit-/Ausschlusswort erkannt wird */
+  var words=sub.split(/\s+/).map(function(w){return w.replace(/[^A-Za-zÄÖÜäöüß0-9%€$]/g,"");}).filter(Boolean);
+  /* Anker = ein aussagekraeftiges grossgeschriebenes Nomen (kein Zeit-/Vergleichswort) ODER eine Zahl.
+     Reine Institutions-Kuerzel (IEA, EZB) zaehlen NICHT als inhaltlicher Anker der Aussage. */
+  var _stop=/^(Nur|Noch|Nicht|Kein|Keine|Wochen|Woche|Monate|Monat|Tage|Tag|Jahre|Jahr|Statt|Eher|Mehr|Weniger|Bald|Schon|Dann)$/i;
+  var hasAnchor=/\d/.test(sub) || words.some(function(w){ return /^[A-ZÄÖÜ][a-zäöüß]{2,}$/.test(w) && !_stop.test(w); });
+  if(contrast && words.length<=5 && !hasAnchor) return "Sub wirkt wie ein kontextloses Fragment (Vergleich ohne Bezugswort)";
+  /* Sub beginnt mit Konjunktion/Bezug, der einen fehlenden Vorsatz impliziert */
+  if(/^(und|aber|denn|weil|obwohl|trotzdem|dennoch)\b/i.test(sub)) return "Sub beginnt mit Bindewort ohne Bezug";
+  return "";
+}
+/* (B) KI-Repair: prueft Head+Sub standalone und schreibt sie bei Bedarf um. Aendert NUR head/sub. */
+async function ensureHeadSub(out, article){
+  try{
+    var head=out.head||"", sub=out.sub||"";
+    if(!head && !sub) return {changed:false};
+    var sys="Du bist Chef vom Dienst bei finanzen.net und pruefst die Titelzeilen einer Social-Grafik. "+
+      "Du bekommst HEAD und SUB plus den ARTIKEL. Kriterium: Ein fremder Leser sieht NUR Head und Sub — "+
+      "kein Artikel, kein Bild. Versteht er daraus Thema/Akteur UND die Kernaussage? Die Sub darf KEIN "+
+      "kontextloses Fragment sein (z.B. 'Wochen, nicht Monate' ohne zu sagen WAS in Wochen). "+
+      "Enthaelt die Sub einen Vergleich/Gegensatz, muss das Bezugswort dabei stehen. Head max 55, Sub max 40 Zeichen. "+
+      "Sind beide gut, gib sie unveraendert zurueck. Sonst schreibe sie um — faktenbasiert NUR aus dem Artikel, "+
+      "Stil und Laenge beibehalten, keine Kaufempfehlung. Antworte NUR mit reinem JSON: "+
+      "{\"ok\":true/false,\"head\":\"...\",\"sub\":\"...\",\"grund\":\"kurz, falls geaendert\"}";
+    var user="ARTIKEL:\n"+(""+(article||"")).slice(0,6000)+"\n\nHEAD: "+head+"\nSUB: "+sub;
+    var res=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:user}]));
+    if(res && res.ok===false && (res.head||res.sub)){
+      if(res.head) out.head=res.head;
+      if(res.sub) out.sub=res.sub;
+      return {changed:true, grund:res.grund||""};
+    }
+  }catch(e){ /* darf nie blockieren */ }
+  return {changed:false};
+}
 /* Stufe B: Sonnet als reiner Pruefer/Korrektor — vergleicht NUR gegen den Artikel */
 async function groundingVerify(out, article){
   const fields={head:out.head||"",sub:out.sub||"",bullets:out.bullets||[],close:out.close||"",closeHead:out.closeHead||"",infoHead:out.infoHead||"",intro:out.intro||"",infoBullet:out.infoBullet||"",box:out.box||""};
@@ -4270,7 +4332,7 @@ extractSocial = async function(txt){
     "\" PRIORISIERUNG (Pflicht-Schritt VOR dem Schreiben, Redakteurs-Feedback Yuki 15.07.): Bevor du auch nur ein Feld formulierst, identifiziere gedanklich ALLE Einzelfakten des Artikels (Zahlen, Vergleiche, Entscheidungen, Zitate, Ereignisse, Kursbewegungen) und bewerte jeden nach drei Kriterien: (a) Groesse/strukturelles Gewicht (z.B. eine dauerhafte Kostensenkung, ein Vertragswert, eine Kapazitaetsverschiebung wiegt oft schwerer als eine kurzfristige Kursbewegung von 1-2 Tagen), (b) Ueberraschungswert (weicht der Fakt von der Erwartung ab, ist er neu oder kontraintuitiv?), (c) Relevanz fuer die Anlageentscheidung des Lesers. WICHTIG (Praezisierung Yuki 15.07., nach Rueckfrage): Das ist KEINE pauschale Regel gegen Kursbewegungen -- bei vielen Artikeln IST die Kursbewegung selbst der staerkste, meldungswuerdigste Fakt (z.B. ein Kurssprung von 15 Prozent nach Uebernahmegeruechten) und gehoert dann zu Recht in head/bullets[0]. Entscheide von Fall zu Fall anhand der drei Kriterien oben, nicht anhand der Reihenfolge im Artikel. Vermeide nur den Fehler, eine NEBENSAECHLICHE oder AUSTAUSCHBARE Randinfo (z.B. eine kurze, durch andere Fakten im Artikel klar uebertroffene Kursbewegung, oder eine vage Bewertung wie 'starkes Quartal' ohne Zahl) automatisch zu waehlen, nur weil sie im Text zuerst steht oder am leichtesten zu formulieren ist, wenn der Artikel einen staerkeren Fakt enthaelt. Negativ-Beispiele aus echtem Feedback: Bei einem Mercedes-Artikel wurde faelschlich der zweitaegige Kursanstieg als Hauptaussage gewaehlt, obwohl der Artikel auch 'rund 70 Prozent niedrigere Produktionskosten in Ungarn' nannte -- ein staerkerer, ueberraschenderer Fakt mit echtem strukturellem Gewicht, der stattdessen in head/bullets[0] gehoert haette. Bei einem Rio-Tinto-Artikel wurde 'starkes Q2 aus Pilbara' gewaehlt -- eine vage, austauschbare Bewertung ohne Zahl und ohne Neuigkeitswert, obwohl der Artikel konkretere, haertere Fakten enthielt. Gib deine Priorisierung explizit im Feld relevanz zurueck (Pflichtfeld zur Selbstkontrolle, erscheint NICHT auf der Grafik). Der staerkste Fakt aus relevanz MUSS wortgleich oder sinngleich in head ODER bullets[0] auftauchen -- harte Bedingung. ROTER FADEN (Pflicht): Alle Felder zusammen muessen eine zusammenhaengende Story mit klarem Bogen ergeben (Ereignis -> Ursache/Hintergrund -> Konsequenz), nicht eine lose Ansammlung einzelner Fakten -- jedes Feld baut inhaltlich auf dem vorherigen auf.\""+
     "\"relevanz\":{\"staerkster_fakt\":\"der eine Fakt, den du als wichtigsten identifiziert hast, mit Zahl/Beleg\",\"warum\":\"1 kurzer Satz warum dieser Fakt die anderen Kandidaten schlaegt (Gewicht/Ueberraschung/Anlagerelevanz) -- falls es die Kursbewegung ist, begruende explizit warum sie hier der staerkste Fakt ist\",\"verworfen\":\"1 kurzes Beispiel eines schwaecheren Fakts, den du bewusst NICHT in head/bullets[0] verwendet hast\"},"+
     "\"head\":\"prägnante Schlagzeile, max 55 Zeichen -- MUSS den staerksten Fakt aus relevanz enthalten, falls er dort noch nicht steht\","+
-    "\"sub\":\"Unterzeile, STRIKT max 40 Zeichen (muss bei gro\u00dfer Schrift auf EINE Zeile passen), pr\u00e4gnanter Zusatz zur Schlagzeile\","+
+    "\"sub\":\"Unterzeile, STRIKT max 40 Zeichen (muss bei gro\u00dfer Schrift auf EINE Zeile passen). MUSS zusammen mit head OHNE Artikel/Bild verstaendlich sein: nenne Akteur/Thema oder Kernaussage konkret. NIEMALS ein kontextloses Fragment (verboten: 'Wochen, nicht Monate' ohne zu sagen WAS in Wochen; bei Vergleich/Gegensatz das Bezugswort mitnennen). Kein reiner Teaser, der erst durch den Artikel Sinn ergibt.\","+
     "\"bullets\":[\"drei Kernaussagen, je STRIKT max 100 Zeichen (harte Grenze, sonst Layout-Bruch). QUALITÄTS-REGELN (alle Pflicht): (1) Jeder Punkt muss OHNE Vorwissen verständlich sein — ein Follower, der nur diese Slide sieht, versteht sofort, worum es geht und was passiert ist. (2) Jeder Punkt enthält mindestens EINEN konkreten Fakt aus dem Artikel: eine Zahl, einen Prozentwert, einen Betrag, ein Datum oder eine klar benannte Entscheidung — keine vagen Aussagen wie 'Experten sind optimistisch' oder 'Das Umfeld bleibt schwierig'. (3) Die drei Punkte bauen als Story aufeinander auf: Punkt 1 = WAS ist konkret passiert (das Ereignis mit der wichtigsten Zahl), Punkt 2 = WARUM / der Auslöser oder Kontext, Punkt 3 = die KONSEQUENZ: was es für Anleger, das Unternehmen oder den Markt konkret bedeutet. (4) Der wichtigste Fakt des Artikels MUSS in den Bullets vorkommen — frage dich: Was ist die eine Sache, die ein Leser mitnehmen soll? Diese zuerst. (5) Aktive, konkrete Sprache: Subjekt + Verb + Fakt ('Intel hebt die Xeon-Preise um 12 Prozent an'), keine Substantivierungen, keine Füllwörter, kein Behörden-Deutsch. SELBSTTEST vor der Antwort: Lies deine drei Bullets isoliert — versteht ein Laie ohne den Artikel, was passiert ist und warum es wichtig ist? Falls nein, umschreiben\"],"+
     "\"close\":\"Schluss-Statement, max 140 Zeichen: die konkrete Kernerkenntnis oder der Ausblick mit Substanz (was sollte man im Blick behalten und WARUM) — kein generisches 'Es bleibt spannend'\","+
     "\"closeHead\":\"kurze Headline für die Schluss-Slide, max 40 Zeichen, inhaltlich zum Artikel passend, NICHT generisch\","+
@@ -4348,6 +4410,8 @@ extractSocial = async function(txt){
     _gIssues=groundingCheck(out, txt);
     // Stufe B nur ausfuehren, wenn Stufe A etwas gefunden hat ODER immer? -> immer, faengt auch semantische Fehler
     _gVerify=await groundingVerify(out, txt);
+    // HEAD+SUB-GARANTIE (Yuki 16.07.): Backstop-Heuristik + KI-Repair, damit die Titelzeilen nie kontextlos sind
+    var _hs=await ensureHeadSub(out, txt); if(_hs.changed) _gVerify.changed=true;   /* immer pruefen = echte Garantie */
     // Nach Korrektur erneut deterministisch pruefen (final)
     _gIssues=groundingCheck(out, txt);
     // Korrigierte Felder zurueck in die Eingabefelder schreiben
@@ -5783,7 +5847,14 @@ function smCapClean(t,n){
    sinnvolle Zeitbezüge ("12 Monate", "Gj.") bleiben erhalten. */
 var _SM_TRAIL=/(?:\s+(?:laut|von|vom|mit|für|je|und|oder|sowie|des|der|die|das|im|in|am|an|auf|nach|pro|inkl\.?|ca\.?|etwa|rund|mögliche[rns]?|geschätzte[rns]?|erwartete[rns]?|voraussichtliche[rns]?))+\s*$/i;
 function smTidyLabel(t){
-  t=(""+(t||"")).replace(/[\s+\-·,;:]+$/,"").trim();
+  t=(""+(t||"")).trim();
+  /* Klammer-Zusätze in Labels sind unerwünscht (Yuki 16.07.2026: Bug "Lizenzeinnahmen (Szenario").
+     Vollständige "(...)" entfernen; eine NUR geöffnete, nie geschlossene Klammer (typisch beim
+     Abschneiden) samt allem danach abschneiden. Labels bleiben so kurze, saubere Etiketten. */
+  t=t.replace(/\s*\([^)]*\)/g,"");     // komplette Klammern raus
+  t=t.replace(/\s*\([^)]*$/,"");         // offene, nie geschlossene Klammer + Rest raus
+  t=t.replace(/\s*:[^:]*$/,"");           // hängenden Doppelpunkt-Zusatz ("Label: irgendwas") kappen
+  t=t.replace(/[\s+\-·,;:]+$/,"").trim();
   var prev;
   do{ prev=t; t=t.replace(_SM_TRAIL,"").replace(/[\s+\-·,;:]+$/,"").trim(); }while(t!==prev);
   return t;
