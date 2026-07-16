@@ -3326,6 +3326,10 @@ async function extractSM(txt,opts){
   smTpl.fields.forEach(f=>{
     if(out[f.k]===undefined||out[f.k]===null) return;
     let v=""+out[f.k];
+    /* Max-Char-Logik (Christian 16.07.2026): KI-Text sauber auf das Feldlimit bringen —
+       am letzten Satz-/Wortende enden, NIE ein "…" (harte Nie-Abschneiden-Regel gilt fürs Bild;
+       die Engine verkleinert zusätzlich per Shrink-to-fit). smCapClean hängt kein Ellipsis an. */
+    if(f.max) v=smCapClean(v,f.max);
     const inp=$("smFields").querySelector('[data-smk="'+f.k+'"]'); if(!inp) return;
     if(f.type==="sel"){ if([...inp.options].some(o=>o.value===v||o.text===v)) inp.value=v; }
     else inp.value=v;
@@ -4651,6 +4655,7 @@ renderSlideTabs=function(){
 async function smDownloadPlatform(p, btn){
   if(typeof JSZip==="undefined"){ toast("ZIP-Bibliothek nicht geladen"); return; }
   if(typeof canvas==="undefined"||!canvas||!slides||!slides.length){ toast("Erst einen Post generieren"); return; }
+  if(window._smBrand==="zero" && typeof smExportGate==="function" && !smExportGate()) return;   /* Regel-Gate */
   if(btn){ btn.disabled=true; var old=btn.innerHTML; btn.textContent="Wird gebaut …"; }
   try{
     var zip=new JSZip();
@@ -4812,6 +4817,7 @@ async function smDownloadBundle(){
   if(typeof canvas==="undefined"||!canvas||!slides||!slides.length){ toast("Erst einen Post generieren"); return; }
   var plats=smSelectedPlatforms();
   if(!plats.length){ toast("Mindestens eine Plattform anwählen"); return; }
+  if(window._smBrand==="zero" && typeof smExportGate==="function" && !smExportGate()) return;   /* Regel-Gate */
   var btn=$id("smBundle"); btn.disabled=true; var old=btn.innerHTML; btn.textContent="Bundle wird gebaut …";
   try{
     var zip=new JSZip();
@@ -5320,10 +5326,10 @@ function smBuildFields(){
 }
 function smFieldHtml(f){ return '<label class="lab">'+f.l+'</label>'+smInputHtml(f)+(f.max?'<div class="sm-cnt" data-cnt="'+f.k+'"></div>':''); }
 function smInputHtml(f){
-  if(f.type==="area") return '<textarea class="ta" data-smk="'+f.k+'" style="min-height:56px" maxlength="'+(f.max*2)+'" placeholder="'+(f.ph||"")+'"></textarea>';
+  if(f.type==="area") return '<textarea class="ta" data-smk="'+f.k+'" style="min-height:56px" maxlength="'+f.max+'" placeholder="'+(f.ph||"")+'"></textarea>';
   if(f.type==="sel") return '<div class="selwrap"><select class="sel" data-smk="'+f.k+'">'+f.opts.map(o=>'<option>'+o+'</option>').join('')+'</select><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>';
   if(f.type==="num") return '<input class="inp" type="number" data-smk="'+f.k+'" placeholder="'+(f.ph||"")+'" />';
-  return '<input class="inp" data-smk="'+f.k+'" maxlength="'+((f.max||60)*2)+'" placeholder="'+(f.ph||"")+'" />';
+  return '<input class="inp" data-smk="'+f.k+'" maxlength="'+(f.max||60)+'" placeholder="'+(f.ph||"")+'" />';
 }
 function smUpdateCnt(inp,f){
   if(!f||!f.max) return;
@@ -5367,9 +5373,89 @@ function smBuildFmt(){
     : "Master-Format ist 4:5 (1080×1350) – größter Feed-Anteil auf Instagram und LinkedIn.";
 }
 function smLegalLines(){
-  const lines=smTpl.legal.map(k=>SM_LEGAL[k][smBrand]).filter(Boolean);
-  if(smTpl.id==="zero_sm_instrument_snapshot" && (smData.aclass||"")==="Krypto") lines.push(SM_LEGAL.crypto[smBrand]);
+  /* Disclaimer-Politik (Christian 16.07.2026): Bei ZERO ist der Disclaimer IMMER identisch —
+     base + risk (2 Zeilen), template-unabhängig. Verhindert, dass verschiedene Templates
+     unterschiedliche Fußzeilen zeigen (Yuki: "immer den gleichen verwenden"). Der Template-
+     spezifische legal-Array (perf/model/poll) wird bei zero bewusst NICHT mehr verwendet.
+     Einzige Ausnahme: regulatorisch zwingender Krypto-Hinweis bei Assetklasse Krypto. */
+  let lines;
+  if(smBrand==="zero"){
+    lines=[SM_LEGAL.base.zero, SM_LEGAL.risk.zero].filter(Boolean);
+    if(smTpl.id==="zero_sm_instrument_snapshot" && (smData.aclass||"")==="Krypto") lines.push(SM_LEGAL.crypto.zero);
+  } else {
+    lines=smTpl.legal.map(k=>SM_LEGAL[k][smBrand]).filter(Boolean);
+    if(smTpl.id==="zero_sm_instrument_snapshot" && (smData.aclass||"")==="Krypto") lines.push(SM_LEGAL.crypto[smBrand]);
+  }
   return lines;
+}
+/* ============================================================================
+   ZENTRALE REGEL-REGISTRY + VALIDATOR (Christian 16.07.2026)
+   Eine Quelle der Wahrheit dafür, WELCHE Regeln pro Brand / Template / Plattform gelten.
+   Renderer, Autofill und Export lesen hier — statt verstreuter lokaler Sonderfälle. So ist
+   garantiert, dass für jede Kombination dieselben Regeln greifen. Ein späterer Airtable-Sync
+   kann dieses Objekt 1:1 befüllen (reine Daten, keine Logik nötig).
+
+   Ebenen:
+   - brands[brand]: font, feste Formate, fixer Disclaimer-Bauplan, Compliance-Trigger an/aus
+   - templateOverrides[id]: template-spezifische Ausnahmen (z.B. Krypto-Zusatz)
+   - Feld-Limits kommen aus SM_TEMPLATES[].fields[].max (bereits vorhanden -> nicht duplizieren)
+   ============================================================================ */
+var SM_RULES={
+  brands:{
+    zero:{
+      font:"Plus Jakarta Sans",
+      formats:["4:5","9:16"],                 /* Yuki 15.07.: zero NUR Feed + Story */
+      disclaimer:["base","risk"],             /* IMMER gleich, template-unabhängig (Christian 16.07.) */
+      complianceTriggers:true,                /* keine aktive Kauf-/Verkaufsansicht */
+      quelleFixed:"finanzen.net"              /* Quelle deterministisch */
+    },
+    finnet:{
+      font:"Poppins",
+      formats:["4:5","9:16","16:9"],
+      disclaimer:[],                          /* redaktionell, kein fixer Risiko-Disclaimer */
+      complianceTriggers:false,
+      quelleFixed:null
+    }
+  },
+  /* template-spezifische Zusätze (nur echte Ausnahmen, kein Duplikat der Feld-Limits) */
+  templateOverrides:{
+    zero_sm_instrument_snapshot:{ cryptoDisclaimer:true }
+  }
+};
+function smBrandRules(){ return SM_RULES.brands[smBrand]||SM_RULES.brands.finnet; }
+
+/* Prüft die AKTUELLE Konfiguration gegen die Registry. Gibt {errors:[],warnings:[]} zurück.
+   errors = harte Regelverstöße (blockieren Export, bis bestätigt), warnings = Hinweise. */
+function smValidate(){
+  var errors=[], warnings=[], R=smBrandRules();
+  /* 1) Format erlaubt? */
+  if(R.formats.indexOf(smFmt)<0) errors.push("Format "+smFmt+" ist für "+smBrand+" nicht zugelassen (erlaubt: "+R.formats.join(", ")+").");
+  /* 2) Feld-Zeichenlimits (aus SM_TEMPLATES) */
+  (smTpl.fields||[]).forEach(function(f){
+    if(!f.max) return;
+    var v=(smData[f.k]||"");
+    if(v.length>f.max) warnings.push("Feld „"+f.l+"“ über Limit ("+v.length+"/"+f.max+") — wird beim Rendern eingepasst.");
+  });
+  /* 3) Compliance-Trigger (aktive Kauf-/Verkaufsansicht) */
+  if(R.complianceTriggers){
+    var hits=(typeof smTriggerCheck==="function")?smTriggerCheck(smData):[];
+    if(hits.length) errors.push("Compliance: unzulässige Wertung gefunden („"+hits.join("“, „")+"“). Neutral/Analysten-Bezug/Frage-Framing verwenden.");
+  }
+  /* 4) Disclaimer vorhanden & korrekt (fix pro Brand) */
+  if(R.disclaimer.length){
+    var exp=R.disclaimer.map(function(k){ return SM_LEGAL[k]&&SM_LEGAL[k][smBrand]; }).filter(Boolean);
+    var got=smLegalLines();
+    exp.forEach(function(line){ if(got.indexOf(line)<0) errors.push("Pflicht-Disclaimer fehlt: „"+line+"“."); });
+  }
+  return {errors:errors, warnings:warnings};
+}
+/* Gate vor jedem Export: zeigt Verstöße; bei harten Fehlern Rückfrage, ob trotzdem exportiert wird.
+   Gibt true zurück, wenn fortgefahren werden darf. */
+function smExportGate(){
+  var v=smValidate();
+  if(!v.errors.length){ if(v.warnings.length) toast(v.warnings[0]); return true; }
+  var msg="Regel-Prüfung vor Export:\n\n• "+v.errors.join("\n• ")+(v.warnings.length?"\n\nHinweise:\n• "+v.warnings.join("\n• "):"")+"\n\nTrotzdem exportieren?";
+  return window.confirm(msg);
 }
 function smUpdateLegal(){
   $("smLegalBox").innerHTML='<span class="tag-legal">Vorbehaltlich Legal-Freigabe</span><br>'+
@@ -5649,12 +5735,37 @@ function smDrawCover(x,img,W,H){
   const s=Math.max(W/img.width,H/img.height), w=img.width*s, h=img.height*s;
   x.drawImage(img,(W-w)/2,(H-h)/2,w,h);
 }
+/* Umbruch-Schutz zero-Engine (Yuki/Christian 16.07.2026): Einheiten/Zahlen duerfen NIE getrennt
+   umbrechen (Bug TSMC: ">30"/"% auf", "707 Mrd."/"TWD"). Betroffene Stellen werden per U+00A0
+   gekoppelt; smWrap splittet danach NUR an echten Leerzeichen. Analog noWrapUnits (Fabric). */
+var _NB=String.fromCharCode(160);   // U+00A0 geschuetztes Leerzeichen
+function smProtect(t){
+  t=(""+(t||"")).replace(new RegExp(_NB,"g")," ");   // vorhandene nbsp normalisieren
+  t=t.replace(/(\d[\d.,]*) +(Mrd\.|Mio\.|Bio\.|Bill\.|Tsd\.)(?: +([A-Z]{2,4}|€|\$|Punkte))?/g,
+    function(m,n,sc,cur){ return n+_NB+sc+(cur?_NB+cur:""); });
+  t=t.replace(/ +%/g,_NB+"%").replace(/ +Prozent\b/g,_NB+"Prozent");
+  t=t.replace(/(\d[\d.,]*) +(TWD|USD|EUR|CHF|GBP|JPY|CNY|SEK|NOK|DKK|€|\$)\b/g,"$1"+_NB+"$2");
+  t=t.replace(/(\S) +\(/g,"$1"+_NB+"(");
+  return t;
+}
 function smWrap(x,text,maxW){
-  const words=(text||"").split(/\s+/).filter(Boolean), lines=[]; let cur="";
-  words.forEach(w=>{ const t=cur?cur+" "+w:w; if(x.measureText(t).width>maxW&&cur){lines.push(cur);cur=w;} else cur=t; });
+  var words=smProtect(text).split(/[ \t\r\n]+/).filter(Boolean), lines=[], cur="";
+  words.forEach(function(w){ var t=cur?cur+" "+w:w; if(x.measureText(t).width>maxW&&cur){lines.push(cur);cur=w;} else cur=t; });
   if(cur) lines.push(cur); return lines;
 }
 /* Einzeilige Texte auf verfügbare Breite einpassen (verhindert Überlagerungen wie "17,2 Mrd. USD"+"+1 %") */
+/* Sauberes Kürzen auf ein Zeichenlimit OHNE Ellipsis (Regel Christian 16.07.2026): endet am
+   letzten Satzzeichen, sonst am letzten Wort; hängt nie "…" an. Für KI-Autofill der zero-Felder. */
+function smCapClean(t,n){
+  t=(""+(t||"")).trim(); if(t.length<=n) return t;
+  var cut=t.slice(0,n);
+  var pEnd=Math.max(cut.lastIndexOf(". "),cut.lastIndexOf("! "),cut.lastIndexOf("? "));
+  if(pEnd>n*0.5) return cut.slice(0,pEnd+1).trim();
+  var pSoft=Math.max(cut.lastIndexOf(" – "),cut.lastIndexOf("; "),cut.lastIndexOf(", "));
+  if(pSoft>n*0.5) return cut.slice(0,pSoft).trim().replace(/[,;:–-]+$/,"");
+  var sp=cut.lastIndexOf(" ");
+  return (sp>n*0.6?cut.slice(0,sp):cut).trim().replace(/[,;:–-]+$/,"");
+}
 function smFit(x,text,weight,baseFS,maxW){
   let fs=baseFS; x.font=weight+" "+fs+"px "+BRAND.font;
   while(fs>10 && x.measureText(text||"").width>maxW){ fs-=1; x.font=weight+" "+fs+"px "+BRAND.font; }
@@ -5709,11 +5820,32 @@ function smArrow(v){ const s=(v||"").replace(",",".").replace(/[^0-9.\-+]/g,"");
 function smFmtPct(v){ if(!v) return ""; let t=(""+v).trim(); if(!/[%]/.test(t)) t+=" %"; if(!/^[+\-−]/.test(t)&&parseFloat(t.replace(",","."))>0) t="+"+t; return t; }
 
 /* ---------- Template-Zeichnung ---------- */
+/* ---------- Zentrale Typo-Skala (Christian/Yuki 16.07.2026) ----------
+   EINE Skala pro Render-Pass -> konsistente Schriftgrößen über ALLE Blöcke eines Templates.
+   Basis S = kurze Seite (verhindert Riesen-Fonts im Querformat). Alle Templates sollen sich
+   hieraus bedienen, statt lokale ad-hoc-Faktoren zu nutzen (Bug: unterschiedliche Größen, "kaum
+   Struktur"). Zeilenhöhen bewusst kompakt (1.3) für ruhiges, strukturiertes Textbild. */
+function smType(S){
+  return {
+    S:S,
+    kicker:Math.round(S*0.026),
+    h1:Math.round(S*0.052),    /* Template-Headline */
+    h2:Math.round(S*0.040),    /* Sekundär-Headline / Big-Label */
+    kpiLabel:Math.round(S*0.026),
+    kpiValue:Math.round(S*0.050),
+    kpiSub:Math.round(S*0.024),
+    big:Math.round(S*0.078),   /* prominente Einzelzahl (z.B. Kursreaktion) */
+    body:Math.round(S*0.031),
+    small:Math.round(S*0.024),
+    lh:1.3
+  };
+}
 function smDrawContent(ctx){
   const {x,W,H,M,B}=ctx, d=smData, id=smTpl.id;
   /* Font-Basis = kurze Seite: verhindert Riesen-Fonts im 16:9-Querformat */
   const S=Math.min(W,Math.round(H*1.15));
   const headFS=Math.round(S*0.062), bodyFS=Math.round(S*0.031), bigFS=Math.round(S*0.175);
+  const T=smType(S);
   let y;
 
   if(id==="zero_sm_edu_explainer"){
@@ -5847,33 +5979,45 @@ function smDrawContent(ctx){
       smText(x,"Methodik: "+d.methodology,M,y,bodyFS*0.82,"500",B.muted,W-2*M,bodyFS*1.25); }
 
   } else if(id==="zero_sm_company_earnings"){
+    /* STRUKTUR-REFACTOR (Yuki/Christian 16.07.2026): EINE gemeinsame Schriftgröße für alle
+       KPI-Labels und EINE für alle KPI-Werte (vorher per-Kachel smFit -> unterschiedliche Größen,
+       "kaum Struktur"). Alles zieht aus der zentralen Typo-Skala T; Zeilenabstände kompakt. */
     y=smKicker(ctx,(d.kicker||"Quartalszahlen")+(d.period?" · "+d.period:""));
-    y=smText(x,(d.company||"Unternehmen")+": Zahlen im Check",M,y+headFS*0.9,headFS*0.8,"800",B.ink,W-2*M,headFS*0.98);
-    y+=W*0.05;
+    y=smText(x,(d.company||"Unternehmen")+": Zahlen im Check",M,y+T.h1,T.h1,"800",B.ink,W-2*M,T.h1*T.lh);
+    y+=W*0.055;
     const kpis=[1,2,3].map(i=>({l:d["k"+i+"l"],a:d["k"+i+"a"],e:d["k"+i+"e"]})).filter(k=>(k.l||"").trim()&&(k.a||"").trim());
-    const colW=(W-2*M-(kpis.length-1)*W*0.025)/Math.max(kpis.length,1);
-    kpis.forEach((k,i)=>{
-      const kx=M+i*(colW+W*0.025);
-      x.fillStyle=B.chip; smRound(x,kx,y,colW,W*0.21,W*0.018); x.fill();
-      const kMaxW=colW-W*0.048;
-      smFit(x,k.l,"600",bodyFS*0.9,kMaxW-(k.e?W*0.11:0)); x.fillStyle=B.muted; x.textAlign="left";
-      x.fillText(k.l,kx+W*0.024,y+W*0.048);
-      smFit(x,k.a,"800",bodyFS*1.5,kMaxW); x.fillStyle=B.ink;
-      x.fillText(k.a,kx+W*0.024,y+W*0.115);
-      if(k.e){ smFit(x,"Erwartet: "+k.e,"500",bodyFS*0.82,kMaxW); x.fillStyle=B.muted;
-        x.fillText("Erwartet: "+k.e,kx+W*0.024,y+W*0.165);
-        const beat=smBeat(k.a,k.e); if(beat!==null){ x.font="800 "+bodyFS*0.82+"px "+BRAND.font; x.fillStyle=beat?(B.pos||B.accent):B.neg;
-          x.fillText(beat?"✓ BEAT":"✗ MISS",kx+colW-W*0.115,y+W*0.048); } }
-    });
-    y+=W*0.21+W*0.05;
-    if(d.reaction){
-      x.font="800 "+bodyFS*2.1+"px "+BRAND.font; x.fillStyle=smChangeColor(d.reaction,B);
-      x.fillText(smArrow(d.reaction)+" "+smFmtPct(d.reaction), M, y+bodyFS*2);
-      x.font="500 "+bodyFS*0.9+"px "+BRAND.font; x.fillStyle=B.muted;
-      x.fillText("Kursreaktion "+(d.rwindow||""), M, y+bodyFS*3.3);
-      y+=bodyFS*4.2;
+    if(kpis.length){
+      const gap=W*0.025, colW=(W-2*M-(kpis.length-1)*gap)/kpis.length, pad=W*0.024;
+      const tileH=W*0.215;
+      /* Einheitliche Fontgrößen: kleinste, die in ALLEN Kacheln passt (Werte + Labels getrennt) */
+      const valMaxW=colW-2*pad, labMaxW=colW-2*pad;
+      let valFS=T.kpiValue; kpis.forEach(k=>{ valFS=Math.min(valFS, smFit(x,k.a||"","800",T.kpiValue,valMaxW)); });
+      let labFS=T.kpiLabel; kpis.forEach(k=>{ labFS=Math.min(labFS, smFit(x,k.l||"","600",T.kpiLabel,labMaxW-(k.e?W*0.10:0))); });
+      let subFS=T.kpiSub;   kpis.forEach(k=>{ if(k.e) subFS=Math.min(subFS, smFit(x,"Erwartet: "+k.e,"500",T.kpiSub,valMaxW)); });
+      kpis.forEach((k,i)=>{
+        const kx=M+i*(colW+gap);
+        x.fillStyle=B.chip; smRound(x,kx,y,colW,tileH,W*0.018); x.fill();
+        x.textAlign="left";
+        x.font="600 "+labFS+"px "+BRAND.font; x.fillStyle=B.muted;
+        x.fillText(smProtect(k.l),kx+pad,y+tileH*0.24);
+        x.font="800 "+valFS+"px "+BRAND.font; x.fillStyle=B.ink;
+        x.fillText(smProtect(k.a),kx+pad,y+tileH*0.58);
+        if(k.e){ x.font="500 "+subFS+"px "+BRAND.font; x.fillStyle=B.muted;
+          x.fillText(smProtect("Erwartet: "+k.e),kx+pad,y+tileH*0.86);
+          const beat=smBeat(k.a,k.e); if(beat!==null){ x.font="800 "+subFS+"px "+BRAND.font; x.fillStyle=beat?(B.pos||B.accent):B.neg; x.textAlign="right";
+            x.fillText(beat?"✓ BEAT":"✗ MISS",kx+colW-pad,y+tileH*0.24); x.textAlign="left"; } }
+      });
+      y+=tileH+W*0.055;
     }
-    if(d.summary) smText(x,d.summary,M,y+S*0.015,bodyFS,"400",B.dark?"rgba(255,255,255,.85)":B.ink,W-2*M-W*0.20,bodyFS*1.55);
+    if(d.reaction){
+      x.textAlign="left";
+      x.font="800 "+T.big+"px "+BRAND.font; x.fillStyle=smChangeColor(d.reaction,B);
+      x.fillText(smArrow(d.reaction)+" "+smFmtPct(d.reaction), M, y+T.big);
+      x.font="500 "+T.small+"px "+BRAND.font; x.fillStyle=B.muted;
+      x.fillText(smProtect("Kursreaktion "+(d.rwindow||"")), M, y+T.big+T.small*1.5);
+      y+=T.big+T.small*1.5+W*0.045;
+    }
+    if(d.summary) smText(x,d.summary,M,y+T.body,T.body,"400",B.dark?"rgba(255,255,255,.85)":B.ink,W-2*M,T.body*T.lh);
 
   } else if(id==="zero_sm_instrument_snapshot"){
     y=smKicker(ctx,(d.aclass||"Wertpapier")+" im Blick");
@@ -6215,12 +6359,14 @@ async function smRenderSlideToDataURL(fmt, slideIndex){
 
 /* ---------- Export ---------- */
 function smDoExport(){
+  if(smBrand==="zero" && !smExportGate()) return;   /* Regel-Gate vor Export (Christian 16.07.) */
   const a=document.createElement("a");
   a.download=(window.smFileBase?smFileBase(smData.headline||smData.term||smTpl.name):smTpl.id)+"_"+smFmt.replace(":","x")+(smSlides().length>1?"_slide"+(smSlide+1):"")+".png";
   a.href=$("smCanvas").toDataURL("image/png");
   a.click();
 }
 async function smExportAll(){
+  if(smBrand==="zero" && !smExportGate()) return;   /* Regel-Gate vor Export */
   const sl=smSlides(), keep=smSlide;
   for(let i=0;i<sl.length;i++){ smSlide=i; smRender(); await new Promise(r=>setTimeout(r,350)); smDoExport(); }
   smSlide=keep; smRender();
