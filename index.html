@@ -1797,11 +1797,16 @@ function buildContent(content){
     const sx=W/1080, sy=H/1920;
     objs.push({kind:"obj",obj:new fabric.Rect({left:-1,top:-1,width:W+2,height:560*sy+1,fill:BRAND.navy,name:"headerbar",selectable:true,evented:true})});
     objs.push({kind:"obj",obj:tHeadline(content.head,{left:108*sx,top:290*sy,width:864*sx,fontSize:spec.h2Px*sx,fontFamily:spec.font})});
-    (content.bullets||[]).forEach((bt,i)=>{
-      const y=(700+i*280)*sy;
-      objs.push({kind:"obj",obj:makeChevron(81*sx, y, 62*sx)});
-      objs.push({kind:"obj",obj:new fabric.Textbox(noWrapUnits(bt),{left:175*sx,top:y,width:797*sx,fontFamily:spec.font,fontWeight:500,fontSize:spec.bodyPx*sx,fill:REF.text,lineHeight:1.3,name:"bullet"+(i+1)})});
-    });
+    /* Overflow-Schutz Story (Yuki 16.07.): Bullets dynamisch stapeln + Schrift verkleinern, damit sie
+       nie in die untere Safe-Zone/Fußzeile laufen. */
+    {
+      const bl=(content.bullets||[]); let bfs=spec.bodyPx*sx; const top0=700*sy, botMax=H-330*sy, gap=40*sy;
+      const mk=(size)=>bl.map((bt,i)=>{ const tb=new fabric.Textbox(noWrapUnits(bt),{left:175*sx,width:797*sx,fontFamily:spec.font,fontWeight:500,fontSize:size,fill:REF.text,lineHeight:1.3,name:"bullet"+(i+1)}); tb.initDimensions&&tb.initDimensions(); return tb; });
+      const tot=(bs)=>bs.reduce((s,b)=>s+Math.max(b.height,72*sy),0)+gap*(bs.length-1);
+      let boxes=mk(bfs); const minFs=Math.max(Math.round(spec.bodyPx*sx*0.6),18); let g=40;
+      while(top0+tot(boxes)>botMax && bfs>minFs && g-->0){ bfs-=1; boxes=mk(bfs); }
+      let yy=top0; boxes.forEach((tb)=>{ objs.push({kind:"obj",obj:makeChevron(81*sx, yy, 62*sx)}); tb.set("top",yy); objs.push({kind:"obj",obj:tb}); yy+=Math.max(tb.height,72*sy)+gap; });
+    }
   } else {
     objs.push({kind:"obj",obj:new fabric.Rect({left:-1,top:-1,width:W+2,height:px(0.255,H)+1,fill:BRAND.navy,name:"headerbar",selectable:true,evented:true})});
     objs.push({kind:"obj",obj:tHeadline(content.head,{left:px(0.06,W),top:px(0.065,H),width:px(0.86,W),fontSize:px(0.056,W),fontFamily:spec.font})});
@@ -4362,8 +4367,8 @@ extractSocial = async function(txt){
     "\"relevanz\":{\"staerkster_fakt\":\"der eine Fakt, den du als wichtigsten identifiziert hast, mit Zahl/Beleg\",\"warum\":\"1 kurzer Satz warum dieser Fakt die anderen Kandidaten schlaegt (Gewicht/Ueberraschung/Anlagerelevanz) -- falls es die Kursbewegung ist, begruende explizit warum sie hier der staerkste Fakt ist\",\"verworfen\":\"1 kurzes Beispiel eines schwaecheren Fakts, den du bewusst NICHT in head/bullets[0] verwendet hast\"},"+
     "\"head\":\"prägnante Schlagzeile, max 55 Zeichen -- MUSS den staerksten Fakt aus relevanz enthalten, falls er dort noch nicht steht\","+
     "\"sub\":\"Unterzeile, STRIKT max 40 Zeichen (muss bei gro\u00dfer Schrift auf EINE Zeile passen). MUSS zusammen mit head OHNE Artikel/Bild verstaendlich sein: nenne Akteur/Thema oder Kernaussage konkret. NIEMALS ein kontextloses Fragment (verboten: 'Wochen, nicht Monate' ohne zu sagen WAS in Wochen; bei Vergleich/Gegensatz das Bezugswort mitnennen). Kein reiner Teaser, der erst durch den Artikel Sinn ergibt.\","+
-    "\"bullets\":[\"drei Kernaussagen, je STRIKT max 100 Zeichen (harte Grenze, sonst Layout-Bruch). QUALITÄTS-REGELN (alle Pflicht): (1) Jeder Punkt muss OHNE Vorwissen verständlich sein — ein Follower, der nur diese Slide sieht, versteht sofort, worum es geht und was passiert ist. (2) Jeder Punkt enthält mindestens EINEN konkreten Fakt aus dem Artikel: eine Zahl, einen Prozentwert, einen Betrag, ein Datum oder eine klar benannte Entscheidung — keine vagen Aussagen wie 'Experten sind optimistisch' oder 'Das Umfeld bleibt schwierig'. (3) Die drei Punkte bauen als Story aufeinander auf: Punkt 1 = WAS ist konkret passiert (das Ereignis mit der wichtigsten Zahl), Punkt 2 = WARUM / der Auslöser oder Kontext, Punkt 3 = die KONSEQUENZ: was es für Anleger, das Unternehmen oder den Markt konkret bedeutet. (4) Der wichtigste Fakt des Artikels MUSS in den Bullets vorkommen — frage dich: Was ist die eine Sache, die ein Leser mitnehmen soll? Diese zuerst. (5) Aktive, konkrete Sprache: Subjekt + Verb + Fakt ('Intel hebt die Xeon-Preise um 12 Prozent an'), keine Substantivierungen, keine Füllwörter, kein Behörden-Deutsch. SELBSTTEST vor der Antwort: Lies deine drei Bullets isoliert — versteht ein Laie ohne den Artikel, was passiert ist und warum es wichtig ist? Falls nein, umschreiben\"],"+
-    "\"close\":\"Schluss-Statement, max 140 Zeichen: die konkrete Kernerkenntnis oder der Ausblick mit Substanz (was sollte man im Blick behalten und WARUM) — kein generisches 'Es bleibt spannend'\","+
+    "\"bullets\":[\"drei Kernaussagen, je STRIKT max 90 Zeichen — kurz und konkret, EIN Fakt pro Bullet (harte Grenze, sonst Layout-Bruch). QUALITÄTS-REGELN (alle Pflicht): (1) Jeder Punkt muss OHNE Vorwissen verständlich sein — ein Follower, der nur diese Slide sieht, versteht sofort, worum es geht und was passiert ist. (2) Jeder Punkt enthält mindestens EINEN konkreten Fakt aus dem Artikel: eine Zahl, einen Prozentwert, einen Betrag, ein Datum oder eine klar benannte Entscheidung — keine vagen Aussagen wie 'Experten sind optimistisch' oder 'Das Umfeld bleibt schwierig'. (3) Die drei Punkte bauen als Story aufeinander auf: Punkt 1 = WAS ist konkret passiert (das Ereignis mit der wichtigsten Zahl), Punkt 2 = WARUM / der Auslöser oder Kontext, Punkt 3 = die KONSEQUENZ: was es für Anleger, das Unternehmen oder den Markt konkret bedeutet. (4) Der wichtigste Fakt des Artikels MUSS in den Bullets vorkommen — frage dich: Was ist die eine Sache, die ein Leser mitnehmen soll? Diese zuerst. (5) Aktive, konkrete Sprache: Subjekt + Verb + Fakt ('Intel hebt die Xeon-Preise um 12 Prozent an'), keine Substantivierungen, keine Füllwörter, kein Behörden-Deutsch. SELBSTTEST vor der Antwort: Lies deine drei Bullets isoliert — versteht ein Laie ohne den Artikel, was passiert ist und warum es wichtig ist? Falls nein, umschreiben\"],"+
+    "\"close\":\"Schluss-Statement, max 120 Zeichen: die konkrete Kernerkenntnis oder der Ausblick mit Substanz (was sollte man im Blick behalten und WARUM) — kein generisches 'Es bleibt spannend'\","+
     "\"closeHead\":\"kurze Headline für die Schluss-Slide, max 40 Zeichen, inhaltlich zum Artikel passend, NICHT generisch\","+
     "\"brand\":\"die zentrale Firma oder Marke, sonst leerer String\","+
     "\"companies\":[\"alle im Artikel genannten Firmennamen\"],"+
@@ -4380,9 +4385,9 @@ extractSocial = async function(txt){
     "\"series\":{\"key\":\"k3|k2|z3|d4 — welche Slide-Serie am besten passt: k3=Karussell klassisch 3 Slides (Standard-News), k2=Kompakt 2 Slides (kurze Meldung, wenig Substanz), z3=Zitat-Story 3 Slides (NUR wenn ein starkes wörtliches Zitat einer Person im Artikel steht), d4=Deep Dive 4 Slides (komplexes Thema mit viel Substanz)\",\"grund\":\"1 kurzer Satz warum\"},"+
     "\"quote\":{\"text\":\"das stärkste wörtliche Zitat aus dem Artikel OHNE Anführungszeichen, max 160 Zeichen, sonst leerer String\",\"name\":\"Person des Zitats\",\"role\":\"Rolle, z.B. CEO von Apple\"},"+
     "\"infoHead\":\"EIGENE Headline für die Info-Slide, max 40 Zeichen — behandelt einen ANDEREN Aspekt als Schlagzeile und Schluss-Headline\","+
-    "\"intro\":\"Einordnungs-Absatz für die Info-Slide, max 180 Zeichen: ein NEUER Aspekt oder Hintergrund, der in den bullets NICHT vorkommt, mit mindestens einem konkreten Fakt\","+
-    "\"infoBullet\":\"Chevron-Punkt der Info-Slide, max 100 Zeichen: ein weiterer NEUER Fakt, der weder in bullets noch in intro steht\","+
-    "\"box\":\"Kontext/Ausblick für die abgerundete Info-Box, max 160 Zeichen und EIN vollständiger, in sich abgeschlossener Satz: die konkrete Konsequenz oder der nächste relevante Termin — darf KEINEN Fakt aus bullets, intro oder infoBullet wiederholen\","+
+    "\"intro\":\"Einordnungs-Absatz für die Info-Slide, max 140 Zeichen (kurz, 1-2 knappe Sätze): ein NEUER Aspekt oder Hintergrund, der in den bullets NICHT vorkommt, mit mindestens einem konkreten Fakt\","+
+    "\"infoBullet\":\"Chevron-Punkt der Info-Slide, max 85 Zeichen: ein weiterer NEUER Fakt, der weder in bullets noch in intro steht\","+
+    "\"box\":\"Kontext/Ausblick für die abgerundete Info-Box, max 130 Zeichen und EIN vollständiger, in sich abgeschlossener Satz: die konkrete Konsequenz oder der nächste relevante Termin — darf KEINEN Fakt aus bullets, intro oder infoBullet wiederholen\","+
     "\"x\":{\"text\":\"Post für X (Twitter), STRIKT max 240 Zeichen (Puffer für Cashtags): macht neugierig auf die Slides und regt zum Durchklicken an (z.B. Kernaussage anteasern, die stärkste Zahl nennen, aber nicht alles verraten). Redakteurs-Ton, keine KI-Floskeln, maximal 1 Emoji\",\"cashtags\":[\"1 bis MAXIMAL 2 Börsenticker der zentralen Aktien des Artikels im Format $AMD, $NVDA — NUR wenn der Ticker sicher bekannt ist, sonst leere Liste\"]},"+
     "\"hashtags\":{\"instagram\":[\"MAXIMAL 5 deutsche Hashtags (nie mehr als 5!), klein geschrieben. AUSWAHL-REGEL: 1x Firmenname + sonst breite, reichweitenstarke Finanz-/Wirtschafts-Hashtags wie #börse, #aktien, #finanzen, #wirtschaft, #investieren, #geldanlage. KEINE Nischen-Hashtags zum Spezialthema (FALSCH: #containerschifffahrt, #prognose, #hamburg, #nutzfahrzeuge — RICHTIG: #hapaglloyd #aktien #börse #wirtschaft #finanzen)\"],\"linkedin\":[\"MAXIMAL 5 Hashtags (nie mehr als 5!): 1x Firmenname + breite Wirtschafts-/Finanz-Tags (#Wirtschaft, #Börse, #Finanzen, #Investieren), keine Nischen-Tags\"]}}. HASHTAG-OBERGRENZE (Pflicht, Redakteurs-Feedback Yuki 15.07., gilt für ALLE Plattformen ausnahmslos): Egal welches Feld oder welche Plattform Hashtags enthält — NIE mehr als 5 Hashtags insgesamt. "+
     "ANTI-REDUNDANZ (kritisch): Jedes Feld wird auf einer EIGENEN Slide angezeigt. Über ALLE Felder hinweg (head, sub, bullets, infoHead, intro, infoBullet, box, close, closeHead) darf derselbe Fakt NIE zweimal vorkommen — auch nicht umformuliert. Verteile die Fakten des Artikels bewusst: bullets = die 3 wichtigsten Kernfakten; intro/infoBullet/box = weitere Aspekte, Hintergründe, Zahlen oder Termine, die in den bullets NICHT stehen; close = eine echte Schlussfolgerung, kein Fakten-Recap. closeHead und infoHead müssen sich klar von head und voneinander unterscheiden. SELBSTTEST: Lies alle Felder nacheinander wie ein Karussell — wiederholt sich inhaltlich etwas, ersetze es durch einen noch nicht genutzten Fakt aus dem Artikel. KEIN KI-KLANG (Pflicht für alle Texte): VERBOTEN sind formelhafte Absatz-Einstiege mit Doppelpunkt-Anmoderation wie 'Besonders überraschend:', 'Ein Wermutstropfen bleibt:', 'Besonders bemerkenswert:', 'Interessant dabei:', 'Wichtig zu wissen:', 'Hinzu kommt:', 'Nicht zu vergessen:' und ähnliche Zweiwort-Floskeln. Statt 'Besonders überraschend: International Motors erzielte 115 Mio.' schreibe 'International Motors erzielte 115 Mio. EUR — der Konsens hatte einen Verlust erwartet.' Die Überraschung/Bewertung gehört IN den Satz, nicht davor. Variiere Satzanfänge über alle Absätze. LESBARKEIT (Pflicht): Schreibe einfache, klare Sätze wie ein guter Nachrichtenredakteur. Maximal EIN Nebensatz pro Satz, KEINE Schachtelsätze, KEINE Einschübe mit Gedankenstrich am Satzende, keine Relativsatz-Ketten. Lieber zwei kurze Sätze als ein verschachtelter. Negativ-Beispiel (so NICHT): 'Louisiana befreite Ende 2024 Rechenzentren, die vor 2029 gebaut werden, für 20 Jahre von der Umsatzsteuer — gezielt, um Meta ins Land zu holen.' Besser: 'Louisiana befreit neue Rechenzentren für 20 Jahre von der Umsatzsteuer. Das Gesetz von Ende 2024 sollte gezielt Meta ins Land holen.' SELBSTTEST LESBARKEIT: Lies jeden Satz laut — stolpert man oder braucht man zwei Anläufe, in zwei Sätze aufteilen. WÄHRUNGS-SCHREIBWEISE (Pflicht in allen Feldern): Entweder Symbol VOR der Zahl ('$ 4.062,60') ODER Kürzel NACH der Zahl ('4.062,60 USD', '145,30 EUR'). NIEMALS das Symbol nach der Zahl ('4.062,60 $' ist FALSCH), kein ausgeschriebenes 'US-Dollar' hinter Zahlen. Innerhalb des Beitrags einheitlich eine Variante verwenden. GROUNDING (absolut kritisch, Verstoß = unbrauchbar): Verwende AUSSCHLIESSLICH Fakten, Zahlen, Namen, Firmen und Vergleiche, die WÖRTLICH im Artikeltext stehen. Erfinde NIEMALS Vergleiche oder Einordnungen mit Firmen/Werten, die der Artikel nicht nennt (z.B. NICHT 'mehr als Apple wert' schreiben, wenn Apple im Text nicht vorkommt). Kein Weltwissen ergänzen, keine Kontexte aus deinem Training, keine gerundeten oder umgerechneten Zahlen — nur was im Text steht, in der Form, in der es dort steht. SELBSTTEST GROUNDING: Prüfe jedes Feld — kommt jede Zahl, jeder Firmenname und jeder Vergleich darin im Artikeltext vor? Falls nein, ersatzlos streichen oder durch einen belegten Fakt ersetzen. KEINE META-REFERENZ AUF DEN ARTIKEL (Pflicht, Redakteurs-Feedback Yuki 15.07.): Schreibe niemals Formulierungen wie 'wird im Artikel als X bezeichnet', 'laut Artikel', 'weitere Details nennt die Firma nicht', 'der Artikel erwähnt nicht' oder ähnliche Verweise auf den Quelltext selbst — das ist ein Stilbruch, der Leser aus der Grafik reißt. Formuliere den Fakt stattdessen direkt und eigenständig, so als hättest du selbst recherchiert: STATT 'Kontron ist im SDAX notiert und wird im Artikel als Technologiekonzern bezeichnet' schreibe 'Kontron ist ein im SDAX notierter Technologiekonzern'. STATT 'Der Auftragsgeber ist ein europäischer Bahnbetreiber — weitere Details nennt Kontron nicht' schreibe 'Der Auftragsgeber ist ein europäischer Bahnbetreiber' (den Nicht-Fakt 'keine weiteren Details' einfach weglassen, statt ihn explizit zu erwähnen). Wenn eine Information im Artikel fehlt, lasse sie ersatzlos weg — erwähne NIE, dass sie fehlt oder woher die vorhandene Information stammt. GRAMMATIK & UMLAUTE (Pflicht, Redakteurs-Feedback 15.07.): Fehlerfreies Deutsch in JEDEM Feld. Umlaute ä/ö/ü/ß IMMER korrekt schreiben — niemals Transliterationen oder Fremdschreibweisen (FALSCH: 'Folgekvartal', 'Gewinnschaetzung', 'Boerse' — RICHTIG: 'Folgequartal', 'Gewinnschätzung', 'Börse'). SELBSTTEST GRAMMATIK: Lies jedes Feld auf Rechtschreibung, Grammatik und korrekte Umlaute, korrigiere vor der Antwort. KEIN GENERISCHES ETIKETT / HOOK-PFLICHT (Redakteurs-Feedback Yuki 15.07.): Kein Feld darf so generisch sein, dass ein Leser es ohne Vorwissen nicht einordnen kann (Negativ-Beispiel: eine Cover-Zeile wie 'Trader-Zahlenfokus' oder 'Klassisches News-Format' sagt NICHTS über den Inhalt). Jede Headline/Zeile benennt konkret WER was tut, mit Firma und möglichst einer Zahl. Das Cover muss zum Weiterswipen anregen: stärkster Fakt plus offene Konsequenz oder Spannungsbogen — die Auflösung kommt auf den Folge-Slides. Sachlich, deskriptiv, keine Kaufempfehlung, keine Kursziele als Empfehlung. Alle Zahlen exakt aus dem Text, nichts erfinden. FACHABKUERZUNGEN ERKLAEREN (Pflicht, Redakteurs-Feedback Yuki 16.07.2026): Erklaerungsbeduerftige Abkuerzungen/Fachbegriffe muessen bei ERSTNENNUNG verstaendlich sein — ein Social-Media-Follower ohne Fachwissen muss folgen koennen. Schreibe die Abkuerzung beim ersten Mal AUS oder ergaenze eine 2-4-Wort-Erklaerung in Klammern. NEGATIV-BEISPIEL (echtes Feedback): 'bis zu 2,50 USD CVR' — 'CVR' wird nirgends erklaert und ist KEINE allgemein bekannte Abkuerzung. RICHTIG: 'bedingte Zusatzzahlung (CVR)' oder 'Besserungsschein (CVR, an Meilensteine geknuepft)'. AUSNAHME — NICHT erklaeren muss man breit bekannte Boersen-/Finanzbegriffe: KGV, ETF, EPS, USD/EUR, DAX, IPO, CEO, FDA, KI, BIP. Im Zweifel (Nischen-/Branchenkuerzel wie CVR, DEA-Reclassification, 5-MeO-DMT) IMMER kurz einordnen. Die Erklaerung kurz halten, damit die Feld-Laenge passt.";
@@ -4396,8 +4401,14 @@ extractSocial = async function(txt){
     var cut=t.slice(0,n); var p=Math.max(cut.lastIndexOf(". "),cut.lastIndexOf("! "),cut.lastIndexOf("? "),cut.lastIndexOf(" \u2013 "),cut.lastIndexOf("; "));
     if(p>n*0.5) return cut.slice(0,p+1).trim();
     var sp=cut.lastIndexOf(" "); return (sp>n*0.6?cut.slice(0,sp):cut).trim().replace(/[,;:\u2013-]+$/,"")+"."; }
-  if(Array.isArray(out.bullets)){ out.bullets=out.bullets.map(function(b){return smCap(b,140);});
+  if(Array.isArray(out.bullets)){ out.bullets=out.bullets.map(function(b){return smCap(b,90);});
     $id("fB1").value=out.bullets[0]||""; $id("fB2").value=out.bullets[1]||""; $id("fB3").value=out.bullets[2]||""; }
+  /* Laengen-Cap auch fuer die uebrigen Textfelder (Yuki 16.07.2026: Slide 2/3 teils zu lang -> Footer).
+     Sauber am Satz-/Wortende, nie mitten im Wort; der Renderer shrinkt zusaetzlich als Sicherheitsnetz. */
+  if(out.close) out.close=smCap(out.close,120);
+  if(out.intro) out.intro=smCap(out.intro,140);
+  if(out.infoBullet) out.infoBullet=smCap(out.infoBullet,85);
+  if(out.box) out.box=smCap(out.box,130);
   if(out.close) $id("fClose").value=out.close;
   if(out.closeHead){ window._smCloseHead=out.closeHead; if($id("fCloseHead")) $id("fCloseHead").value=out.closeHead; }
   if(out.brand!=null){ $id("fBrand").value=out.brand; try{ curBrand=out.brand; }catch(e){} }
@@ -5290,7 +5301,7 @@ const SM_TEMPLATES=[
     {k:"analyst",l:"Analysten-Bezug (Pflicht bei jeder Wertung: Haus, Datum, Kursziel/Rating)",type:"text",max:90,ph:"z.B. Konsens laut Bloomberg, 14.07.2026: 12× Buy, 4× Hold, Kursziel Ø 128 €"},
     {k:"source",l:"Datenquelle",type:"text",max:50},{k:"stand",l:"Stand",type:"text",max:24}
   ]},
-{ id:"zero_sm_investing_savings_calc", name:"Sparplan-Rechenbeispiel", prio:"P2", path:"A", carousel:false,
+{ id:"zero_sm_investing_savings_calc", name:"Sparplan-Rechenbeispiel", prio:"P2", path:"A", carousel:true,
   desc:"Zinseszins transparent – Ergebnis wird berechnet, nie eingegeben.",
   note:"Ergebniswerte (Einzahlungen, Endwert, Wertzuwachs) berechnet das Studio selbst (Art. 44 Abs. 6 DelVO: Annahmen kennzeichnen, keine Garantie).",
   formats:["4:5","9:16"], master:"4:5",
@@ -5403,6 +5414,7 @@ function smChooseBrand(id){
 function smTplSlideInfo(t){
   if(!t.carousel) return "1 Slide";
   if(t.id===smTpl.id){ const n=smSlides().length; return n+" Slides aktuell"; }
+  if(t.id==="zero_sm_investing_savings_calc") return "3 Slides";
   return "3–7 Slides";
 }
 function smBuildTplGrid(){
@@ -5606,6 +5618,10 @@ function smSlides(){
     s.push({t:"closing"});
     return s;
   }
+  /* Sparplan als 3-teiliges Karussell (Yuki 16.07.2026): Annahmen -> Verlauf -> Ergebnis. */
+  if(smTpl.id==="zero_sm_investing_savings_calc"){
+    return [{t:"sc_intro"},{t:"sc_bars"},{t:"sc_result"}];
+  }
   return [{t:"single"}];
 }
 function smBuildPager(){
@@ -5613,7 +5629,7 @@ function smBuildPager(){
   if(sl.length<=1){ p.innerHTML=""; $("smExportAll").style.display="none"; $("smExportPdf").style.display="none"; return; }
   $("smExportPdf").style.display="";
   p.innerHTML=sl.map((s,i)=>'<button class="'+(i===smSlide?"on":"")+'" data-s="'+i+'">'+
-    (s.t==="cover"?"Cover":s.t==="closing"?"Abschluss":"Karte "+s.i)+'</button>').join('');
+    (s.t==="cover"?"Cover":s.t==="closing"?"Abschluss":s.t==="sc_intro"?"Annahmen":s.t==="sc_bars"?"Verlauf":s.t==="sc_result"?"Ergebnis":"Karte "+s.i)+'</button>').join('');
   p.querySelectorAll("[data-s]").forEach(el=>el.onclick=()=>{ smSlide=+el.dataset.s; smRender(); });
   $("smExportAll").style.display="";
 }
@@ -6309,28 +6325,50 @@ function smDrawContent(ctx){
        Der Analysten-Bezug (Compliance) gehört in die Caption/Quelle, nicht auf die Grafik. */
 
   } else if(id==="zero_sm_investing_savings_calc"){
-    y=smKicker(ctx,d.kicker);
-    y=smText(x,d.headline||"Was aus einem Sparplan werden könnte",M,y+headFS*0.9,headFS*0.72,"800",B.ink,W-2*M,headFS*0.9);
-    const r=smCalc();
-    y+=W*0.04;
-    x.font="600 "+bodyFS*0.95+"px "+BRAND.font; x.fillStyle=B.muted;
-    x.fillText((r.monthly)+" € monatlich · "+r.years+" Jahre · Annahme "+r.retStr+" p.a."+(r.feeStr!=="0 %"?" · Kosten "+r.feeStr:""), M, y);
-    y+=W*0.05;
-    const bars=[["Einzahlungen",r.paid,B.muted],["Möglicher Endwert",r.end,B.accent]];
-    const bw=W-2*M, maxV=r.end||1;
-    bars.forEach((b,i)=>{
-      const by=y+i*W*0.15;
-      x.font="600 "+bodyFS*0.9+"px "+BRAND.font; x.fillStyle=B.dark?"rgba(255,255,255,.85)":B.ink;
-      x.fillText(b[0], M, by);
-      x.fillStyle=B.dark?"rgba(255,255,255,0.08)":"rgba(10,31,68,0.07)"; smRound(x,M,by+W*0.015,bw,W*0.062,W*0.014); x.fill();
-      x.fillStyle=b[2]; smRound(x,M,by+W*0.015,Math.max(bw*(b[1]/maxV),W*0.05),W*0.062,W*0.014); x.fill();
-      /* Wert am Balkenende mit Abstand zum Rand (Yuki 16.07.: klebte am rechten Rand) */
-      x.font="800 "+bodyFS*1.05+"px "+BRAND.font; x.fillStyle=B.ink; x.textAlign="right";
-      x.fillText(smProtect(smEur(b[1])), W-M-W*0.025, by+W*0.062); x.textAlign="left";
-    });
-    y+=2*W*0.15+W*0.02;
-    x.font="800 "+bodyFS*1.4+"px "+BRAND.font; x.fillStyle=B.pos||B.accent;   /* positive Zahl -> grün */
-    x.fillText("+ "+smEur(r.gain)+" möglicher Wertzuwachs", M, y+bodyFS*1.4);
+    /* 3-teiliges Karussell (Yuki 16.07.2026): Annahmen -> Verlauf -> Ergebnis. */
+    const r=smCalc(); const sc=(ctx.slide&&ctx.slide.t)||"sc_intro";
+    const _assump=smProtect(r.monthly+" € monatlich · "+r.years+" Jahre · Annahme "+r.retStr+" p.a."+(r.feeStr!=="0 %"?" · Kosten "+r.feeStr:""));
+    if(sc==="sc_intro"){
+      y=smKicker(ctx,d.kicker||"Rechenbeispiel");
+      y=smText(x,d.headline||"Was aus einem Sparplan werden könnte",M,y+headFS,headFS*0.9,"800",B.ink,W-2*M,headFS*1.15);
+      y+=W*0.06;
+      /* Annahmen als saubere Kachel-Liste */
+      const rows=[["Monatliche Rate",r.monthly+" €"],["Laufzeit",r.years+" Jahre"],["Rendite-Annahme",r.retStr+" p.a."]];
+      if(r.feeStr!=="0 %") rows.push(["Kosten-Annahme",r.feeStr+" p.a."]);
+      if(r.initialNum>0) rows.splice(1,0,["Startbetrag",smEur(r.initialNum)]);
+      rows.forEach((row,i)=>{ const ry=y+i*W*0.115;
+        x.fillStyle=B.chip; smRound(x,M,ry,W-2*M,W*0.095,W*0.016); x.fill();
+        x.font="600 "+bodyFS*0.95+"px "+BRAND.font; x.fillStyle=B.muted; x.textAlign="left"; x.fillText(row[0],M+W*0.03,ry+W*0.06);
+        x.font="800 "+bodyFS*1.05+"px "+BRAND.font; x.fillStyle=B.ink; x.textAlign="right"; x.fillText(smProtect(row[1]),W-M-W*0.03,ry+W*0.06); x.textAlign="left";
+      });
+      y+=rows.length*W*0.115+W*0.02;
+      x.font="600 "+bodyFS*0.95+"px "+BRAND.font; x.fillStyle=B.accent; x.fillText("Swipe → Ergebnis", M, ctx.bottom-bodyFS*1.2);
+    } else if(sc==="sc_bars"){
+      y=smKicker(ctx,"Verlauf");
+      y=smText(x,"Einzahlungen vs. möglicher Endwert",M,y+headFS*0.9,headFS*0.72,"800",B.ink,W-2*M,headFS*0.95);
+      y+=W*0.02;
+      x.font="600 "+bodyFS*0.9+"px "+BRAND.font; x.fillStyle=B.muted; x.fillText(_assump, M, y); y+=W*0.06;
+      const bars=[["Einzahlungen",r.paid,B.muted],["Möglicher Endwert",r.end,B.accent]];
+      const bw=W-2*M, maxV=r.end||1;
+      bars.forEach((b,i)=>{ const by=y+i*W*0.17;
+        x.font="600 "+bodyFS*0.9+"px "+BRAND.font; x.fillStyle=B.dark?"rgba(255,255,255,.85)":B.ink; x.textAlign="left"; x.fillText(b[0], M, by);
+        x.fillStyle=B.dark?"rgba(255,255,255,0.08)":"rgba(10,31,68,0.07)"; smRound(x,M,by+W*0.015,bw,W*0.07,W*0.014); x.fill();
+        x.fillStyle=b[2]; smRound(x,M,by+W*0.015,Math.max(bw*(b[1]/maxV),W*0.05),W*0.07,W*0.014); x.fill();
+        x.font="800 "+bodyFS*1.05+"px "+BRAND.font; x.fillStyle=B.ink; x.textAlign="right"; x.fillText(smProtect(smEur(b[1])), W-M-W*0.025, by+W*0.07); x.textAlign="left";
+      });
+    } else { /* sc_result */
+      y=smKicker(ctx,"Ergebnis");
+      y=smText(x,"Möglicher Wertzuwachs",M,y+headFS*0.9,headFS*0.72,"800",B.ink,W-2*M,headFS*0.95);
+      y+=W*0.04;
+      const gStr="+ "+smEur(r.gain);
+      const gfs=smFit(x,gStr,"800",bigFS,W-2*M);
+      x.fillStyle=B.pos||B.accent; x.textAlign="left"; x.fillText(smProtect(gStr), M, y+gfs*1.0); y+=gfs*1.3;
+      x.font="600 "+bodyFS*1.05+"px "+BRAND.font; x.fillStyle=B.dark?"rgba(255,255,255,.85)":B.ink;
+      y=smText(x,"Aus "+smEur(r.paid)+" Einzahlungen könnten so "+smEur(r.end)+" werden.",M,y,bodyFS*1.05,"600",B.dark?"rgba(255,255,255,.85)":B.ink,W-2*M,bodyFS*1.4);
+      y+=W*0.03;
+      x.font="500 "+bodyFS*0.85+"px "+BRAND.font; x.fillStyle=B.muted;
+      smText(x,_assump,M,y,bodyFS*0.85,"500",B.muted,W-2*M,bodyFS*1.3);
+    }
 
   } else if(id==="zero_sm_editorial_quote"){
     y=ctx.top+W*0.06;
@@ -6447,7 +6485,7 @@ function smCalc(){
   const r=(ret-fee)/12; const n=years*12;
   let end=initial; for(let i=0;i<n;i++){ end=end*(1+r)+monthly; }
   const paid=initial+monthly*n;
-  return {monthly,years,end,paid,gain:Math.max(end-paid,0),retStr:(smData.ret||"6 %"),feeStr:(smData.fee||"0 %")};
+  return {monthly,years,end,paid,gain:Math.max(end-paid,0),retStr:(smData.ret||"6 %"),feeStr:(smData.fee||"0 %"),initialNum:initial};
 }
 
 /* ---------- KI-Hintergrund (Pfad C) über bestehenden Make-Webhook ---------- */
