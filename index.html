@@ -4355,50 +4355,90 @@ async function ensureHeadSub(out, article){
    letzte Satz weg (nie mitten im Satz mit gefaktem Punkt).
    ============================================================================ */
 var FINNET_LIMITS={head:55,sub:40,bullets:90,close:120,closeHead:40,infoHead:40,intro:140,infoBullet:85,box:130};
-/* Sauberer Notfall-Schnitt OHNE gefakten Punkt: nimm nur GANZE Saetze, die ins Limit passen;
-   gibt es keinen Satzenpunkt, kappe am letzten Wort ohne kuenstlichen Punkt. */
+/* FIT-SPEZIFIKATION (Yuki 17.07.2026): pro Feld die ECHTE Box, in die der Text passen muss —
+   Breite (Master-Pixel @1080), Zielschriftgroesse, min. Schriftgroesse (Shrink-Untergrenze),
+   max. Zeilen. Das ist die EINE Wahrheitsquelle statt geratener Zeichenzahlen. Werte spiegeln die
+   Renderer-Layouts (buildContent/buildClosing/buildTextInfo, 4:5-Master 1080x1350). */
+var FINNET_FIT={
+  head:      {w:864, fs:80, min:60, lines:2},   /* Cover-Headline */
+  sub:       {w:864, fs:47, min:37, lines:1},   /* Cover-Subline: 1 Zeile */
+  bullets:   {w:797, fs:40, min:24, lines:3},   /* Kernpunkt je Bullet */
+  intro:     {w:864, fs:40, min:24, lines:5},   /* Info-Slide Einleitung */
+  infoBullet:{w:797, fs:40, min:24, lines:3},   /* Info-Slide Chevron */
+  box:       {w:784, fs:40, min:24, lines:5},   /* Info-Box */
+  close:     {w:864, fs:40, min:24, lines:5},   /* Fazit-Body */
+  closeHead: {w:864, fs:67, min:50, lines:2},
+  infoHead:  {w:864, fs:67, min:50, lines:2}
+};
+/* Misst, in WIE VIELE Zeilen ein Text bei gegebener Schrift/Breite umbricht (Wortumbruch wie Canvas). */
+var _measCv=null;
+function _measCtx(){ if(!_measCv) _measCv=document.createElement("canvas"); return _measCv.getContext("2d"); }
+function finnetLineCount(text,fs,w,font){
+  var x=_measCtx(); x.font="500 "+fs+"px "+(font||"Poppins");
+  var words=(""+(text||"")).split(/\s+/).filter(Boolean), lines=1, cur="";
+  for(var i=0;i<words.length;i++){ var t=cur?cur+" "+words[i]:words[i];
+    if(x.measureText(t).width>w && cur){ lines++; cur=words[i]; } else cur=t; }
+  return lines;
+}
+/* Passt das Feld in seine Box? Prueft bei der ZIEL-Schrift; wenn nicht, ob es bei der MIN-Schrift
+   (Shrink-Grenze) in die erlaubten Zeilen passt. Ergibt {fits, linesAtMin}. */
+function finnetFits(k, text){
+  var spec=FINNET_FIT[k]; if(!spec) return {fits:true};
+  var font=(brandSpec&&brandSpec().font)||"Poppins";
+  var linesMin=finnetLineCount(text,spec.min,spec.w,font);
+  return {fits: linesMin<=spec.lines, spec:spec, linesMin:linesMin};
+}
+/* Sauberer Notfall-Schnitt OHNE gefakten Punkt: nimm nur GANZE Saetze; sonst am letzten Wort. */
 function smHardTrim(t,n){
   t=(""+(t||"")).trim(); if(t.length<=n) return t;
   var cut=t.slice(0,n+1);
   var lastEnd=Math.max(cut.lastIndexOf(". "),cut.lastIndexOf("! "),cut.lastIndexOf("? "));
   if(lastEnd>0) return t.slice(0,lastEnd+1).trim();
-  /* Satz endet evtl. genau am Limit */
   if(/[.!?]$/.test(t.slice(0,n).trim())) return t.slice(0,n).trim();
   var sp=cut.lastIndexOf(" ");
   return (sp>0?cut.slice(0,sp):cut.slice(0,n)).trim().replace(/[\s,;:\u2013-]+$/,"");
 }
-/* KI-Repair: schreibt zu lange Felder KUERZER (vollstaendige Saetze). Aendert nur betroffene Felder. */
+/* LAENGEN-GARANTIE fit-basiert (Yuki 17.07.2026): misst pro Feld, ob der Text real in seine Box
+   passt (Breite x max. Zeilen bei Mindestschrift). NUR ueberlaufende Felder werden per KI KUERZER
+   NEU FORMULIERT — mit konkretem Ziel (max. Zeilen + grobes Zeichenbudget). Danach ERNEUT messen;
+   bis zu 3 Runden. Bleibt am Ende etwas zu lang, greift der Renderer-Shrink + (nur Notbremse) ein
+   sauberer Ganz-Satz-Schnitt. KEIN Vorab-Schneiden mehr. */
 async function ensureLength(out){
+  var changed=false;
   try{
-    var over=[];
-    Object.keys(FINNET_LIMITS).forEach(function(k){
-      if(k==="bullets"){ (out.bullets||[]).forEach(function(b,i){ if((b||"").length>FINNET_LIMITS.bullets) over.push({k:"bullets",i:i,lim:FINNET_LIMITS.bullets,val:b}); }); }
-      else if(typeof out[k]==="string" && out[k].length>FINNET_LIMITS[k]) over.push({k:k,lim:FINNET_LIMITS[k],val:out[k]});
-    });
-    if(!over.length) return {changed:false};
-    var items=over.map(function(o,idx){ return (idx+1)+". Feld \""+o.k+(o.k==="bullets"?("["+o.i+"]"):"")+"\" (max "+o.lim+" Zeichen, aktuell "+o.val.length+"): "+o.val; }).join("\n");
-    var sys="Du bist Chef vom Dienst bei finanzen.net. Kuerze die folgenden Felder so, dass jedes ein "+
-      "VOLLSTAENDIGER, grammatikalisch korrekter deutscher Satz (bzw. Teaser) INNERHALB seines Zeichenlimits ist. "+
-      "NIEMALS mitten im Satz oder Wort abbrechen. Lieber weniger Detail als ein abgeschnittener Satz. "+
-      "Inhalt/Fakten beibehalten, nur knapper. Umlaute korrekt. Keine Kaufempfehlung. "+
-      "Antworte NUR mit reinem JSON: {\"items\":[{\"k\":\"...\",\"i\":<nur bei bullets>,\"text\":\"gekuerzt\"}]} in derselben Reihenfolge.";
-    var res=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:items}]));
-    if(res && Array.isArray(res.items)){
-      res.items.forEach(function(it){
-        if(!it||typeof it.text!=="string") return;
-        var lim=FINNET_LIMITS[it.k]||120; var txt=it.text.trim();
-        if(txt.length>lim) txt=smHardTrim(txt,lim);   /* Notbremse, ganze Saetze */
+    for(var round=0; round<3; round++){
+      var over=[];
+      Object.keys(FINNET_FIT).forEach(function(k){
+        if(k==="bullets"){ (out.bullets||[]).forEach(function(b,i){ if((b||"").trim() && !finnetFits("bullets",b).fits) over.push({k:"bullets",i:i,val:b}); }); }
+        else if(typeof out[k]==="string" && out[k].trim() && !finnetFits(k,out[k]).fits) over.push({k:k,val:out[k]});
+      });
+      if(!over.length) break;
+      var budget=function(k){ var sp=FINNET_FIT[k]; return Math.max(20, Math.round(sp.w*sp.lines/(sp.min*0.52))); };
+      var items=over.map(function(o,idx){ var sp=FINNET_FIT[o.k];
+        return (idx+1)+". Feld \""+o.k+(o.k==="bullets"?("["+o.i+"]"):"")+"\": max "+sp.lines+" Zeile(n), also ca. "+budget(o.k)+" Zeichen. Aktuell zu lang: "+o.val; }).join("\n");
+      var sys="Du bist Chef vom Dienst bei finanzen.net. Formuliere die folgenden Felder KUERZER, "+
+        "so dass jedes ein VOLLSTAENDIGER, grammatikalisch korrekter deutscher Satz/Teaser ist und in "+
+        "die angegebene Zeilen-/Zeichenvorgabe passt. NIEMALS mitten im Satz oder Wort enden. Lieber ein "+
+        "Detail weglassen als abschneiden. Fakten/Kernaussage erhalten, Umlaute korrekt, keine Kaufempfehlung. "+
+        "Antworte NUR mit reinem JSON: {\"items\":[{\"k\":\"...\",\"i\":<nur bei bullets>,\"text\":\"...\"}]}.";
+      var res=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:items}]));
+      if(!(res&&Array.isArray(res.items))) break;
+      res.items.forEach(function(it){ if(!it||typeof it.text!=="string") return; var txt=it.text.trim();
         if(it.k==="bullets" && typeof it.i==="number" && Array.isArray(out.bullets)) out.bullets[it.i]=txt;
         else if(typeof out[it.k]==="string") out[it.k]=txt;
       });
+      changed=true;
     }
-    /* Sicherheitsnetz: was JETZT noch zu lang ist, sauber auf ganze Saetze kappen (kein Fake-Punkt) */
-    Object.keys(FINNET_LIMITS).forEach(function(k){
-      if(k==="bullets"){ if(Array.isArray(out.bullets)) out.bullets=out.bullets.map(function(b){ return (b||"").length>FINNET_LIMITS.bullets?smHardTrim(b,FINNET_LIMITS.bullets):b; }); }
-      else if(typeof out[k]==="string" && out[k].length>FINNET_LIMITS[k]) out[k]=smHardTrim(out[k],FINNET_LIMITS[k]);
+    /* Notbremse: was JETZT noch nicht passt, sauber auf ganze Saetze kappen (Zeichenbudget), damit
+       nie ein abgehackter Satz bleibt. Der Renderer verkleinert zusaetzlich die Schrift. */
+    var cap=function(k,t){ var sp=FINNET_FIT[k]; if(!sp) return t; var n=Math.max(20,Math.round(sp.w*sp.lines/(sp.fs*0.52)));
+      return finnetFits(k,t).fits? t : smHardTrim(t,n); };
+    Object.keys(FINNET_FIT).forEach(function(k){
+      if(k==="bullets"){ if(Array.isArray(out.bullets)) out.bullets=out.bullets.map(function(b){ var r=cap("bullets",b); if(r!==b) changed=true; return r; }); }
+      else if(typeof out[k]==="string"){ var r=cap(k,out[k]); if(r!==out[k]){ out[k]=r; changed=true; } }
     });
-    return {changed:true};
-  }catch(e){ return {changed:false}; }
+    return {changed:changed};
+  }catch(e){ return {changed:changed}; }
 }
 /* Stufe B: Sonnet als reiner Pruefer/Korrektor — vergleicht NUR gegen den Artikel */
 async function groundingVerify(out, article){
@@ -4475,15 +4515,9 @@ extractSocial = async function(txt){
   // Zeichengrenze pro Bullet: nur bei extremer Ueberlaenge greifen und dann SAUBER am letzten
   // Satz-/Wortende enden (Regel Christian 16.07.2026: NIE ein "\u2026" auf der Grafik; der Renderer
   // verkleinert die Schrift und schneidet nie ab). Kein Ellipsis-Anhang mehr.
-  function smCap(t,n){ return smHardTrim(t,n); }   /* kein Fake-Punkt mehr; ganze Saetze (Yuki 17.07.) */
-  if(Array.isArray(out.bullets)){ out.bullets=out.bullets.map(function(b){return smCap(b,90);});
-    $id("fB1").value=out.bullets[0]||""; $id("fB2").value=out.bullets[1]||""; $id("fB3").value=out.bullets[2]||""; }
-  /* Laengen-Cap auch fuer die uebrigen Textfelder (Yuki 16.07.2026: Slide 2/3 teils zu lang -> Footer).
-     Sauber am Satz-/Wortende, nie mitten im Wort; der Renderer shrinkt zusaetzlich als Sicherheitsnetz. */
-  if(out.close) out.close=smCap(out.close,120);
-  if(out.intro) out.intro=smCap(out.intro,140);
-  if(out.infoBullet) out.infoBullet=smCap(out.infoBullet,85);
-  if(out.box) out.box=smCap(out.box,130);
+  /* KEIN Vorab-Schneiden mehr (Yuki 17.07.2026): Laenge wird spaeter fit-basiert per ensureLength
+     geloest (kuerzer FORMULIEREN, nicht schneiden). Hier nur die Felder in die Eingabe schreiben. */
+  if(Array.isArray(out.bullets)){ $id("fB1").value=out.bullets[0]||""; $id("fB2").value=out.bullets[1]||""; $id("fB3").value=out.bullets[2]||""; }
   if(out.close) $id("fClose").value=out.close;
   if(out.closeHead){ window._smCloseHead=out.closeHead; if($id("fCloseHead")) $id("fCloseHead").value=out.closeHead; }
   if(out.brand!=null){ $id("fBrand").value=out.brand; try{ curBrand=out.brand; }catch(e){} }
