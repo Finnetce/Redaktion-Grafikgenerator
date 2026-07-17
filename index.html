@@ -1417,7 +1417,7 @@ function buildImagePrompt(userPrompt, fmt, slideType, theme, brand){
   }
   parts.push("Look: " + (THEME_LOOK[theme] || THEME_LOOK.clean) + ".");
   parts.push("Do not invent any headline text, prices, percentages, numbers or fake captions in the image. Do not add the finanzen.net logo or any news-outlet logo. No watermarks, no UI overlays. If a person is depicted, use a generic professional person that fits the role — do NOT recreate the real face of any actual person.");
-  parts.push("Realistic high quality photograph, full-bleed, edge to edge.");
+  parts.push("Realistic high quality photograph. IMPORTANT FRAMING: completely full-bleed, edge to edge, the motif fills the ENTIRE frame. Absolutely NO white or light border, NO frame, NO passepartout, NO margin, NO letterboxing, NO rounded corners — the image content must reach all four edges.");
   return parts.join(" ");
 }
 
@@ -1447,11 +1447,36 @@ async function generateImageDirect(fullPrompt, fmt, model, key){
   return url;
 }
 
+/* Auto-Trim gleichmaessiger heller Raender (Yuki 17.07.2026): Nano-Banana liefert sporadisch ein
+   Bild mit weissem Rahmen. Wir erkennen zusammenhaengende, nahezu einfarbige helle Rand-Zeilen/-Spalten
+   und schneiden sie weg. Konservativ: nur echte helle Raender (Luminanz > 0.93 und geringe Varianz),
+   maximal 12% je Seite, damit echtes Motiv nie beschnitten wird. Gibt eine (evtl.) neue dataURL zurueck. */
+async function smAutoTrimBorders(url){
+  try{
+    const img=await new Promise((res,rej)=>{ const im=new Image(); im.crossOrigin="anonymous"; im.onload=()=>res(im); im.onerror=rej; im.src=url; });
+    const w=img.naturalWidth||img.width, h=img.naturalHeight||img.height; if(!w||!h) return url;
+    const c=document.createElement("canvas"); c.width=w; c.height=h; const cx=c.getContext("2d",{willReadFrequently:true});
+    cx.drawImage(img,0,0); let d;
+    try{ d=cx.getImageData(0,0,w,h).data; }catch(e){ return url; }   /* CORS-taint -> nicht trimmen */
+    const lum=(i)=>(0.299*d[i]+0.587*d[i+1]+0.114*d[i+2])/255;
+    const rowLight=(y)=>{ let s=0,n=0; for(let x=0;x<w;x+=Math.max(1,Math.floor(w/64))){ const i=(y*w+x)*4; if(d[i+3]<8){s++;} else if(lum(i)>0.93) s++; n++; } return s/n>0.97; };
+    const colLight=(x)=>{ let s=0,n=0; for(let y=0;y<h;y+=Math.max(1,Math.floor(h/64))){ const i=(y*w+x)*4; if(d[i+3]<8){s++;} else if(lum(i)>0.93) s++; n++; } return s/n>0.97; };
+    let top=0,bot=h-1,left=0,right=w-1; const maxT=Math.floor(h*0.12), maxS=Math.floor(w*0.12);
+    while(top<maxT && rowLight(top)) top++;
+    while(bot>h-1-maxT && rowLight(bot)) bot--;
+    while(left<maxS && colLight(left)) left++;
+    while(right>w-1-maxS && colLight(right)) right--;
+    if(top===0 && left===0 && bot===h-1 && right===w-1) return url;   /* nichts zu trimmen */
+    const nw=right-left+1, nh=bot-top+1; if(nw<w*0.5||nh<h*0.5) return url;   /* Sicherheitsnetz */
+    const oc=document.createElement("canvas"); oc.width=nw; oc.height=nh; oc.getContext("2d").drawImage(c,left,top,nw,nh,0,0,nw,nh);
+    return oc.toDataURL("image/png");
+  }catch(e){ return url; }
+}
 async function generateImage(userPrompt, fmt, seed, slideType){
   const m=genMode();
   if(m==="demo") return makePlaceholder(curTheme, FORMATS[fmt].w, FORMATS[fmt].h, seed, slideType);
   const fullPrompt = buildImagePrompt(userPrompt, fmt, slideType||"cover", curTheme, curBrand);
-  if(m==="direct") return generateImageDirect(fullPrompt, fmt, curModel, _orKey);
+  if(m==="direct") return smAutoTrimBorders(await generateImageDirect(fullPrompt, fmt, curModel, _orKey));
   // make-gateway
   const params=new URLSearchParams();
   params.set("action","generate-image"); params.set("prompt",fullPrompt);
@@ -1463,7 +1488,7 @@ async function generateImage(userPrompt, fmt, seed, slideType){
   const res=await fetch(CONFIG.API_BASE,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:params.toString()});
   const data=await res.json();
   if(!data.ok || !data.image) throw new Error(data.error||"Bildgenerierung fehlgeschlagen");
-  return data.image;
+  return smAutoTrimBorders(data.image);
 }
 
 /* ============================================================
@@ -4322,6 +4347,59 @@ async function ensureHeadSub(out, article){
   }catch(e){ /* darf nie blockieren */ }
   return {changed:false};
 }
+/* ============================================================================
+   LAENGEN-GARANTIE (Yuki 17.07.2026): abgeschnittene Saetze endgueltig loesen.
+   Ursache-Fix: NICHT mechanisch schneiden, sondern zu lange Felder per fokussiertem KI-Aufruf
+   KUERZER NEU FORMULIEREN (vollstaendiger, grammatikalisch korrekter Satz innerhalb des Limits).
+   Mechanischer Schnitt nur als allerletzte Notbremse — und dann faellt der ganze unvollstaendige
+   letzte Satz weg (nie mitten im Satz mit gefaktem Punkt).
+   ============================================================================ */
+var FINNET_LIMITS={head:55,sub:40,bullets:90,close:120,closeHead:40,infoHead:40,intro:140,infoBullet:85,box:130};
+/* Sauberer Notfall-Schnitt OHNE gefakten Punkt: nimm nur GANZE Saetze, die ins Limit passen;
+   gibt es keinen Satzenpunkt, kappe am letzten Wort ohne kuenstlichen Punkt. */
+function smHardTrim(t,n){
+  t=(""+(t||"")).trim(); if(t.length<=n) return t;
+  var cut=t.slice(0,n+1);
+  var lastEnd=Math.max(cut.lastIndexOf(". "),cut.lastIndexOf("! "),cut.lastIndexOf("? "));
+  if(lastEnd>0) return t.slice(0,lastEnd+1).trim();
+  /* Satz endet evtl. genau am Limit */
+  if(/[.!?]$/.test(t.slice(0,n).trim())) return t.slice(0,n).trim();
+  var sp=cut.lastIndexOf(" ");
+  return (sp>0?cut.slice(0,sp):cut.slice(0,n)).trim().replace(/[\s,;:\u2013-]+$/,"");
+}
+/* KI-Repair: schreibt zu lange Felder KUERZER (vollstaendige Saetze). Aendert nur betroffene Felder. */
+async function ensureLength(out){
+  try{
+    var over=[];
+    Object.keys(FINNET_LIMITS).forEach(function(k){
+      if(k==="bullets"){ (out.bullets||[]).forEach(function(b,i){ if((b||"").length>FINNET_LIMITS.bullets) over.push({k:"bullets",i:i,lim:FINNET_LIMITS.bullets,val:b}); }); }
+      else if(typeof out[k]==="string" && out[k].length>FINNET_LIMITS[k]) over.push({k:k,lim:FINNET_LIMITS[k],val:out[k]});
+    });
+    if(!over.length) return {changed:false};
+    var items=over.map(function(o,idx){ return (idx+1)+". Feld \""+o.k+(o.k==="bullets"?("["+o.i+"]"):"")+"\" (max "+o.lim+" Zeichen, aktuell "+o.val.length+"): "+o.val; }).join("\n");
+    var sys="Du bist Chef vom Dienst bei finanzen.net. Kuerze die folgenden Felder so, dass jedes ein "+
+      "VOLLSTAENDIGER, grammatikalisch korrekter deutscher Satz (bzw. Teaser) INNERHALB seines Zeichenlimits ist. "+
+      "NIEMALS mitten im Satz oder Wort abbrechen. Lieber weniger Detail als ein abgeschnittener Satz. "+
+      "Inhalt/Fakten beibehalten, nur knapper. Umlaute korrekt. Keine Kaufempfehlung. "+
+      "Antworte NUR mit reinem JSON: {\"items\":[{\"k\":\"...\",\"i\":<nur bei bullets>,\"text\":\"gekuerzt\"}]} in derselben Reihenfolge.";
+    var res=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:items}]));
+    if(res && Array.isArray(res.items)){
+      res.items.forEach(function(it){
+        if(!it||typeof it.text!=="string") return;
+        var lim=FINNET_LIMITS[it.k]||120; var txt=it.text.trim();
+        if(txt.length>lim) txt=smHardTrim(txt,lim);   /* Notbremse, ganze Saetze */
+        if(it.k==="bullets" && typeof it.i==="number" && Array.isArray(out.bullets)) out.bullets[it.i]=txt;
+        else if(typeof out[it.k]==="string") out[it.k]=txt;
+      });
+    }
+    /* Sicherheitsnetz: was JETZT noch zu lang ist, sauber auf ganze Saetze kappen (kein Fake-Punkt) */
+    Object.keys(FINNET_LIMITS).forEach(function(k){
+      if(k==="bullets"){ if(Array.isArray(out.bullets)) out.bullets=out.bullets.map(function(b){ return (b||"").length>FINNET_LIMITS.bullets?smHardTrim(b,FINNET_LIMITS.bullets):b; }); }
+      else if(typeof out[k]==="string" && out[k].length>FINNET_LIMITS[k]) out[k]=smHardTrim(out[k],FINNET_LIMITS[k]);
+    });
+    return {changed:true};
+  }catch(e){ return {changed:false}; }
+}
 /* Stufe B: Sonnet als reiner Pruefer/Korrektor — vergleicht NUR gegen den Artikel */
 async function groundingVerify(out, article){
   const fields={head:out.head||"",sub:out.sub||"",bullets:out.bullets||[],close:out.close||"",closeHead:out.closeHead||"",infoHead:out.infoHead||"",intro:out.intro||"",infoBullet:out.infoBullet||"",box:out.box||""};
@@ -4388,7 +4466,7 @@ extractSocial = async function(txt){
     "\"intro\":\"Einordnungs-Absatz für die Info-Slide, max 140 Zeichen (kurz, 1-2 knappe Sätze): ein NEUER Aspekt oder Hintergrund, der in den bullets NICHT vorkommt, mit mindestens einem konkreten Fakt\","+
     "\"infoBullet\":\"Chevron-Punkt der Info-Slide, max 85 Zeichen: ein weiterer NEUER Fakt, der weder in bullets noch in intro steht\","+
     "\"box\":\"Kontext/Ausblick für die abgerundete Info-Box, max 130 Zeichen und EIN vollständiger, in sich abgeschlossener Satz: die konkrete Konsequenz oder der nächste relevante Termin — darf KEINEN Fakt aus bullets, intro oder infoBullet wiederholen\","+
-    "\"x\":{\"text\":\"Post für X (Twitter), STRIKT max 240 Zeichen (Puffer für Cashtags): macht neugierig auf die Slides und regt zum Durchklicken an (z.B. Kernaussage anteasern, die stärkste Zahl nennen, aber nicht alles verraten). Redakteurs-Ton, keine KI-Floskeln, maximal 1 Emoji\",\"cashtags\":[\"1 bis MAXIMAL 2 Börsenticker der zentralen Aktien des Artikels im Format $AMD, $NVDA — NUR wenn der Ticker sicher bekannt ist, sonst leere Liste\"]},"+
+    "\"x\":{\"text\":\"Post für X (Twitter), STRIKT max 240 Zeichen (Puffer für Cashtags): macht neugierig auf die Slides und regt zum Durchklicken an (z.B. Kernaussage anteasern, die stärkste Zahl nennen, aber nicht alles verraten). Redakteurs-Ton, keine KI-Floskeln, maximal 1 Emoji\",\"cashtags\":[\"0 bis MAXIMAL 2 Börsenticker der zentralen Aktien im Format $AMD, $NVDA. STRENG: nur das KORREKTE, dir sicher bekannte Kürzel verwenden (z.B. SpaceX wäre $SPACEX bzw. ist NICHT börsennotiert -> dann KEIN Ticker; $SPCE ist Virgin Galactic, nicht SpaceX!). Rate NIE. KEINE Dubletten. Ist die Firma nicht börsennotiert oder das Kürzel unsicher: leere Liste []\"]},"+
     "\"hashtags\":{\"instagram\":[\"MAXIMAL 5 deutsche Hashtags (nie mehr als 5!), klein geschrieben. AUSWAHL-REGEL: 1x Firmenname + sonst breite, reichweitenstarke Finanz-/Wirtschafts-Hashtags wie #börse, #aktien, #finanzen, #wirtschaft, #investieren, #geldanlage. KEINE Nischen-Hashtags zum Spezialthema (FALSCH: #containerschifffahrt, #prognose, #hamburg, #nutzfahrzeuge — RICHTIG: #hapaglloyd #aktien #börse #wirtschaft #finanzen)\"],\"linkedin\":[\"MAXIMAL 5 Hashtags (nie mehr als 5!): 1x Firmenname + breite Wirtschafts-/Finanz-Tags (#Wirtschaft, #Börse, #Finanzen, #Investieren), keine Nischen-Tags\"]}}. HASHTAG-OBERGRENZE (Pflicht, Redakteurs-Feedback Yuki 15.07., gilt für ALLE Plattformen ausnahmslos): Egal welches Feld oder welche Plattform Hashtags enthält — NIE mehr als 5 Hashtags insgesamt. "+
     "ANTI-REDUNDANZ (kritisch): Jedes Feld wird auf einer EIGENEN Slide angezeigt. Über ALLE Felder hinweg (head, sub, bullets, infoHead, intro, infoBullet, box, close, closeHead) darf derselbe Fakt NIE zweimal vorkommen — auch nicht umformuliert. Verteile die Fakten des Artikels bewusst: bullets = die 3 wichtigsten Kernfakten; intro/infoBullet/box = weitere Aspekte, Hintergründe, Zahlen oder Termine, die in den bullets NICHT stehen; close = eine echte Schlussfolgerung, kein Fakten-Recap. closeHead und infoHead müssen sich klar von head und voneinander unterscheiden. SELBSTTEST: Lies alle Felder nacheinander wie ein Karussell — wiederholt sich inhaltlich etwas, ersetze es durch einen noch nicht genutzten Fakt aus dem Artikel. KEIN KI-KLANG (Pflicht für alle Texte): VERBOTEN sind formelhafte Absatz-Einstiege mit Doppelpunkt-Anmoderation wie 'Besonders überraschend:', 'Ein Wermutstropfen bleibt:', 'Besonders bemerkenswert:', 'Interessant dabei:', 'Wichtig zu wissen:', 'Hinzu kommt:', 'Nicht zu vergessen:' und ähnliche Zweiwort-Floskeln. Statt 'Besonders überraschend: International Motors erzielte 115 Mio.' schreibe 'International Motors erzielte 115 Mio. EUR — der Konsens hatte einen Verlust erwartet.' Die Überraschung/Bewertung gehört IN den Satz, nicht davor. Variiere Satzanfänge über alle Absätze. LESBARKEIT (Pflicht): Schreibe einfache, klare Sätze wie ein guter Nachrichtenredakteur. Maximal EIN Nebensatz pro Satz, KEINE Schachtelsätze, KEINE Einschübe mit Gedankenstrich am Satzende, keine Relativsatz-Ketten. Lieber zwei kurze Sätze als ein verschachtelter. Negativ-Beispiel (so NICHT): 'Louisiana befreite Ende 2024 Rechenzentren, die vor 2029 gebaut werden, für 20 Jahre von der Umsatzsteuer — gezielt, um Meta ins Land zu holen.' Besser: 'Louisiana befreit neue Rechenzentren für 20 Jahre von der Umsatzsteuer. Das Gesetz von Ende 2024 sollte gezielt Meta ins Land holen.' SELBSTTEST LESBARKEIT: Lies jeden Satz laut — stolpert man oder braucht man zwei Anläufe, in zwei Sätze aufteilen. WÄHRUNGS-SCHREIBWEISE (Pflicht in allen Feldern): Entweder Symbol VOR der Zahl ('$ 4.062,60') ODER Kürzel NACH der Zahl ('4.062,60 USD', '145,30 EUR'). NIEMALS das Symbol nach der Zahl ('4.062,60 $' ist FALSCH), kein ausgeschriebenes 'US-Dollar' hinter Zahlen. Innerhalb des Beitrags einheitlich eine Variante verwenden. GROUNDING (absolut kritisch, Verstoß = unbrauchbar): Verwende AUSSCHLIESSLICH Fakten, Zahlen, Namen, Firmen und Vergleiche, die WÖRTLICH im Artikeltext stehen. Erfinde NIEMALS Vergleiche oder Einordnungen mit Firmen/Werten, die der Artikel nicht nennt (z.B. NICHT 'mehr als Apple wert' schreiben, wenn Apple im Text nicht vorkommt). Kein Weltwissen ergänzen, keine Kontexte aus deinem Training, keine gerundeten oder umgerechneten Zahlen — nur was im Text steht, in der Form, in der es dort steht. SELBSTTEST GROUNDING: Prüfe jedes Feld — kommt jede Zahl, jeder Firmenname und jeder Vergleich darin im Artikeltext vor? Falls nein, ersatzlos streichen oder durch einen belegten Fakt ersetzen. KEINE META-REFERENZ AUF DEN ARTIKEL (Pflicht, Redakteurs-Feedback Yuki 15.07.): Schreibe niemals Formulierungen wie 'wird im Artikel als X bezeichnet', 'laut Artikel', 'weitere Details nennt die Firma nicht', 'der Artikel erwähnt nicht' oder ähnliche Verweise auf den Quelltext selbst — das ist ein Stilbruch, der Leser aus der Grafik reißt. Formuliere den Fakt stattdessen direkt und eigenständig, so als hättest du selbst recherchiert: STATT 'Kontron ist im SDAX notiert und wird im Artikel als Technologiekonzern bezeichnet' schreibe 'Kontron ist ein im SDAX notierter Technologiekonzern'. STATT 'Der Auftragsgeber ist ein europäischer Bahnbetreiber — weitere Details nennt Kontron nicht' schreibe 'Der Auftragsgeber ist ein europäischer Bahnbetreiber' (den Nicht-Fakt 'keine weiteren Details' einfach weglassen, statt ihn explizit zu erwähnen). Wenn eine Information im Artikel fehlt, lasse sie ersatzlos weg — erwähne NIE, dass sie fehlt oder woher die vorhandene Information stammt. GRAMMATIK & UMLAUTE (Pflicht, Redakteurs-Feedback 15.07.): Fehlerfreies Deutsch in JEDEM Feld. Umlaute ä/ö/ü/ß IMMER korrekt schreiben — niemals Transliterationen oder Fremdschreibweisen (FALSCH: 'Folgekvartal', 'Gewinnschaetzung', 'Boerse' — RICHTIG: 'Folgequartal', 'Gewinnschätzung', 'Börse'). SELBSTTEST GRAMMATIK: Lies jedes Feld auf Rechtschreibung, Grammatik und korrekte Umlaute, korrigiere vor der Antwort. KEIN GENERISCHES ETIKETT / HOOK-PFLICHT (Redakteurs-Feedback Yuki 15.07.): Kein Feld darf so generisch sein, dass ein Leser es ohne Vorwissen nicht einordnen kann (Negativ-Beispiel: eine Cover-Zeile wie 'Trader-Zahlenfokus' oder 'Klassisches News-Format' sagt NICHTS über den Inhalt). Jede Headline/Zeile benennt konkret WER was tut, mit Firma und möglichst einer Zahl. Das Cover muss zum Weiterswipen anregen: stärkster Fakt plus offene Konsequenz oder Spannungsbogen — die Auflösung kommt auf den Folge-Slides. Sachlich, deskriptiv, keine Kaufempfehlung, keine Kursziele als Empfehlung. Alle Zahlen exakt aus dem Text, nichts erfinden. FACHABKUERZUNGEN ERKLAEREN (Pflicht, Redakteurs-Feedback Yuki 16.07.2026): Erklaerungsbeduerftige Abkuerzungen/Fachbegriffe muessen bei ERSTNENNUNG verstaendlich sein — ein Social-Media-Follower ohne Fachwissen muss folgen koennen. Schreibe die Abkuerzung beim ersten Mal AUS oder ergaenze eine 2-4-Wort-Erklaerung in Klammern. NEGATIV-BEISPIEL (echtes Feedback): 'bis zu 2,50 USD CVR' — 'CVR' wird nirgends erklaert und ist KEINE allgemein bekannte Abkuerzung. RICHTIG: 'bedingte Zusatzzahlung (CVR)' oder 'Besserungsschein (CVR, an Meilensteine geknuepft)'. AUSNAHME — NICHT erklaeren muss man breit bekannte Boersen-/Finanzbegriffe: KGV, ETF, EPS, USD/EUR, DAX, IPO, CEO, FDA, KI, BIP. Im Zweifel (Nischen-/Branchenkuerzel wie CVR, DEA-Reclassification, 5-MeO-DMT) IMMER kurz einordnen. Die Erklaerung kurz halten, damit die Feld-Laenge passt.";
   var out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,9000)}]));
@@ -4397,10 +4475,7 @@ extractSocial = async function(txt){
   // Zeichengrenze pro Bullet: nur bei extremer Ueberlaenge greifen und dann SAUBER am letzten
   // Satz-/Wortende enden (Regel Christian 16.07.2026: NIE ein "\u2026" auf der Grafik; der Renderer
   // verkleinert die Schrift und schneidet nie ab). Kein Ellipsis-Anhang mehr.
-  function smCap(t,n){ t=(t||"").trim(); if(t.length<=n) return t;
-    var cut=t.slice(0,n); var p=Math.max(cut.lastIndexOf(". "),cut.lastIndexOf("! "),cut.lastIndexOf("? "),cut.lastIndexOf(" \u2013 "),cut.lastIndexOf("; "));
-    if(p>n*0.5) return cut.slice(0,p+1).trim();
-    var sp=cut.lastIndexOf(" "); return (sp>n*0.6?cut.slice(0,sp):cut).trim().replace(/[,;:\u2013-]+$/,"")+"."; }
+  function smCap(t,n){ return smHardTrim(t,n); }   /* kein Fake-Punkt mehr; ganze Saetze (Yuki 17.07.) */
   if(Array.isArray(out.bullets)){ out.bullets=out.bullets.map(function(b){return smCap(b,90);});
     $id("fB1").value=out.bullets[0]||""; $id("fB2").value=out.bullets[1]||""; $id("fB3").value=out.bullets[2]||""; }
   /* Laengen-Cap auch fuer die uebrigen Textfelder (Yuki 16.07.2026: Slide 2/3 teils zu lang -> Footer).
@@ -4452,6 +4527,8 @@ extractSocial = async function(txt){
     _gVerify=await groundingVerify(out, txt);
     // HEAD+SUB-GARANTIE (Yuki 16.07.): Backstop-Heuristik + KI-Repair, damit die Titelzeilen nie kontextlos sind
     var _hs=await ensureHeadSub(out, txt); if(_hs.changed) _gVerify.changed=true;   /* immer pruefen = echte Garantie */
+    // LAENGEN-GARANTIE (Yuki 17.07.): zu lange Felder KUERZER formulieren statt abschneiden
+    var _ln=await ensureLength(out); if(_ln.changed) _gVerify.changed=true;
     // Nach Korrektur erneut deterministisch pruefen (final)
     _gIssues=groundingCheck(out, txt);
     // Korrigierte Felder zurueck in die Eingabefelder schreiben
@@ -4477,7 +4554,7 @@ extractSocial = async function(txt){
   if(out.captions && out.captions.linkedin) out.captions.linkedin=dedupeMentions(out.captions.linkedin);
   // X (Twitter): Cashtags normalisieren ($-Präfix, max 2) + Gesamtlänge hart auf 280 begrenzen
   if(out.x){
-    if(Array.isArray(out.x.cashtags)) out.x.cashtags=out.x.cashtags.slice(0,2).map(function(c){ c=(c||"").trim().toUpperCase().replace(/^\$+/,""); return c?"$"+c:""; }).filter(Boolean);
+    if(Array.isArray(out.x.cashtags)){ var _seenT={}; out.x.cashtags=out.x.cashtags.map(function(c){ c=(c||"").trim().toUpperCase().replace(/^\$+/,""); return c?"$"+c:""; }).filter(function(c){ if(!c||_seenT[c]) return false; _seenT[c]=1; return true; }).slice(0,2); }   /* Dedup + Normalisierung (Yuki 17.07.: $SPCE $SPCE) */
     if(out.x.text){
       var tagLen=((out.x.cashtags||[]).join(" ").length)+2;
       if(out.x.text.length+tagLen>280) out.x.text=smartShorten(out.x.text, 280-tagLen);
@@ -4765,13 +4842,14 @@ async function smDownloadPlatform(p, btn){
     var zip=new JSZip();
     var b=SOCIAL_BRANDS[window._smBrand]||SOCIAL_BRANDS.finnet;
     var base=smFileBase();
+    var root=base+"_"+p.id;   /* entpackter Ordner = ZIP-Name (Yuki 17.07.) */
     var isSm=slides[0]&&slides[0].content&&slides[0].content.origin==="sm";
     var t=window._smText||{};
     if(isSm && typeof smRenderSlideToDataURL==="function"){
       var zf=(p.master==="9:16")?"9:16":"4:5", F=FORMATS[zf], n=smSlides().length;
       for(var i=0;i<n;i++){
         var u=await smRenderSlideToDataURL(zf,i);
-        zip.file(p.id+"/"+base+"_slide"+(i+1)+"_"+(F.w*SM_SCALE)+"x"+(F.h*SM_SCALE)+".png", u.split(",")[1], {base64:true});
+        zip.file(root+"/"+base+"_slide"+(i+1)+"_"+(F.w*SM_SCALE)+"x"+(F.h*SM_SCALE)+".png", u.split(",")[1], {base64:true});
       }
     } else {
       snapshotCurrent();
@@ -4793,7 +4871,7 @@ async function smDownloadPlatform(p, btn){
           var fm2=FORMATS[p.master]; hi=await fitToTarget(hi,fm2.w*2,fm2.h*2,"image/png");
         }
         var url=await fitToTarget(hi,p.w*2,p.h*2,"image/png");
-        zip.file(p.id+"/"+base+"_slide"+(i2+1)+"_"+(p.w*2)+"x"+(p.h*2)+".png", url.split(",")[1], {base64:true});
+        zip.file(root+"/"+base+"_slide"+(i2+1)+"_"+(p.w*2)+"x"+(p.h*2)+".png", url.split(",")[1], {base64:true});
       }
       if(!same){
         curFmt=origFmt; DISP=dispDims(curFmt); exportMult=FORMATS[curFmt].w/DISP.w;
@@ -4814,7 +4892,7 @@ async function smDownloadPlatform(p, btn){
     } else if(p.id==="x_post" && t.x && t.x.text){
       lines.push("=== X (TWITTER) ==="); lines.push((t.x.text+"\n\n"+((t.x.cashtags||[]).join(" "))).trim()); lines.push("");
     }
-    zip.file(p.id+"/texte.txt", lines.join("\n"));
+    zip.file(root+"/texte.txt", lines.join("\n"));
     var blob=await zip.generateAsync({type:"blob"});
     var a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=base+"_"+p.id+".zip"; a.click();
     setTimeout(function(){ URL.revokeObjectURL(a.href); },4000);
@@ -4968,6 +5046,7 @@ async function smDownloadBundle(){
     var zip=new JSZip();
     var b=SOCIAL_BRANDS[window._smBrand]||SOCIAL_BRANDS.finnet;
     var base=(($id("fHead").value||"post").replace(/[^a-z0-9äöüß]+/gi,"_").replace(/^_+|_+$/g,"").slice(0,40))||"post";
+    var root=smFileBase(base)+"_"+b.id+"_bundle";   /* entpackter Ordner = ZIP-Name (Yuki 17.07.) */
 
     // ===== zero-Pfad (Yuki 15.07.): JEDE Slide pro Plattform über smRender im Zielformat (4:5/9:16)
     // neu rendern — voll eingepasst, doppelte Auflösung, nie abgeschnitten. Kein Fabric/renderTemplate. =====
@@ -4984,7 +5063,7 @@ async function smDownloadBundle(){
           var ck=zf+"#"+si;
           if(!cache[ck]) cache[ck]=await smRenderSlideToDataURL(zf, si);
           var F=FORMATS[zf];
-          zip.file(b.id+"/"+pl.id+"/"+base+"_slide"+(si+1)+"_"+(F.w*SM_SCALE)+"x"+(F.h*SM_SCALE)+".png", cache[ck].split(",")[1], {base64:true});
+          zip.file(root+"/"+pl.id+"/"+base+"_slide"+(si+1)+"_"+(F.w*SM_SCALE)+"x"+(F.h*SM_SCALE)+".png", cache[ck].split(",")[1], {base64:true});
         }
       }
       var t0=window._smText, l0=[];
@@ -4994,9 +5073,9 @@ async function smDownloadBundle(){
         if(t0.captions.linkedin){ l0.push("=== LINKEDIN CAPTION ==="); l0.push(t0.captions.linkedin); l0.push(""); l0.push("=== LINKEDIN HASHTAGS ==="); l0.push((t0.hashtags&&t0.hashtags.linkedin||[]).join(" ")); l0.push(""); }
         if(t0.x&&t0.x.text){ l0.push("=== X (TWITTER) ==="); l0.push((t0.x.text+"\n\n"+((t0.x.cashtags||[]).join(" "))).trim()); l0.push(""); }
       }
-      zip.file(b.id+"/captions_und_hashtags.txt", l0.join("\n"));
+      zip.file(root+"/captions_und_hashtags.txt", l0.join("\n"));
       var zblob=await zip.generateAsync({type:"blob"});
-      var za2=document.createElement("a"); za2.href=URL.createObjectURL(zblob); za2.download=smFileBase(base)+"_"+b.id+"_bundle.zip"; za2.click();
+      var za2=document.createElement("a"); za2.href=URL.createObjectURL(zblob); za2.download=root+".zip"; za2.click();
       setTimeout(function(){ URL.revokeObjectURL(za2.href); },4000);
       toast("Bundle heruntergeladen");
       btn.disabled=false; btn.innerHTML=old;
@@ -5017,11 +5096,11 @@ async function smDownloadBundle(){
       // Master deshalb IMMER exakt auf Formatgröße x2 bringen (cover-fit schneidet Rundungs-Artefakte weg).
       var fmx=FORMATS[origFmt];
       hi=await fitToTarget(hi, fmx.w*2, fmx.h*2, "image/png");
-      zip.file(b.id+"/"+base+"_slide"+(i+1)+"_master.png", hi.split(",")[1], {base64:true});
+      zip.file(root+"/"+base+"_slide"+(i+1)+"_master.png", hi.split(",")[1], {base64:true});
       for(var k=0;k<sameP.length;k++){
         var p=sameP[k];
         var url=await fitToTarget(hi,p.w*2,p.h*2,"image/png");
-        zip.file(b.id+"/"+p.id+"/"+base+"_slide"+(i+1)+"_"+(p.w*2)+"x"+(p.h*2)+".png", url.split(",")[1], {base64:true});
+        zip.file(root+"/"+p.id+"/"+base+"_slide"+(i+1)+"_"+(p.w*2)+"x"+(p.h*2)+".png", url.split(",")[1], {base64:true});
       }
     }
     // Cross-Ratio-Plattformen: natives Re-Rendering im Zielformat (nutzt die 9:16-Layouts der Templates).
@@ -5038,7 +5117,7 @@ async function smDownloadBundle(){
         var fm2=FORMATS[p2.master];
         hi2=await fitToTarget(hi2, fm2.w*2, fm2.h*2, "image/png");
         var url2=await fitToTarget(hi2,p2.w*2,p2.h*2,"image/png");
-        zip.file(b.id+"/"+p2.id+"/"+base+"_slide"+(i2+1)+"_"+(p2.w*2)+"x"+(p2.h*2)+".png", url2.split(",")[1], {base64:true});
+        zip.file(root+"/"+p2.id+"/"+base+"_slide"+(i2+1)+"_"+(p2.w*2)+"x"+(p2.h*2)+".png", url2.split(",")[1], {base64:true});
       }
     }
     // Master-Format wiederherstellen
@@ -5059,11 +5138,11 @@ async function smDownloadBundle(){
     } else {
       lines.push("(Keine generierten Captions vorhanden — Felder wurden manuell befüllt.)");
     }
-    zip.file(b.id+"/captions_und_hashtags.txt", lines.join("\n"));
+    zip.file(root+"/captions_und_hashtags.txt", lines.join("\n"));
     var blob=await zip.generateAsync({type:"blob"});
     var a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
-    a.download=smFileBase(base)+"_"+b.id+"_bundle.zip";
+    a.download=root+".zip";
     a.click();
     setTimeout(function(){ URL.revokeObjectURL(a.href); },4000);
     toast("Bundle heruntergeladen");
@@ -6489,7 +6568,7 @@ function smCalc(){
 }
 
 /* ---------- KI-Hintergrund (Pfad C) über bestehenden Make-Webhook ---------- */
-const SM_NEG=" Strictly no text, no letters, no words, no numbers, no digits, no logos, no watermarks, no charts, no tables, no invented data, no currency symbols, no percentage signs, no brand names, no realistic photography of real people.";
+const SM_NEG=" Strictly no text, no letters, no words, no numbers, no digits, no logos, no watermarks, no charts, no tables, no invented data, no currency symbols, no percentage signs, no brand names, no realistic photography of real people. Completely full-bleed edge to edge, no white or light border, no frame, no margin, no letterboxing.";
 const SM_THEME_TXT={
   clean:"calm, precise, minimal, controlled studio light",
   cinematic:"dramatic cinematic light, strong atmosphere, depth of field",
@@ -6521,6 +6600,7 @@ async function smGenBg(){
       if(!data.ok||!data.image) throw new Error(data.error||"Bildgenerierung fehlgeschlagen");
       url=data.image;
     }
+    try{ url=await smAutoTrimBorders(url); }catch(e){}   /* weisse Raender auto-trimmen (Yuki 17.07.) */
     const img=new Image();
     img.onload=()=>{ smBgImg=img; smBgUrl=url; st.textContent="Hintergrund gesetzt. Text-Ebene bleibt deterministisch."; $("smBgClear").style.display=""; smRender(); _bgDone&&_bgDone(true); };
     img.onerror=()=>{ st.textContent="Bild konnte nicht geladen werden."; _bgDone&&_bgDone(false); };
