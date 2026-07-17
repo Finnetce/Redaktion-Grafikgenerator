@@ -4398,47 +4398,89 @@ function smHardTrim(t,n){
   var sp=cut.lastIndexOf(" ");
   return (sp>0?cut.slice(0,sp):cut.slice(0,n)).trim().replace(/[\s,;:\u2013-]+$/,"");
 }
-/* LAENGEN-GARANTIE fit-basiert (Yuki 17.07.2026): misst pro Feld, ob der Text real in seine Box
-   passt (Breite x max. Zeilen bei Mindestschrift). NUR ueberlaufende Felder werden per KI KUERZER
-   NEU FORMULIERT — mit konkretem Ziel (max. Zeilen + grobes Zeichenbudget). Danach ERNEUT messen;
-   bis zu 3 Runden. Bleibt am Ende etwas zu lang, greift der Renderer-Shrink + (nur Notbremse) ein
-   sauberer Ganz-Satz-Schnitt. KEIN Vorab-Schneiden mehr. */
+/* FRAGMENT-ERKENNUNG (Yuki/ChatGPT 17.07.2026): erkennt grammatikalisch unvollstaendige Saetze,
+   auch wenn sie formal im Zeichenlimit liegen. Ein Feld gilt als Fragment, wenn es NICHT mit einem
+   Satzzeichen endet UND auf einem Funktions-/Bindewort endet (Praeposition, Artikel, Konjunktion,
+   Hilfsverb-Rumpf) — genau die Faelle "... zu.", "... oder der.", "... nicht allein stemmen". */
+/* HARD-Funktionswoerter: stehen praktisch NIE legitim am Satzende -> Satz endet darauf = Fragment.
+   Hilfs-/Modalverben (konnte, kann, wird, ist ...) bewusst NICHT hier, da im Deutschen ein Satz
+   grammatikalisch korrekt auf ihnen enden kann ("...das nicht stemmen konnte."). */
+var _FRAG_WORDS=("zu und oder aber denn sondern der die das den dem des ein eine einen einem einer "+
+  "mit von vom im in am an auf fuer für bei aus nach um als dass da weil ob sowie beim zur zum "+
+  "kein keine keinen keiner ihre ihren seiner seinen dessen deren bzw etwa rund circa ca "+
+  "gegen ueber über unter vor hinter neben zwischen samt trotz waehrend während").split(" ");
+var _FRAG_SET={}; _FRAG_WORDS.forEach(function(w){ _FRAG_SET[w]=1; });
+/* Ein Feld ist ein Fragment, wenn der letzte inhaltliche Satz unvollstaendig endet:
+   - endet auf Komma/Semikolon/Doppelpunkt/Gedankenstrich, ODER
+   - das LETZTE Wort (Satzzeichen ignoriert) ist ein Funktions-/Bindewort (zu, der, um ... zu, konnte)
+   Das faengt "... zu.", "... oder der.", "... schlagartig." (nein), "... nicht allein stemmen" —
+   siehe Sonderfall: fehlendes Verb am Ende laesst sich nicht generisch erkennen, daher fokussieren
+   wir auf die HAEUFIGEN, klaren Faelle: Satz endet auf Funktions-/Bindewort. Zusaetzlich: endet der
+   Text OHNE Satzzeichen, ist er verdaechtig — dann greift zusaetzlich die Fit-Pruefung/KI. */
+function finnetIsFragment(t){
+  t=(""+(t||"")).trim(); if(!t) return false;
+  /* offensichtlich offenes Ende */
+  if(/[,;:–-]$/.test(t)) return true;
+  /* letztes Wort ohne Satzzeichen betrachten */
+  var core=t.replace(/[.!?…]+$/,"").trim();
+  var lastWord=(core.split(/\s+/).pop()||"").toLowerCase().replace(/[^a-zäöüß]/g,"");
+  if(lastWord && _FRAG_SET[lastWord]) return true;   /* endet auf Funktions-/Bindewort -> Fragment */
+  /* endet OHNE Satzzeichen: nur dann als Fragment werten, wenn es mehrere Woerter sind (echte Saetze
+     muessen mit Satzzeichen enden; kurze Teaser/Headlines duerfen ohne). Konservativ: >=8 Woerter. */
+  if(!/[.!?…]$/.test(t) && core.split(/\s+/).length>=8) return true;
+  return false;
+}
+/* Ein Feld ist "sauber"/* Ein Feld ist "sauber", wenn es in seine Box passt (finnetFits) UND kein Fragment ist. */
+function finnetFieldOk(k,t){
+  if(!(""+(t||"")).trim()) return true;
+  return finnetFits(k,t).fits && !finnetIsFragment(t);
+}
+/* LAENGEN-GARANTIE (Yuki/ChatGPT 17.07.2026): NUR Neuformulieren, NIE mechanisch schneiden.
+   Ablauf: LLM-Rohtext -> validieren (Fit + Fragment) -> zu lange/fragmentierte Felder per KI KOMPLETT
+   NEU FORMULIEREN -> erneut validieren -> ... (bis 4 Runden). Es gibt KEINEN mechanischen Trim-Fallback
+   mehr im Produktionspfad. Rueckgabe: {changed, log:[{field,raw,raw_length,repaired,final,final_length,validation}], failed:[felder]}.  */
 async function ensureLength(out){
-  var changed=false;
+  var changed=false, logMap={};
+  function rec(k,i,raw){ var key=k+(i!=null?("["+i+"]"):""); if(!logMap[key]) logMap[key]={field:key, raw:raw, raw_length:(raw||"").length, repaired:null, final:raw, final_length:(raw||"").length, validation:"passed"}; return key; }
   try{
-    for(var round=0; round<3; round++){
+    for(var round=0; round<4; round++){
       var over=[];
       Object.keys(FINNET_FIT).forEach(function(k){
-        if(k==="bullets"){ (out.bullets||[]).forEach(function(b,i){ if((b||"").trim() && !finnetFits("bullets",b).fits) over.push({k:"bullets",i:i,val:b}); }); }
-        else if(typeof out[k]==="string" && out[k].trim() && !finnetFits(k,out[k]).fits) over.push({k:k,val:out[k]});
+        if(k==="bullets"){ (out.bullets||[]).forEach(function(b,i){ if((b||"").trim() && !finnetFieldOk("bullets",b)){ rec("bullets",i,b); over.push({k:"bullets",i:i,val:b}); } }); }
+        else if(typeof out[k]==="string" && out[k].trim() && !finnetFieldOk(k,out[k])){ rec(k,null,out[k]); over.push({k:k,val:out[k]}); }
       });
       if(!over.length) break;
       var budget=function(k){ var sp=FINNET_FIT[k]; return Math.max(20, Math.round(sp.w*sp.lines/(sp.min*0.52))); };
       var items=over.map(function(o,idx){ var sp=FINNET_FIT[o.k];
-        return (idx+1)+". Feld \""+o.k+(o.k==="bullets"?("["+o.i+"]"):"")+"\": max "+sp.lines+" Zeile(n), also ca. "+budget(o.k)+" Zeichen. Aktuell zu lang: "+o.val; }).join("\n");
-      var sys="Du bist Chef vom Dienst bei finanzen.net. Formuliere die folgenden Felder KUERZER, "+
-        "so dass jedes ein VOLLSTAENDIGER, grammatikalisch korrekter deutscher Satz/Teaser ist und in "+
-        "die angegebene Zeilen-/Zeichenvorgabe passt. NIEMALS mitten im Satz oder Wort enden. Lieber ein "+
-        "Detail weglassen als abschneiden. Fakten/Kernaussage erhalten, Umlaute korrekt, keine Kaufempfehlung. "+
-        "Antworte NUR mit reinem JSON: {\"items\":[{\"k\":\"...\",\"i\":<nur bei bullets>,\"text\":\"...\"}]}.";
+        return (idx+1)+". Feld \""+o.k+(o.k==="bullets"?("["+o.i+"]"):"")+"\": max "+sp.lines+" Zeile(n), also hoechstens ca. "+budget(o.k)+" Zeichen. Bisher (unvollstaendig oder zu lang): "+o.val; }).join("\n");
+      var sys="Du bist Chef vom Dienst bei finanzen.net. Formuliere jedes der folgenden Felder als EINEN "+
+        "vollstaendigen, grammatikalisch korrekten deutschen Satz (bzw. Teaser) NEU, der in die angegebene "+
+        "Zeilen-/Zeichenvorgabe passt. WICHTIG: Es MUSS ein vollstaendiger Satz mit sinnvollem Ende sein — "+
+        "NIEMALS mit einem Binde-/Funktionswort (zu, und, oder, der, mit, nicht, konnte ...) oder Komma enden. "+
+        "Lieber ein Detail weglassen als unvollstaendig werden. Kernaussage/Fakten erhalten, Umlaute korrekt, "+
+        "keine Kaufempfehlung. Antworte NUR mit reinem JSON: {\"items\":[{\"k\":\"...\",\"i\":<nur bei bullets>,\"text\":\"...\"}]}.";
       var res=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:items}]));
       if(!(res&&Array.isArray(res.items))) break;
       res.items.forEach(function(it){ if(!it||typeof it.text!=="string") return; var txt=it.text.trim();
+        var key=it.k+(it.k==="bullets"&&typeof it.i==="number"?("["+it.i+"]"):"");
+        if(logMap[key]){ logMap[key].repaired=txt; }
         if(it.k==="bullets" && typeof it.i==="number" && Array.isArray(out.bullets)) out.bullets[it.i]=txt;
         else if(typeof out[it.k]==="string") out[it.k]=txt;
       });
       changed=true;
     }
-    /* Notbremse: was JETZT noch nicht passt, sauber auf ganze Saetze kappen (Zeichenbudget), damit
-       nie ein abgehackter Satz bleibt. Der Renderer verkleinert zusaetzlich die Schrift. */
-    var cap=function(k,t){ var sp=FINNET_FIT[k]; if(!sp) return t; var n=Math.max(20,Math.round(sp.w*sp.lines/(sp.fs*0.52)));
-      return finnetFits(k,t).fits? t : smHardTrim(t,n); };
-    Object.keys(FINNET_FIT).forEach(function(k){
-      if(k==="bullets"){ if(Array.isArray(out.bullets)) out.bullets=out.bullets.map(function(b){ var r=cap("bullets",b); if(r!==b) changed=true; return r; }); }
-      else if(typeof out[k]==="string"){ var r=cap(k,out[k]); if(r!==out[k]){ out[k]=r; changed=true; } }
+    /* Finaler Feld-Status (KEIN Trim mehr): pro Feld final + validation eintragen. */
+    var failed=[];
+    Object.keys(logMap).forEach(function(key){
+      var k=key.replace(/\[\d+\]$/,""); var i=null; var m=/\[(\d+)\]$/.exec(key); if(m) i=+m[1];
+      var val=(i!=null)?((out.bullets||[])[i]||""):(out[k]||"");
+      logMap[key].final=val; logMap[key].final_length=val.length;
+      logMap[key].validation=finnetFieldOk(k,val)?"passed":"FAILED";
+      if(!finnetFieldOk(k,val)) failed.push(key);
     });
-    return {changed:changed};
-  }catch(e){ return {changed:changed}; }
+    try{ window._smLenLog=Object.keys(logMap).map(function(k){return logMap[k];}); if(window._smLenLog.length) console.log("[ensureLength]",JSON.stringify(window._smLenLog,null,2)); }catch(e){}
+    return {changed:changed, log:window._smLenLog||[], failed:failed};
+  }catch(e){ return {changed:changed, log:[], failed:[]}; }
 }
 /* Stufe B: Sonnet als reiner Pruefer/Korrektor — vergleicht NUR gegen den Artikel */
 async function groundingVerify(out, article){
@@ -4561,8 +4603,9 @@ extractSocial = async function(txt){
     _gVerify=await groundingVerify(out, txt);
     // HEAD+SUB-GARANTIE (Yuki 16.07.): Backstop-Heuristik + KI-Repair, damit die Titelzeilen nie kontextlos sind
     var _hs=await ensureHeadSub(out, txt); if(_hs.changed) _gVerify.changed=true;   /* immer pruefen = echte Garantie */
-    // LAENGEN-GARANTIE (Yuki 17.07.): zu lange Felder KUERZER formulieren statt abschneiden
+    // LAENGEN-GARANTIE (Yuki/ChatGPT 17.07.): zu lange/fragmentierte Felder NEU FORMULIEREN (kein Trim)
     var _ln=await ensureLength(out); if(_ln.changed) _gVerify.changed=true;
+    window._smLenFailed=(_ln.failed||[]);   /* Felder, die auch nach 4 Runden nicht sauber sind */
     // Nach Korrektur erneut deterministisch pruefen (final)
     _gIssues=groundingCheck(out, txt);
     // Korrigierte Felder zurueck in die Eingabefelder schreiben
@@ -4575,6 +4618,19 @@ extractSocial = async function(txt){
     }
   }catch(e){ /* Gate darf die Generierung nie blockieren */ }
   groundingReport(_gIssues,_gVerify);
+  /* FINALE VALIDIERUNG (ChatGPT 17.07.): prueft den TATSAECHLICH gesetzten Finaltext je Feld auf
+     Fragmente/Ueberlauf. Schlaegt der Repair fehl, wird NICHT still weitergemacht — der Redakteur
+     bekommt eine deutliche Warnung (kein Blockieren der App, aber klare Aufforderung zum Neu-Generieren). */
+  try{
+    var _ff=(window._smLenFailed||[]);
+    var _fw=document.getElementById("smLenWarn");
+    if(_ff.length){
+      if(!_fw){ _fw=document.createElement("div"); _fw.id="smLenWarn"; _fw.style.cssText="margin-top:10px;border-radius:11px;padding:11px 13px;font-size:12.5px;line-height:1.5;background:#fdecec;border:1px solid #f5b5b5;color:#a11"; var a=document.getElementById("auto-social"); if(a) a.appendChild(_fw); }
+      _fw.style.display="block";
+      _fw.innerHTML="<b>Text konnte nicht vollständig im Limit formuliert werden:</b> "+_ff.join(", ")+". Bitte erneut generieren oder das Feld manuell prüfen, bevor du exportierst.";
+      toast("Textprüfung: "+_ff.length+" Feld(er) unvollständig — bitte prüfen",6000);
+    } else if(_fw){ _fw.style.display="none"; }
+  }catch(e){}
   // LinkedIn: @-Markierung pro Firma nur beim ersten Vorkommen (Yuki 13.07.)
   function dedupeMentions(t){
     if(!t) return t;
