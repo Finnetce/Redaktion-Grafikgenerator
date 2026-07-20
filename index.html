@@ -1995,9 +1995,11 @@ function buildTextInfo(content){
   // "Quelle:"-Zone, wird die (einheitliche) Schriftgröße aller Blöcke verkleinert, bis alles
   // oberhalb der Quelle passt — bis zu einem harten Minimum. Kein smartShorten mehr.
   let fs=spec.bodyPx*sx;
-  const tiMin=Math.max(Math.round(spec.bodyPx*sx*0.6),18);
+  /* Info-Slide hat oft 3 Bloecke (Intro+Bullet+Box) — mehr Shrink-Spielraum, damit die graue Box
+     samt Text IMMER oberhalb der Quelle bleibt (Yuki 20.07.: Box lief in "Quelle"). Boden 50%. */
+  const tiMin=Math.max(Math.round(spec.bodyPx*sx*0.5),16);
   let res=layout(fs,boxTxt);
-  let guard=40;
+  let guard=60;
   while(res.bottom>maxBottom && fs>tiMin && guard-->0){
     fs-=1;
     res=layout(fs,boxTxt);
@@ -4523,7 +4525,7 @@ extractSocial = async function(txt){
     ? " W\u00e4hle selbst den passenden Textstil f\u00fcr diesen Artikel (hook=zugespitzt/neugierig, trader=maximale Zahlendichte, info=ruhig erkl\u00e4rend) und gib ihn im Feld textstyle zur\u00fcck."
     : " "+_st.prompt+" Gib im Feld textstyle den Wert '"+window._smTextStyle+"' zur\u00fcck.";
   var sys="Du bist Social-Media-Redakteur bei "+b.label+" und schreibst professionelles, korrektes Deutsch mit Umlauten. Tonalit\u00e4t: "+b.ton+stylePart+" Lies den Artikeltext und antworte NUR mit reinem JSON ohne Markdown. Schema: {"+
-    "\" PRIORISIERUNG (Pflicht-Schritt VOR dem Schreiben, Redakteurs-Feedback Yuki 15.07.): Bevor du auch nur ein Feld formulierst, identifiziere gedanklich ALLE Einzelfakten des Artikels (Zahlen, Vergleiche, Entscheidungen, Zitate, Ereignisse, Kursbewegungen) und bewerte jeden nach drei Kriterien: (a) Groesse/strukturelles Gewicht (z.B. eine dauerhafte Kostensenkung, ein Vertragswert, eine Kapazitaetsverschiebung wiegt oft schwerer als eine kurzfristige Kursbewegung von 1-2 Tagen), (b) Ueberraschungswert (weicht der Fakt von der Erwartung ab, ist er neu oder kontraintuitiv?), (c) Relevanz fuer die Anlageentscheidung des Lesers. WICHTIG (Praezisierung Yuki 15.07., nach Rueckfrage): Das ist KEINE pauschale Regel gegen Kursbewegungen -- bei vielen Artikeln IST die Kursbewegung selbst der staerkste, meldungswuerdigste Fakt (z.B. ein Kurssprung von 15 Prozent nach Uebernahmegeruechten) und gehoert dann zu Recht in head/bullets[0]. Entscheide von Fall zu Fall anhand der drei Kriterien oben, nicht anhand der Reihenfolge im Artikel. Vermeide nur den Fehler, eine NEBENSAECHLICHE oder AUSTAUSCHBARE Randinfo (z.B. eine kurze, durch andere Fakten im Artikel klar uebertroffene Kursbewegung, oder eine vage Bewertung wie 'starkes Quartal' ohne Zahl) automatisch zu waehlen, nur weil sie im Text zuerst steht oder am leichtesten zu formulieren ist, wenn der Artikel einen staerkeren Fakt enthaelt. Negativ-Beispiele aus echtem Feedback: Bei einem Mercedes-Artikel wurde faelschlich der zweitaegige Kursanstieg als Hauptaussage gewaehlt, obwohl der Artikel auch 'rund 70 Prozent niedrigere Produktionskosten in Ungarn' nannte -- ein staerkerer, ueberraschenderer Fakt mit echtem strukturellem Gewicht, der stattdessen in head/bullets[0] gehoert haette. Bei einem Rio-Tinto-Artikel wurde 'starkes Q2 aus Pilbara' gewaehlt -- eine vage, austauschbare Bewertung ohne Zahl und ohne Neuigkeitswert, obwohl der Artikel konkretere, haertere Fakten enthielt. Gib deine Priorisierung explizit im Feld relevanz zurueck (Pflichtfeld zur Selbstkontrolle, erscheint NICHT auf der Grafik). Der staerkste Fakt aus relevanz MUSS wortgleich oder sinngleich in head ODER bullets[0] auftauchen -- harte Bedingung. ROTER FADEN (Pflicht): Alle Felder zusammen muessen eine zusammenhaengende Story mit klarem Bogen ergeben (Ereignis -> Ursache/Hintergrund -> Konsequenz), nicht eine lose Ansammlung einzelner Fakten -- jedes Feld baut inhaltlich auf dem vorherigen auf.\""+
+    "\" PRIORISIERUNG (Pflicht-Schritt VOR dem Schreiben, Redakteurs-Feedback Yuki 15.07.): Bevor du auch nur ein Feld formulierst, identifiziere gedanklich ALLE Einzelfakten des Artikels (Zahlen, Vergleiche, Entscheidungen, Zitate, Ereignisse, Kursbewegungen) und bewerte jeden nach drei Kriterien: (a) Groesse/strukturelles Gewicht (z.B. eine dauerhafte Kostensenkung, ein Vertragswert, eine Kapazitaetsverschiebung wiegt oft schwerer als eine kurzfristige Kursbewegung von 1-2 Tagen), (b) Ueberraschungswert (weicht der Fakt von der Erwartung ab, ist er neu oder kontraintuitiv?), (c) Relevanz fuer die Anlageentscheidung des Lesers. WICHTIG (Praezisierung Yuki 15.07., nach Rueckfrage): Das ist KEINE pauschale Regel gegen Kursbewegungen -- bei vielen Artikeln IST die Kursbewegung selbst der staerkste, meldungswuerdigste Fakt (z.B. ein Kurssprung von 15 Prozent nach Uebernahmegeruechten) und gehoert dann zu Recht in head/bullets[0]. Entscheide von Fall zu Fall anhand der drei Kriterien oben, nicht anhand der Reihenfolge im Artikel. Vermeide nur den Fehler, eine NEBENSAECHLICHE oder AUSTAUSCHBARE Randinfo (z.B. eine kurze, durch andere Fakten im Artikel klar uebertroffene Kursbewegung, oder eine vage Bewertung wie 'starkes Quartal' ohne Zahl) automatisch zu waehlen, nur weil sie im Text zuerst steht oder am leichtesten zu formulieren ist, wenn der Artikel einen staerkeren Fakt enthaelt. Negativ-Beispiele aus echtem Feedback: Bei einem Mercedes-Artikel wurde faelschlich der zweitaegige Kursanstieg als Hauptaussage gewaehlt, obwohl der Artikel auch 'rund 70 Prozent niedrigere Produktionskosten in Ungarn' nannte -- ein staerkerer, ueberraschenderer Fakt mit echtem strukturellem Gewicht, der stattdessen in head/bullets[0] gehoert haette. Bei einem Rio-Tinto-Artikel wurde 'starkes Q2 aus Pilbara' gewaehlt -- eine vage, austauschbare Bewertung ohne Zahl und ohne Neuigkeitswert, obwohl der Artikel konkretere, haertere Fakten enthielt. Gib deine Priorisierung explizit im Feld relevanz zurueck (Pflichtfeld zur Selbstkontrolle, erscheint NICHT auf der Grafik). Der staerkste Fakt aus relevanz MUSS wortgleich oder sinngleich in head ODER bullets[0] auftauchen -- harte Bedingung. GEWICHTUNGS-HINWEIS (Redakteurs-Feedback Yuki 20.07.2026): Konkrete NEUE Ereignisse — frische Auftraege/Abrufe, Programme, Deals, Produkt-/Vertragsmeldungen — sind fuer den Leser oft interessanter und meldungswuerdiger als eine reine Analysten-Kurszielanpassung (Kursziel rauf/runter). Wenn der Artikel BEIDES enthaelt, gewichte das konkrete Ereignis tendenziell hoeher — ES SEI DENN, die Kurszielanpassung ist ungewoehnlich gross/ueberraschend oder klar der Kern der Meldung. Bleibe fallweise, kein Automatismus. ROTER FADEN (Pflicht): Alle Felder zusammen muessen eine zusammenhaengende Story mit klarem Bogen ergeben (Ereignis -> Ursache/Hintergrund -> Konsequenz), nicht eine lose Ansammlung einzelner Fakten -- jedes Feld baut inhaltlich auf dem vorherigen auf.\""+
     "\"relevanz\":{\"staerkster_fakt\":\"der eine Fakt, den du als wichtigsten identifiziert hast, mit Zahl/Beleg\",\"warum\":\"1 kurzer Satz warum dieser Fakt die anderen Kandidaten schlaegt (Gewicht/Ueberraschung/Anlagerelevanz) -- falls es die Kursbewegung ist, begruende explizit warum sie hier der staerkste Fakt ist\",\"verworfen\":\"1 kurzes Beispiel eines schwaecheren Fakts, den du bewusst NICHT in head/bullets[0] verwendet hast\"},"+
     "\"head\":\"prägnante Schlagzeile, max 55 Zeichen -- MUSS den staerksten Fakt aus relevanz enthalten, falls er dort noch nicht steht\","+
     "\"sub\":\"Unterzeile, STRIKT max 40 Zeichen (muss bei gro\u00dfer Schrift auf EINE Zeile passen). MUSS zusammen mit head OHNE Artikel/Bild verstaendlich sein: nenne Akteur/Thema oder Kernaussage konkret. NIEMALS ein kontextloses Fragment (verboten: 'Wochen, nicht Monate' ohne zu sagen WAS in Wochen; bei Vergleich/Gegensatz das Bezugswort mitnennen). Kein reiner Teaser, der erst durch den Artikel Sinn ergibt.\","+
@@ -5397,6 +5399,7 @@ const SM_TEMPLATES=[
     {k:"label",l:"Was wird gemessen?",type:"text",max:54,ph:"z.B. NVIDIA-Kursreaktion nachbörslich"},
     {k:"context",l:"Kontextsatz",type:"area",max:150,ph:"Ein vollständiger Satz Einordnung."},
     {k:"compare",l:"Vergleich (optional)",type:"text",max:70,ph:"z.B. Vor einem Jahr: +3,1 %"},
+    {k:"quote_now",l:"Aktueller Kurs (optional, zum Einordnen)",type:"text",max:24,ph:"z.B. 230 EUR"},
     {k:"source",l:"Quelle",type:"text",max:50},{k:"stand",l:"Stand",type:"text",max:24}
   ]},
 { id:"zero_sm_market_pulse", name:"Market Pulse", prio:"P1", path:"A", carousel:false,
@@ -6297,9 +6300,10 @@ function smDrawContent(ctx){
        neutrale Zahlen im Akzent-Pink */
     x.fillStyle=/^[+\-−]/.test(d.value||"") ? smChangeColor(d.value,B) : B.accent;
     x.textAlign="left"; x.fillText(smProtect(v), M-W*0.005, y+bfs*1.05);
-    /* Abstand Zahl -> Kontexttext (Yuki 16.07.2026): vorher bfs*1.25 -> Kontext ueberlappte die
-       grosse Zahl (Unterlaengen). Jetzt klarer, aber nicht zu grosser Abstand unter der Grundlinie. */
     y+=bfs*1.42;
+    /* Optionaler aktueller Kurs zum Einordnen (Yuki 20.07.) — nur wenn gefuellt, sonst unveraendert. */
+    if((d.quote_now||"").trim()){ x.font="600 "+bodyFS*0.92+"px "+BRAND.font; x.fillStyle=B.muted; x.textAlign="left";
+      x.fillText(smProtect("Aktueller Kurs: "+d.quote_now.trim()), M, y); y+=bodyFS*1.5; }
     y=smText(x,d.context||"",M,y+W*0.03,bodyFS*1.12,"400",B.dark?"rgba(255,255,255,.85)":B.ink,W-2*M,bodyFS*1.62);
     if(d.compare){ x.fillStyle=B.chip; const fs2=bodyFS; x.font="600 "+fs2+"px "+BRAND.font;
       const cw=x.measureText(d.compare).width; smRound(x,M,y+W*0.03,cw+fs2*1.8,fs2*2.15,fs2); x.fill();
@@ -6402,8 +6406,9 @@ function smDrawContent(ctx){
       x.font="800 "+T.big+"px "+BRAND.font; x.fillStyle=smChangeColor(d.reaction,B);
       x.fillText(smArrow(d.reaction)+" "+smFmtPct(d.reaction), M, y+T.big);
       x.font="500 "+T.small+"px "+BRAND.font; x.fillStyle=B.muted;
-      x.fillText(smProtect("Kursreaktion "+(d.rwindow||"")), M, y+T.big+T.small*1.5);
-      y+=T.big+T.small*1.5+W*0.045;
+      /* Abstand grosse Zahl -> "Kursreaktion ..." minimal groesser (Yuki 20.07.: klebte zu eng) */
+      x.fillText(smProtect("Kursreaktion "+(d.rwindow||"")), M, y+T.big+T.small*2.0);
+      y+=T.big+T.small*2.0+W*0.045;
     }
     if(d.summary) smText(x,d.summary,M,y+T.body,T.body,"400",B.dark?"rgba(255,255,255,.85)":B.ink,W-2*M,T.body*T.lh);
 
