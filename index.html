@@ -5574,6 +5574,8 @@ function smChooseBrand(id){
     return;
   }
   smBrand=id;
+  window._smBrand=id;   /* FIX (20.07.): Export/TXT lesen window._smBrand -> muss auf "zero" stehen,
+                           sonst steht faelschlich "Marke: finanzen.net" im Download. */
   smLogoPreload();
   $("smGate").style.display="none";
   $("smWork").style.display="";
