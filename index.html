@@ -474,6 +474,7 @@
 .sm-fmt-grid{display:flex;gap:9px;flex-wrap:wrap}
 .sm-fmt{border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:9px 12px;cursor:pointer;text-align:center;font-size:11px;color:var(--muted)}
 .sm-fmt.on{border-color:var(--accent);background:#f2fbf7;color:var(--accent-2);font-weight:700}
+.sm-fmt.off{opacity:.45;cursor:not-allowed;color:var(--faint);background:repeating-linear-gradient(45deg,#f3f5f8,#f3f5f8 6px,#eceff3 6px,#eceff3 12px)}
 .sm-fmt .box{margin:0 auto 5px;background:#dfe5ee;border-radius:3px}
 .sm-fmt.on .box{background:var(--accent)}
 
@@ -1402,9 +1403,13 @@ const SLIDE_COMP = {
 };
 const THEME_LOOK = {
   clean:     "clean editorial finance photography, blue hour, premium institutional mood, soft natural light",
-  cinematic: "cinematic photography, warm directional sunset light, deep shadows, filmic grade",
+  cinematic: "editorial documentary-style photography, warm natural directional light, gentle contrast, subtle film grade — restrained and believable, not overly dramatic or artificial",
   metaphor:  "modern conceptual visual metaphor, slightly surreal, premium color grading",
 };
+/* Realismus-Klausel (Yuki Feature #1, Christian 21.07.2026): erzwingt echte Foto-Anmutung und
+   unterdrückt den typischen KI-Look (Plastikhaut, Wachsfiguren, Überglättung, HDR-Übertreibung).
+   Wird in buildImagePrompt an jeden Stimmungs-/Szenen-Bildprompt angehängt. */
+const REALISM_LOOK = "Photorealism is essential: the image must look like a real photograph taken with a professional camera (natural depth of field, realistic lighting and shadows, authentic textures and materials). If any person appears, render natural, realistic human skin with real pores and fine texture and natural skin tone — absolutely NO plastic, waxy, glossy, airbrushed, over-smoothed or mannequin-like skin, no uncanny or artificial faces, no deformed hands or eyes. Avoid the typical AI look: no over-saturated colors, no exaggerated HDR, no unrealistic bokeh, no overly cinematic or CGI/3D-render feel. Keep it grounded, natural and believable.";
 function buildImagePrompt(userPrompt, fmt, slideType, theme, brand){
   const parts=[
     userPrompt.trim() + ".",
@@ -1417,6 +1422,9 @@ function buildImagePrompt(userPrompt, fmt, slideType, theme, brand){
   }
   parts.push("Look: " + (THEME_LOOK[theme] || THEME_LOOK.clean) + ".");
   parts.push("Do not invent any headline text, prices, percentages, numbers or fake captions in the image. Do not add the finanzen.net logo or any news-outlet logo. No watermarks, no UI overlays. If a person is depicted, use a generic professional person that fits the role — do NOT recreate the real face of any actual person.");
+  /* Realismus-Feinschliff (Yuki Feature #1, Christian 21.07.2026): natürlichere Bilder,
+     nicht überzogen filmisch, und vor allem KEINE typische KI-Plastikhaut. */
+  parts.push(REALISM_LOOK);
   parts.push("Realistic high quality photograph. IMPORTANT FRAMING: completely full-bleed, edge to edge, the motif fills the ENTIRE frame. Absolutely NO white or light border, NO frame, NO passepartout, NO margin, NO letterboxing, NO rounded corners — the image content must reach all four edges.");
   return parts.join(" ");
 }
@@ -4024,9 +4032,11 @@ window._smBrand="finnet"; window._smText=null; window._smFormat=null; window._sm
 window.SM_PLATFORMS=[
   { id:"ig_feed",  label:"Instagram Feed / Karussell", w:1080, h:1350, master:"4:5"  },
   { id:"ig_story", label:"Instagram Story",            w:1080, h:1920, master:"9:16" },
-  { id:"li_feed",  label:"LinkedIn Post",              w:1080, h:1350, master:"4:5"  },
+  /* Instagram-Fokus (Christian 21.07.2026): LinkedIn & X vorerst deaktiviert — ausgegraut,
+     nicht anwählbar, es wird nichts dafür generiert. Flag off:true steuert das an einer Stelle. */
+  { id:"li_feed",  label:"LinkedIn Post",              w:1080, h:1350, master:"4:5", off:true  },
   /* li_quer (LinkedIn Querformat) entfernt (Christian 15.07.) — wurde nicht gebraucht */
-  { id:"x_post",   label:"X (Twitter)",                w:1080, h:1350, master:"4:5"  }
+  { id:"x_post",   label:"X (Twitter)",                w:1080, h:1350, master:"4:5", off:true  }
 ];
 
 /* ---------- Styles ---------- */
@@ -4037,6 +4047,9 @@ css.textContent=[
 ".sm-plat{display:flex;align-items:center;gap:10px;border:1.5px solid var(--line);border-radius:11px;padding:10px 12px;cursor:pointer;transition:.13s;font-size:13px;font-weight:600}",
 ".sm-plat:hover{background:#f5f7fa}",
 ".sm-plat.on{border-color:var(--tint-line);background:var(--tint)}",
+".sm-plat.off{opacity:.45;cursor:not-allowed;background:repeating-linear-gradient(45deg,#f3f5f8,#f3f5f8 6px,#eceff3 6px,#eceff3 12px)}",
+".sm-plat.off:hover{background:repeating-linear-gradient(45deg,#f3f5f8,#f3f5f8 6px,#eceff3 6px,#eceff3 12px)}",
+".sm-plat.off input{cursor:not-allowed}",
 ".sm-plat input{accent-color:var(--navy)}",
 ".sm-plat .sz{margin-left:auto;font-size:11px;color:var(--faint);font-weight:600}",
 ".sm-sug{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:9px;margin-top:12px}",
@@ -4133,9 +4146,14 @@ if(fmtCard){
   var platHtml='<div class="sm-card"><div class="card-h"><span class="n">P</span><h3>Plattformen</h3></div>'+
     '<label class="lab">Für welche Plattformen soll der Post generiert werden?</label><div class="sm-plats">';
   SM_PLATFORMS.forEach(function(p){
-    var on=true;   /* Yuki: initial ALLE Plattformen angehakt, abwählen optional */
-    platHtml+='<label class="sm-plat'+(on?" on":"")+'" data-plat="'+p.id+'">'+
-      '<input type="checkbox" '+(on?"checked":"")+'> '+p.label+'<span class="sz">'+p.w+'×'+p.h+'</span></label>';
+    /* Instagram-Fokus (Christian 21.07.2026): deaktivierte Kanäle (off:true) sind ausgegraut,
+       nicht anhakbar und initial NICHT gewählt -> es wird nichts für sie generiert. */
+    var on=!p.off;   /* Yuki: aktive Plattformen initial angehakt, abwählen optional */
+    var dis=!!p.off;
+    platHtml+='<label class="sm-plat'+(on?" on":"")+(dis?" off":"")+'" data-plat="'+p.id+'"'+
+      (dis?' title="Vorerst deaktiviert — aktueller Fokus: nur Instagram"':'')+'>'+
+      '<input type="checkbox" '+(on?"checked":"")+(dis?" disabled":"")+'> '+p.label+
+      (dis?' <span class="sz" style="color:var(--faint)">aus</span>':'<span class="sz">'+p.w+'×'+p.h+'</span>')+'</label>';
   });
   platHtml+='</div><span class="hint" style="display:block;margin-top:10px" id="smPlatHint"></span></div>';
   fmtCard.insertAdjacentHTML("afterend", platHtml);
@@ -4206,7 +4224,7 @@ function smSelectedPlatforms(){
     if(typeof slides!=="undefined"&&slides.length&&slides[0].content&&slides[0].content.origin==="sm"&&typeof smPlats!=="undefined"){
       var map={instagram:"ig_feed",instagram_story:"ig_story",linkedin:"li_feed",x:"x_post"};
       var zout=[]; smPlats.forEach(function(z){ var gid=map[z]; if(!gid) return;
-        var p=SM_PLATFORMS.find(function(q){return q.id===gid;}); if(p) zout.push(p); });
+        var p=SM_PLATFORMS.find(function(q){return q.id===gid;}); if(p && !p.off) zout.push(p); });
       if(zout.length) return zout;
     }
   }catch(e){}
@@ -5667,19 +5685,24 @@ function smCheckTriggers(){
 }
 /* Yuki 15.07.: zero nutzt AUSSCHLIESSLICH 4:5 (Feed) und 9:16 (Story). Keine 1:1/16:9-Plattformen mehr.
    Jede Plattform ist genau einem der beiden erlaubten Formate zugeordnet. */
-const SM_ZPLATFORMS={instagram:{l:"Instagram Feed",fmt:"4:5"},instagram_story:{l:"Instagram Story",fmt:"9:16"},linkedin:{l:"LinkedIn Post",fmt:"4:5"},x:{l:"X (Twitter)",fmt:"4:5"},tiktok:{l:"TikTok Story",fmt:"9:16"}};
-let smPlats=Object.keys(SM_ZPLATFORMS);   /* Yuki: initial ALLE angehakt, abwählen optional */
+/* Instagram-Fokus (Christian 21.07.2026): LinkedIn, X und TikTok vorerst deaktiviert (off:true) —
+   ausgegraut, nicht anklickbar, initial nicht gewählt. Nur Instagram Feed + Story bleiben aktiv. */
+const SM_ZPLATFORMS={instagram:{l:"Instagram Feed",fmt:"4:5"},instagram_story:{l:"Instagram Story",fmt:"9:16"},linkedin:{l:"LinkedIn Post",fmt:"4:5",off:true},x:{l:"X (Twitter)",fmt:"4:5",off:true},tiktok:{l:"TikTok Story",fmt:"9:16",off:true}};
+let smPlats=Object.keys(SM_ZPLATFORMS).filter(id=>!SM_ZPLATFORMS[id].off);   /* nur aktive Plattformen initial angehakt */
 function smBuildPlats(){
   const el=$("smPlats"); if(!el) return;
-  el.innerHTML=Object.entries(SM_ZPLATFORMS).map(([id,p])=>'<button class="sm-fmt'+(smPlats.includes(id)?" on":"")+'" data-p="'+id+'">'+(smPlats.includes(id)?"\u2713 ":"")+p.l+'</button>').join('');
-  el.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{
+  el.innerHTML=Object.entries(SM_ZPLATFORMS).map(([id,p])=>p.off
+    ? '<button class="sm-fmt off" data-p="'+id+'" disabled title="Vorerst deaktiviert \u2014 aktueller Fokus: nur Instagram">'+p.l+' \u00b7 aus</button>'
+    : '<button class="sm-fmt'+(smPlats.includes(id)?" on":"")+'" data-p="'+id+'">'+(smPlats.includes(id)?"\u2713 ":"")+p.l+'</button>').join('');
+  el.querySelectorAll("[data-p]").forEach(b=>{ if(SM_ZPLATFORMS[b.dataset.p]&&SM_ZPLATFORMS[b.dataset.p].off) return; b.onclick=()=>{
     const id=b.dataset.p;
+    if(SM_ZPLATFORMS[id]&&SM_ZPLATFORMS[id].off) return;
     smPlats.includes(id)?smPlats.splice(smPlats.indexOf(id),1):smPlats.push(id);
     smBuildPlats();
     /* Format-Empfehlung: erstes vom Template unterstütztes Plattform-Format */
     for(const pid of smPlats){ const f=SM_ZPLATFORMS[pid].fmt; if(smTpl.formats.includes(f)){ smFmt=f; break; } }
     smBuildFmt(); smRender();
-  });
+  }; });
 }
 function smBuildFmt(){
   smBuildPlats();
