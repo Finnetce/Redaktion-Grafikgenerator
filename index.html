@@ -792,6 +792,16 @@
           <div class="sm-note" id="smTplNote"></div>
           <div class="sm-fields" id="smFields"></div>
           <div class="sm-warn" id="smWarn"></div>
+          <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:14px">
+            <label class="lab" style="margin-top:0">Frage-Hook (Interaktion) <span style="color:var(--faint);font-weight:400">— optional, aber empfohlen</span></label>
+            <input class="inp" id="smHook" maxlength="90" placeholder="z.B. Würdest du bei diesem Kurs noch einsteigen?" />
+            <span class="hint" style="display:block;margin-top:5px">Erscheint prominent auf der ersten Slide. Fragen holten zuletzt das 4–5-fache an Kommentaren (Mercedes-Post).</span>
+            <label class="lab">Eigener Fokus / Zusatzinfo <span style="color:var(--faint);font-weight:400">— optional</span></label>
+            <textarea class="ta" id="smFocus" style="min-height:52px" maxlength="600" placeholder="Freitext, der beim Auto-Fill zusätzlich berücksichtigt wird — z.B. „Fokus auf die Auftragslage, nicht das Kursziel" oder eine eigene Einordnung."></textarea>
+            <span class="hint" style="display:block;margin-top:5px">Fließt als zusätzliche Anweisung in die KI-Befüllung ein (überschreibt keine Fakten aus dem Artikel).</span>
+            <label class="lab">Quell-Artikel (URL/Notiz, für Yuki-Abnahme)</label>
+            <input class="inp" id="smSourceUrl" maxlength="300" placeholder="https://www.finanzen.net/... — wird beim Export mitprotokolliert" />
+          </div>
         </div>
         <div class="card" id="smBgCard" style="display:none">
           <div class="card-h"><span class="n">3</span><h3>KI-Bild</h3></div>
@@ -823,6 +833,43 @@
           </div>
           <span class="hint" id="smBgStatus" style="display:block;margin-top:8px"></span>
         </div>
+        <div class="card" id="smExtraCard">
+          <div class="card-h"><span class="n">+</span><h3>Extra-Grafik (optional)</h3></div>
+          <span class="hint" style="display:block;margin-bottom:10px">Hängt dem Karussell eine <b>zusätzliche Slide</b> mit einer Grafik an — dort, wo eine Zahl mehr Kontext verdient (z.B. Kennzahl im historischen Vergleich, Buffett-Indikator, CAPE). Die Grafik liegt in einem definierten Bereich; Header, Logo und Pflichttexte bleiben sichtbar. Nutzt <b>nur die von dir eingegebenen Daten</b> — es wird nichts erfunden.</span>
+          <label class="sm-plat" style="display:flex;gap:9px;margin-bottom:11px"><input type="checkbox" id="smExtraOn"> <span>Extra-Slide anhängen</span></label>
+          <div id="smExtraBody" style="display:none">
+            <label class="lab" style="margin-top:0">Grafik-Typ</label>
+            <div class="selwrap"><select class="sel" id="smExtraType">
+              <option value="chart">Datenchart aus Zahlen (Verlauf)</option>
+              <option value="context">Kennzahl im historischen Kontext (z.B. CAPE / Buffett-Indikator)</option>
+              <option value="illu">Freie Illustration / Icon-Grafik (KI)</option>
+            </select><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+
+            <label class="lab">Titel der Extra-Slide</label>
+            <input class="inp" id="smExtraTitle" maxlength="70" placeholder="z.B. Shiller-KGV (CAPE) im 10-Jahres-Vergleich" />
+
+            <div id="smExtraDataWrap">
+              <label class="lab">Datenpunkte <span id="smExtraDataHint" style="color:var(--faint);font-weight:400"></span></label>
+              <textarea class="ta" id="smExtraData" style="min-height:78px" placeholder="Ein Wertepaar pro Zeile: Label = Wert&#10;2021 = 38&#10;2022 = 30&#10;2023 = 31&#10;2024 = 34&#10;heute = 37"></textarea>
+              <label class="lab">Einheit / Achsenbeschriftung (optional)</label>
+              <input class="inp" id="smExtraUnit" maxlength="24" placeholder="z.B. Punkte, %, Mrd. USD" />
+              <label class="lab">Kurze Einordnung unter der Grafik (optional)</label>
+              <input class="inp" id="smExtraNote" maxlength="120" placeholder="z.B. Deutlich über dem historischen Schnitt — Markt ist teuer bewertet." />
+            </div>
+
+            <div id="smExtraIlluWrap" style="display:none">
+              <label class="lab">Bild-Prompt (Illustration, ohne Text/Logos)</label>
+              <textarea class="ta" id="smExtraIlluPrompt" style="min-height:64px" placeholder="z.B. abstrakte Waage aus Münzen und Aktienkurven, überbewerteter Markt, dezente Symbolik, dunkler Premium-Look"></textarea>
+              <div class="row" style="gap:8px;margin-top:9px">
+                <button class="btn btn-primary" id="smExtraIlluGen">Illustration erzeugen</button>
+                <button class="btn" id="smExtraIlluClear" style="display:none">Bild entfernen</button>
+              </div>
+              <span class="hint" id="smExtraIlluStatus" style="display:block;margin-top:8px"></span>
+            </div>
+
+            <span class="hint" style="display:block;margin-top:10px">Die Extra-Slide erscheint automatisch als letzte Slide im Pager. Beim Klick auf <b>„Post generieren"</b> werden deine Daten in die Grafik eingearbeitet.</span>
+          </div>
+        </div>
         <div class="card">
           <div class="card-h"><span class="n">4</span><h3>Plattformen &amp; Format</h3></div>
           <label class="lab" style="margin-top:0">Plattformen — alle vorausgewählt, Häkchen entfernen was nicht bespielt wird</label>
@@ -847,6 +894,7 @@
           <button class="btn" id="smExport">Slide exportieren (PNG)</button>
           <button class="btn" id="smExportAll" style="display:none">Alle Slides (PNG)</button>
           <button class="btn" id="smExportPdf" style="display:none" title="Ein PDF mit allen Slides — LinkedIn rendert es als echtes Karussell (Dokument-Post)">PDF für LinkedIn</button>
+          <button class="btn" id="smLogBtn" title="Übersicht aller erzeugten Posts mit Quell-Artikel und Frage-Hook — als CSV für die Abnahme durch Yuki">Quellen-Log</button>
         </div>
         <span class="hint" id="smExpHint" style="display:block;margin-top:7px"></span>
       </div>
@@ -3334,7 +3382,7 @@ async function extractSocial(txt){
    aus dem Artikel. Danach Schritt 2: Felder füllen + Stil + Auto-Bild. */
 async function smPickTemplate(txt){
   const list=SM_TEMPLATES.map(t=>t.id+" = "+t.name+" ("+t.desc+" Formate: "+t.formats.join(",")+")").join("; ");
-  const sys="Du bist Social-Media-Redakteur bei finanzen.net zero (deutscher Neobroker). Wähle für den Artikel das am besten passende Grafik-Template und das beste Format. Antworte NUR mit reinem JSON: {\"template_id\":\"...\",\"format\":\"...\",\"begruendung\":\"max 90 Zeichen, deutsch\"}. Verfügbare Templates: "+list+". Regeln: Quartalszahlen/Earnings -> zero_sm_company_earnings. Eine markante Einzelzahl -> zero_sm_data_number_of_day. Kursverlauf/Zeitreihe mit mehreren Werten im Text -> zero_sm_data_chart_story. Marktüberblick mehrerer Indizes -> zero_sm_market_pulse. Begriffs-/Konzept-Erklärung -> zero_sm_edu_explainer. Rangliste -> zero_sm_data_ranking. Einzelnes Wertpapier-Porträt -> zero_sm_instrument_snapshot. Sparplan/Zinseszins -> zero_sm_investing_savings_calc. Zitat als Kern -> zero_sm_editorial_quote. Umfrage -> zero_sm_community_poll_result. Termin/Event -> zero_sm_event_announcement. Produkt-/Feature-News von zero selbst -> zero_sm_brand_product_announcement. Format: 4:5 ist Standard (Feed), 9:16 nur wenn explizit Story gewünscht, 16:9 nur für X/Twitter-lastige Chart-Themen.";
+  const sys="Du bist Social-Media-Redakteur bei finanzen.net zero (deutscher Neobroker). Wähle für den Artikel das am besten passende Grafik-Template und das beste Format. Antworte NUR mit reinem JSON: {\"template_id\":\"...\",\"format\":\"...\",\"begruendung\":\"max 90 Zeichen, deutsch\"}. Verfügbare Templates: "+list+". Regeln: Quartalszahlen/Earnings -> zero_sm_company_earnings. Eine markante Einzelzahl -> zero_sm_data_number_of_day. Kursverlauf/Zeitreihe mit mehreren Werten im Text -> zero_sm_data_chart_story. Marktüberblick mehrerer Indizes -> zero_sm_market_pulse. Begriffs-/Konzept-Erklärung -> zero_sm_edu_explainer. Rangliste -> zero_sm_data_ranking. Einzelnes Wertpapier-Porträt -> zero_sm_instrument_snapshot. Sparplan/Zinseszins -> zero_sm_investing_savings_calc. Zitat als Kern -> zero_sm_editorial_quote. Umfrage mit Ergebnis/Prozenten -> zero_sm_community_poll_result. Offene Abstimmung zwischen ZWEI Firmen/Aktien (Duell, 'welche würdest du wählen') -> zero_sm_story_poll_vs. Termin/Event -> zero_sm_event_announcement. Produkt-/Feature-News von zero selbst -> zero_sm_brand_product_announcement. Format: 4:5 ist Standard (Feed), 9:16 nur wenn explizit Story gewünscht, 16:9 nur für X/Twitter-lastige Chart-Themen.";
   const out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,6000)}]));
   return out;
 }
@@ -3376,8 +3424,13 @@ async function extractSM(txt,opts){
     "Antworte NUR mit reinem JSON, ohne Markdown. Schema (Feldname: Bedeutung): "+JSON.stringify(schema)+". COMPLIANCE ZWINGEND: keine Kauf- oder Verkaufsempfehlung aus persönlicher Sicht, keine Formulierungen wie 'jetzt kaufen', 'lohnt sich', 'Top-Pick'. Erlaubt: neutrale Fakten, Analysten-Bezug mit Quelle, oder Frage-Framing. Nutze NUR Zahlen, die im Text stehen; erfinde keine. Felder, für die der Text nichts hergibt, als leeren String lassen. Zahlen in deutscher Schreibweise (Komma). "+
     "KURSDATEN-GROUNDING (absolut kritisch, Fehler = unbrauchbar, Redakteurs-Feedback Christian 15.07.): Kurs, Veränderung (Δ %), Vorzeichen und Zeitraum MÜSSEN exakt so im Artikel stehen — NIEMALS Richtung oder Wert erfinden oder umdrehen (Negativ-Beispiel: Grafik zeigte '-6,06 % (1 Tag)', obwohl der Artikel einen zweistelligen KursANSTIEG meldete). Prüfe explizit: Steigt oder fällt der Kurs laut Artikel? Übernimm das Vorzeichen daraus. Steht kein konkreter aktueller Kurs oder keine konkrete Prozent-Veränderung im Artikel, lasse das Feld LEER statt zu schätzen. QUELLEN-WAHL BEI MEHREREN KURSEN (Christian 15.07.): finanzen.net-Artikel enthalten oft ZWEI Kurse — (a) das eingebettete Kurs-Widget ('Werte in diesem Artikel', meist EUR vom deutschen Handelsplatz, Live-Momentaufnahme) und (b) die Kurse im redaktionellen Fließtext. Nimm IMMER den Kurs aus dem Fließtext, der zum Hauptkontext des Artikels passt (gleiche Börse/Währung wie Kursziel und Story); das Widget ignorieren. ZEITRAUM: Das Feld cperiod/Δ-Zeitraum NIEMALS pauschal mit '1 Tag' belegen — übernimm den Zeitbezug WÖRTLICH aus dem Artikel ('vorbörslich', 'nachbörslich', 'im Seoul-Handel', 'seit Jahresbeginn'). Passt keine der Dropdown-Optionen, wähle keine und nenne den Zeitbezug stattdessen NUR im Börsenplatz-Feld (z.B. 'NASDAQ, vorbörslich') — denselben Zeitbezug nie doppelt in Δ-Zeitraum UND Börsenplatz/Stand schreiben. Beachte das Artikeldatum: Formuliere Stand/Zeitraum relativ zum Artikel, nicht zum heutigen Tag. "+
     "GRAMMATIK & UMLAUTE (Pflicht, Redakteurs-Feedback 15.07.): Fehlerfreies Deutsch in JEDEM Feld. Umlaute ä/ö/ü/ß IMMER korrekt verwenden — niemals Transliterationen oder Fremdschreibweisen (FALSCH: 'Folgekvartal', 'Gewinnschaetzung', 'Boerse' — RICHTIG: 'Folgequartal', 'Gewinnschätzung', 'Börse'). SELBSTTEST: Lies jedes Feld auf Rechtschreibung und Grammatik, korrigiere vor der Antwort. "+
+    "ZIELGRUPPE & KONTEXT-TIEFE (Pflicht, Redakteurs-Feedback Yuki 21.07.2026): Zielgruppe sind Privatanleger auf Instagram — interessiert, aber nicht zwingend Profis. Liefere dort, wo es das Thema hergibt, echte EINORDNUNG statt reiner Meldung: Warum ist die Zahl/das Ereignis relevant, was bedeutet es für Anleger, wie ist es einzuordnen (historisch, im Branchenvergleich, in der Größenordnung). Nutze dafür AUSSCHLIESSLICH Fakten aus dem Artikel — erfinde keinen Kontext. Fachbegriffe kurz erklären (siehe Regel unten). Lieber ein Aspekt richtig eingeordnet als fünf Fakten aneinandergereiht. "+
     "HOOK & KONTEXT (Pflicht, Redakteurs-Feedback Yuki 15.07.): Kein Feld darf so generisch sein, dass man es ohne Vorwissen nicht einordnen kann. Headline/Kicker müssen konkret benennen, WER was tut und WARUM es relevant ist — mit Firma und Zahl statt Schlagwort. Die erste Slide muss neugierig machen weiterzulesen/weiterzuswipen (stärkster Fakt + offene Konsequenz), keine austauschbaren Etiketten. "+"KACHEL- UND LABEL-FORMULIERUNG (Pflicht, Redakteurs-Feedback Yuki 16.07.2026): Kachel-LABELS sind KURZE SUBSTANTIV-ETIKETTEN (1-3 Woerter), KEINE Saetze und KEINE Halbsaetze. Das Label benennt NUR die Kennzahl, der zugehoerige WERT steht separat im Wert-Feld. VERBOTEN sind haengende Füll-/Funktionswoerter am Label-Ende (laut, von, mit, fuer, je, ca., mögliche, geschätzte) und Quellen-/Attributionszusaetze im Label (FALSCH: 'Aufwärtspotenzial laut', 'Kursziel laut Wells Fargo' als Label -> RICHTIG: Label 'Kursziel' bzw. 'Aufwärtspotenzial', die Quelle/das Haus kommt in den WERT oder entfaellt). Gute Labels: 'Kursziel', 'Aufwärtspotenzial', 'Dividendenrendite', 'KGV', 'Marktkapitalisierung', 'Lizenzeinnahmen', 'Performance 12 Monate'. WERTE muessen VOLLSTAENDIG und gaengig ausgeschrieben sein, nie abgehackt: Einheiten/Zeitbezuege ausschreiben ('USD/Jahr' statt 'USD/Ja', 'Mrd. USD pro Jahr', 'p.a.'). Erfinde keine Zeitraeume, wenn der Artikel keinen nennt (dann Label nur 'Performance'). Fasse dich so kurz wie moeglich, aber das Label MUSS fuer sich allein Sinn ergeben. KEINE Klammer-Zusaetze, Doppelpunkte oder Nebensaetze im Label (FALSCH: 'Lizenzeinnahmen (Szenario)', 'Umsatz: Q2' -> RICHTIG: 'Lizenzeinnahmen', 'Umsatz Q2'). Ein Label ist NIE ein angefangener Satz. FACHABKUERZUNGEN ERKLAEREN (Pflicht, Redakteurs-Feedback Yuki 16.07.2026): Erklaerungsbeduerftige Abkuerzungen/Fachbegriffe muessen bei ERSTNENNUNG verstaendlich sein — ein Social-Media-Follower ohne Fachwissen muss folgen koennen. Schreibe die Abkuerzung beim ersten Mal AUS oder ergaenze eine 2-4-Wort-Erklaerung in Klammern. NEGATIV-BEISPIEL (echtes Feedback): 'bis zu 2,50 USD CVR' — 'CVR' wird nirgends erklaert und ist KEINE allgemein bekannte Abkuerzung. RICHTIG: 'bedingte Zusatzzahlung (CVR)' oder 'Besserungsschein (CVR, an Meilensteine geknuepft)'. AUSNAHME — NICHT erklaeren muss man breit bekannte Boersen-/Finanzbegriffe: KGV, ETF, EPS, USD/EUR, DAX, IPO, CEO, FDA, KI, BIP. Im Zweifel (Nischen-/Branchenkuerzel wie CVR, DEA-Reclassification, 5-MeO-DMT) IMMER kurz einordnen. Die Erklaerung kurz halten, damit die Feld-Laenge passt.";
-  const out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,8000)}]));
+  /* Eigener Fokus/Zusatzinfo (Christian 21.07.2026): fließt als Redaktions-Anweisung VOR den Artikel.
+     Ändert keine Fakten, steuert nur Schwerpunkt/Blickwinkel. */
+  const _focus=(window.smMeta&&window.smMeta.focus||"").trim();
+  const _userMsg=(_focus?("REDAKTIONS-FOKUS (vom Redakteur, hat Priorität bei der Schwerpunktsetzung — aber NUR Fakten aus dem Artikel verwenden): "+_focus+"\n\n---\n\n"):"")+txt.slice(0,8000);
+  const out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:_userMsg}]));
   smTpl.fields.forEach(f=>{
     if(out[f.k]===undefined||out[f.k]===null) return;
     let v=""+out[f.k];
@@ -5140,6 +5193,13 @@ function smMetaLines(){
     /* Plattformen */
     var plats=(typeof smSelectedPlatforms==="function")?smSelectedPlatforms():[];
     if(plats&&plats.length){ L.push("Plattformen: "+plats.map(function(p){ return (typeof SM_GROUP_SHORT!=="undefined"&&SM_GROUP_SHORT[p.id])||p.label||p.id; }).join(", ")); }
+    /* Quelle / Hook / Fokus / Extra-Grafik zur Nachvollziehbarkeit (Yuki-Abnahme, Christian 21.07.2026) */
+    var meta=(window.smMeta||{});
+    if((meta.sourceUrl||"").trim()) L.push("Quell-Artikel: "+meta.sourceUrl.trim());
+    if((meta.hook||"").trim()) L.push("Frage-Hook: "+meta.hook.trim());
+    if((meta.focus||"").trim()) L.push("Redaktions-Fokus: "+meta.focus.trim());
+    var ex=(window.smExtra||{});
+    if(ex.on){ L.push("Extra-Grafik: ja ("+({chart:"Datenchart",context:"Kennzahl im Kontext",illu:"Illustration"}[ex.type]||ex.type)+(ex.title?(" — "+ex.title):"")+")"); }
   }catch(e){ L.push("(Einstellungen teilweise nicht verfuegbar)"); }
   L.push(""); return L;
 }
@@ -5534,6 +5594,21 @@ const SM_TEMPLATES=[
     {k:"zeitraum",l:"Befragungszeitraum",type:"text",max:40,ph:"10.–13.07.2026"},
     {k:"kanal",l:"Kanal",type:"sel",opts:["Instagram-Umfrage","Community-Umfrage","Kundenbefragung"]}
   ]},
+{ id:"zero_sm_story_poll_vs", name:"Aktien-Duell (Story-Umfrage)", prio:"P2", path:"A", carousel:false,
+  desc:"Zwei Firmen gegenüberstellen, Community abstimmen lassen. Für Instagram-Story mit Umfrage-Sticker.",
+  note:"Story-Format 9:16. Die Grafik zeigt zwei Optionen als VS-Gegenüberstellung — der eigentliche Umfrage-Sticker wird beim Hochladen in der Instagram-App darübergelegt. Neutral halten (keine Kaufempfehlung), reine Fragestellung.",
+  formats:["9:16","4:5"], master:"9:16",
+  legal:["base","risk"],
+  fields:[
+    {k:"kicker",l:"Kicker",type:"text",max:28,def:"Deine Meinung?"},
+    {k:"question",l:"Frage",type:"area",max:90,def:"In welche Aktie würdest du eher investieren?"},
+    {k:"aname",l:"Option A – Name",type:"text",max:26,ph:"z.B. NVIDIA"},
+    {k:"asub",l:"Option A – kurze Einordnung",type:"text",max:60,ph:"z.B. KI-Chips, +180 % in 12 Monaten"},
+    {k:"bname",l:"Option B – Name",type:"text",max:26,ph:"z.B. ASML"},
+    {k:"bsub",l:"Option B – kurze Einordnung",type:"text",max:60,ph:"z.B. Monopol bei EUV-Lithografie"},
+    {k:"hint",l:"Hinweiszeile unten (optional)",type:"text",max:70,def:"Stimme oben in der Story ab 👆"},
+    {k:"source",l:"Quelle",type:"text",max:50,def:"finanzen.net Redaktion"}
+  ]},
 { id:"zero_sm_event_announcement", name:"Event-Ankündigung", prio:"P3", path:"C", carousel:false,
   desc:"Webinar, Livestream oder Termin ankündigen.",
   note:"Keine KI-generierten Abbilder realer Speaker – nur freigegebene Fotos oder neutrales Motiv.",
@@ -5808,25 +5883,51 @@ function smUpdateLegal(){
 }
 
 /* ---------- Slides (Karussell) ---------- */
+/* ---------- Optionale Extra-Grafik-Slide (Christian 21.07.2026) ----------
+   Entkoppelter State: kann an JEDES zero-Karussell als letzte Slide angehängt werden.
+   Typen: chart (Verlauf), context (Kennzahl im hist. Vergleich), illu (KI-Illustration).
+   Daten kommen ausschließlich aus manueller Eingabe — nichts wird erfunden. */
+window.smExtra={ on:false, type:"chart", title:"", data:"", unit:"", note:"", illuPrompt:"", illuImg:null, illuUrl:"" };
+/* Frage-Hook, eigener Fokus-Text, Quell-URL (Christian 21.07.2026) */
+window.smMeta={ hook:"", focus:"", sourceUrl:"" };
+function smExtraActive(){ return !!(window.smExtra && window.smExtra.on); }
+/* Datenpunkte "Label = Wert" (auch "Label: Wert" / "Label Wert") -> [{l,v}] */
+function smExtraPoints(){
+  const raw=(window.smExtra.data||"").split(/\n+/);
+  const out=[];
+  raw.forEach(line=>{
+    const t=line.trim(); if(!t) return;
+    const m=t.match(/^(.*?)[\s]*[=:\t]+[\s]*(-?[\d.,]+)\s*$/) || t.match(/^(.*?)\s+(-?[\d.,]+)\s*$/);
+    if(!m) return;
+    const label=m[1].trim();
+    const v=parseFloat(m[2].replace(/\./g,"").replace(",","."));
+    if(label && !isNaN(v)) out.push({l:label,v:v});
+  });
+  return out;
+}
+
 function smSlides(){
+  let base;
   if(smTpl.id==="zero_sm_edu_explainer"){
-    const s=[{t:"cover"}];
-    for(let i=1;i<=5;i++){ if((smData["c"+i+"t"]||"").trim()||(smData["c"+i+"b"]||"").trim()) s.push({t:"card",i:i}); }
-    s.push({t:"closing"});
-    return s;
+    base=[{t:"cover"}];
+    for(let i=1;i<=5;i++){ if((smData["c"+i+"t"]||"").trim()||(smData["c"+i+"b"]||"").trim()) base.push({t:"card",i:i}); }
+    base.push({t:"closing"});
   }
   /* Sparplan als 3-teiliges Karussell (Yuki 16.07.2026): Annahmen -> Verlauf -> Ergebnis. */
-  if(smTpl.id==="zero_sm_investing_savings_calc"){
-    return [{t:"sc_intro"},{t:"sc_bars"},{t:"sc_result"}];
+  else if(smTpl.id==="zero_sm_investing_savings_calc"){
+    base=[{t:"sc_intro"},{t:"sc_bars"},{t:"sc_result"}];
   }
-  return [{t:"single"}];
+  else base=[{t:"single"}];
+  /* Optionale Extra-Grafik immer als LETZTE Slide anhängen */
+  if(smExtraActive()) base.push({t:"extra"});
+  return base;
 }
 function smBuildPager(){
   const sl=smSlides(), p=$("smPager");
   if(sl.length<=1){ p.innerHTML=""; $("smExportAll").style.display="none"; $("smExportPdf").style.display="none"; return; }
   $("smExportPdf").style.display="";
   p.innerHTML=sl.map((s,i)=>'<button class="'+(i===smSlide?"on":"")+'" data-s="'+i+'">'+
-    (s.t==="cover"?"Cover":s.t==="closing"?"Abschluss":s.t==="sc_intro"?"Annahmen":s.t==="sc_bars"?"Verlauf":s.t==="sc_result"?"Ergebnis":"Karte "+s.i)+'</button>').join('');
+    (s.t==="cover"?"Cover":s.t==="closing"?"Abschluss":s.t==="sc_intro"?"Annahmen":s.t==="sc_bars"?"Verlauf":s.t==="sc_result"?"Ergebnis":s.t==="extra"?"Extra-Grafik":"Karte "+s.i)+'</button>').join('');
   p.querySelectorAll("[data-s]").forEach(el=>el.onclick=()=>{ smSlide=+el.dataset.s; smRender(); });
   $("smExportAll").style.display="";
 }
@@ -5871,14 +5972,41 @@ function smRender(){
   const _lpct=(((LOGOS[SM_BRANDS[smBrand].logo]||{}).breite_prozent||16)/100);
   const _lh=W*_lpct*_logoAspect(SM_BRANDS[smBrand].logo,SM_BRANDS[smBrand].dark);
   const logoTop=H - safeBot - legalH - Math.round(W*0.035) - _lh;
-  const bottomY = Math.min(H - safeBot - legalH - M*0.75, logoTop - M*0.25);
+  let bottomY = Math.min(H - safeBot - legalH - M*0.75, logoTop - M*0.25);
 
   /* Inhalt je Template */
   const slide=sl[smSlide];
+  /* Frage-Hook-Band (Christian 21.07.2026): nur auf der ERSTEN Slide, nie auf der Extra-Grafik-Slide.
+     Reserviert Platz ÜBER der Quelle/Logo/Legal-Zone, damit der Content nie überlappt. */
+  const hookTxt=(window.smMeta&&window.smMeta.hook||"").trim();
+  const showHook = hookTxt && smSlide===0 && !(slide&&slide.t==="extra");
+  let hookH=0, hookLines=[], hookFS=0;
+  if(showHook){
+    hookFS=Math.max(Math.round(W*0.030),26);
+    x.font="700 "+hookFS+"px "+BRAND.font;
+    hookLines=smWrap(x,hookTxt,W-2*M-W*0.09);
+    hookH = hookLines.length*(hookFS*1.28) + W*0.055;
+    bottomY -= (hookH + M*0.4);
+  }
   const ctx={x,W,H,M,B,top:safeTop+M,bottom:bottomY,slide};
   /* Überlauf-Schutz: Inhalt wird offscreen gemessen und bei Überlauf
      gleichmäßig verkleinert eingepasst — nie Überlagerung mit Quelle/Legal/Logo. */
   smDrawContentFitted(ctx);
+
+  /* Frage-Hook zeichnen (Christian 21.07.2026): Akzent-Pille mit Fragetext im reservierten Band.
+     Text-Capture-fähig (normale fillText-Aufrufe) -> im Editor editierbar. */
+  if(showHook){
+    const bandTop = bottomY + M*0.4;
+    const padX=W*0.045, padY=W*0.028;
+    const boxH = hookLines.length*(hookFS*1.28) + 2*padY;
+    x.fillStyle = B.dark ? "rgba(248,28,125,0.16)" : "rgba(0,147,93,0.10)";
+    smRound(x, M, bandTop, W-2*M, boxH, W*0.028); x.fill();
+    /* dezenter Akzent-Balken links */
+    x.fillStyle=B.accent; smRound(x, M, bandTop, W*0.014, boxH, W*0.007); x.fill();
+    x.font="700 "+hookFS+"px "+BRAND.font; x.fillStyle=B.ink; x.textAlign="left";
+    let hy=bandTop+padY+hookFS*0.95;
+    hookLines.forEach(ln=>{ x.fillText(ln, M+padX, hy); hy+=hookFS*1.28; });
+  }
 
   /* Provenance (Quelle + Stand) direkt über Legal.
      Zero (Yuki 15.07.): Quelle ist IMMER "finanzen.net" — deterministisch erzwungen,
@@ -6232,6 +6360,11 @@ function smDrawContent(ctx){
   const headFS=Math.round(S*0.062), bodyFS=Math.round(S*0.031), bigFS=Math.round(S*0.175);
   const T=smType(S);
   let y;
+
+  /* Optionale Extra-Grafik-Slide: gilt für JEDES Template, daher VOR der id-Verzweigung
+     abfangen (Christian 21.07.2026). Grafik liegt im definierten Mittelbereich; Kicker/Titel
+     oben, Einordnung unten — Logo/Quelle/Legal werden außerhalb in smRender gezeichnet. */
+  if(ctx.slide && ctx.slide.t==="extra"){ smDrawExtra(ctx,S,headFS,bodyFS); return; }
 
   if(id==="zero_sm_edu_explainer"){
     const s=ctx.slide;
@@ -6605,6 +6738,35 @@ function smDrawContent(ctx){
     { const _s=(d.sample?d.sample+" Teilnehmer · ":"")+(d.kanal||"")+(d.zeitraum?" · "+d.zeitraum:"");
       smFit(x,_s,"500",bodyFS*0.82,W-2*M); x.fillStyle=B.muted; x.textAlign="left"; x.fillText(_s, M, y+bodyFS); }
 
+  } else if(id==="zero_sm_story_poll_vs"){
+    /* Aktien-Duell: Frage oben, zwei Optionskarten (A/B) mit VS-Badge dazwischen. Der Instagram-
+       Umfrage-Sticker wird in der App darübergelegt — hier nur die neutrale Gegenüberstellung. */
+    y=smKicker(ctx,d.kicker);
+    y=smText(x,d.question||"In welche Aktie würdest du eher investieren?",M,y+headFS*0.85,headFS*0.74,"800",B.ink,W-2*M,headFS*0.92);
+    const hintTxt=(d.hint||"").trim();
+    const areaTop=y+W*0.03, areaBot=ctx.bottom-(hintTxt?bodyFS*2.2:0);
+    const gap=W*0.055, cardH=(areaBot-areaTop-gap)/2;
+    const drawOpt=(name,sub,cardY,tag)=>{
+      x.fillStyle=B.dark?"rgba(255,255,255,0.06)":"rgba(10,31,68,0.05)";
+      smRound(x,M,cardY,W-2*M,cardH,W*0.03); x.fill();
+      /* Akzent-Balken links */
+      x.fillStyle=B.accent; smRound(x,M,cardY,W*0.016,cardH,W*0.008); x.fill();
+      const pad=W*0.055;
+      let ty=cardY+cardH*0.5-headFS*0.15;
+      const nm=smFit(x,name||("Option "+tag),"800",headFS*0.8,W-2*M-2*pad);
+      x.fillStyle=B.ink; x.textAlign="left"; x.fillText(smProtect(name||("Option "+tag)), M+pad, ty);
+      if((sub||"").trim()){ x.fillStyle=B.muted; smText(x,sub,M+pad,ty+bodyFS*1.5,bodyFS*0.92,"500",B.muted,W-2*M-2*pad,bodyFS*1.3); }
+    };
+    drawOpt(d.aname,d.asub,areaTop,"A");
+    drawOpt(d.bname,d.bsub,areaTop+cardH+gap,"B");
+    /* VS-Badge mittig zwischen den Karten */
+    { const vy=areaTop+cardH+gap/2, vr=W*0.062;
+      x.fillStyle=B.accent; x.beginPath(); x.arc(W/2,vy,vr,0,7); x.fill();
+      x.font="800 "+headFS*0.62+"px "+BRAND.font; x.fillStyle=B.dark?"#0d0309":"#fff"; x.textAlign="center"; x.textBaseline="middle";
+      x.fillText("VS", W/2, vy+headFS*0.02); x.textBaseline="alphabetic"; x.textAlign="left"; }
+    if(hintTxt){ x.font="600 "+bodyFS*0.95+"px "+BRAND.font; x.fillStyle=B.muted; x.textAlign="center";
+      x.fillText(smProtect(hintTxt), W/2, ctx.bottom-bodyFS*0.5); x.textAlign="left"; }
+
   } else if(id==="zero_sm_event_announcement"){
     /* Lesbarkeit auf KI-Bild (Yuki 16.07.2026): hinter der Header-Zone (Kicker + Typ/Ort + Titel)
        einen weichen dunklen Scrim legen, damit pinke/weisse Zeilen sich klar abheben. Nur wenn ein
@@ -6671,6 +6833,108 @@ function smDrawContent(ctx){
   }
 }
 
+/* ---------- Extra-Grafik-Slide zeichnen (Christian 21.07.2026) ----------
+   E = window.smExtra. Zeichnet Kicker + Titel oben, Grafik im definierten Mittelbereich,
+   optionale Einordnung darunter. Alles innerhalb ctx.top..ctx.bottom, damit Logo/Quelle/Legal
+   (in smRender gezeichnet) unberührt bleiben. Chart & Kontext deterministisch aus manuellen
+   Daten; illu = generiertes Bild in einem eingerückten Rahmen (nie vollflächig). */
+function smDrawExtra(ctx,S,headFS,bodyFS){
+  const {x,W,H,M,B}=ctx, E=window.smExtra||{};
+  let y=smKicker(ctx, (E.type==="context")?"Einordnung":(E.type==="illu")?"Kontext":"Datencheck");
+  const title=(E.title||"").trim()||"Zusätzlicher Kontext";
+  y=smText(x,title,M,y+headFS*0.9,headFS*0.82,"800",B.ink,W-2*M,headFS*1.02);
+
+  /* Note-Zeile unten reservieren */
+  const note=(E.note||"").trim();
+  let noteH=0;
+  if(note){ x.font="600 "+bodyFS*0.95+"px "+BRAND.font; noteH=bodyFS*2.2; }
+  const gTop=y+S*0.03, gBot=ctx.bottom-noteH-S*0.02;
+
+  const pts=(typeof smExtraPoints==="function")?smExtraPoints():[];
+
+  if(E.type==="illu"){
+    /* Illustration in eingerücktem Rahmen — NICHT vollflächig, Branding bleibt sichtbar */
+    if(E.illuImg){
+      const availW=W-2*M, availH=Math.max(gBot-gTop,S*0.2);
+      const iw=E.illuImg.width, ih=E.illuImg.height;
+      const sc=Math.min(availW/iw, availH/ih);
+      const dw=iw*sc, dh=ih*sc, dx=(W-dw)/2, dy=gTop+(availH-dh)/2;
+      x.drawImage(E.illuImg, dx, dy, dw, dh);
+    } else {
+      x.fillStyle=B.dark?"rgba(255,255,255,0.05)":"rgba(10,31,68,0.04)";
+      smRound(x,M,gTop,W-2*M,Math.max(gBot-gTop,S*0.2),W*0.02); x.fill();
+      x.font="500 "+bodyFS+"px "+BRAND.font; x.fillStyle=B.muted; x.textAlign="center";
+      x.fillText("Illustration über den Button anlegen", W/2, gTop+Math.max(gBot-gTop,S*0.2)/2);
+      x.textAlign="left";
+    }
+  } else if(pts.length>=2){
+    smDrawExtraChart(ctx,pts,gTop,gBot,bodyFS,(E.type==="context"));
+  } else {
+    x.fillStyle=B.dark?"rgba(255,255,255,0.05)":"rgba(10,31,68,0.04)";
+    smRound(x,M,gTop,W-2*M,Math.max(gBot-gTop,S*0.2),W*0.02); x.fill();
+    x.font="500 "+bodyFS+"px "+BRAND.font; x.fillStyle=B.muted; x.textAlign="center";
+    x.fillText("Mind. 2 Datenpunkte eingeben (Label = Wert)", W/2, gTop+Math.max(gBot-gTop,S*0.2)/2);
+    x.textAlign="left";
+  }
+
+  /* Einordnung unter der Grafik */
+  if(note){
+    x.font="600 "+bodyFS*0.95+"px "+BRAND.font; x.fillStyle=B.muted; x.textAlign="left";
+    smText(x,note,M,ctx.bottom-bodyFS*0.6,bodyFS*0.95,"600",B.muted,W-2*M,bodyFS*1.35);
+  }
+}
+
+/* Liniendiagramm für die Extra-Slide (angelehnt an chart_story). highlightLast=true
+   hebt den letzten Punkt als "aktuellen Wert" hervor (Kennzahl-im-Kontext). */
+function smDrawExtraChart(ctx,pts,cy0,cy1,bodyFS,highlightLast){
+  const {x,W,M,B}=ctx, E=window.smExtra||{};
+  const cx0=M+W*0.002, cx1=W-M;
+  const vals=pts.map(p=>p.v), labels=pts.map(p=>p.l);
+  const mn=Math.min(...vals), mx=Math.max(...vals), pad=(mx-mn)*0.15||1;
+  const lo=mn-pad, hi=mx+pad;
+  const yv=v=>cy1-((v-lo)/(hi-lo))*(cy1-cy0);
+  const xv=i=>cx0+(i/(vals.length-1))*(cx1-cx0);
+  const tight=(cy1-cy0)<W*0.22;
+  /* Grid + Y-Labels */
+  x.strokeStyle=B.dark?"rgba(255,255,255,0.09)":"rgba(10,31,68,0.09)"; x.lineWidth=1;
+  const gfs=bodyFS*0.72;
+  for(let i=0;i<=3;i++){ const gy=cy0+(cy1-cy0)*i/3; x.beginPath(); x.moveTo(cx0,gy); x.lineTo(cx1,gy); x.stroke();
+    if(tight && i>0 && i<3) continue;
+    x.font="500 "+gfs+"px "+BRAND.font; x.fillStyle=B.dark?"rgba(255,255,255,0.38)":"rgba(10,31,68,0.38)"; x.textAlign="left";
+    x.fillText(smNum(hi-(hi-lo)*i/3)+(E.unit?" "+E.unit:""), cx0, gy-gfs*0.45); }
+  /* Durchschnittslinie (nützlich für "im Kontext": teuer/billig ggü. Schnitt) */
+  if(highlightLast){
+    const avg=vals.reduce((a,b)=>a+b,0)/vals.length, ay=yv(avg);
+    x.strokeStyle=B.dark?"rgba(255,255,255,0.34)":"rgba(10,31,68,0.30)"; x.lineWidth=1.5; x.setLineDash([W*0.012,W*0.010]);
+    x.beginPath(); x.moveTo(cx0,ay); x.lineTo(cx1,ay); x.stroke(); x.setLineDash([]);
+    x.font="600 "+gfs+"px "+BRAND.font; x.fillStyle=B.muted; x.textAlign="right";
+    x.fillText("Ø "+smNum(avg), cx1, ay-gfs*0.45);
+  }
+  /* Fläche + Linie */
+  const grd=x.createLinearGradient(0,cy0,0,cy1); grd.addColorStop(0,B.dark?"rgba(248,28,125,0.30)":"rgba(0,147,93,0.22)"); grd.addColorStop(1,"rgba(0,0,0,0)");
+  x.beginPath(); x.moveTo(xv(0),yv(vals[0])); vals.forEach((v,i)=>x.lineTo(xv(i),yv(v)));
+  x.lineTo(cx1,cy1); x.lineTo(cx0,cy1); x.closePath(); x.fillStyle=grd; x.fill();
+  x.beginPath(); x.moveTo(xv(0),yv(vals[0])); vals.forEach((v,i)=>x.lineTo(xv(i),yv(v)));
+  x.strokeStyle=B.accent; x.lineWidth=Math.max(4,W*0.005); x.lineJoin="round"; x.stroke();
+  /* Endpunkt hervorheben */
+  const ex=xv(vals.length-1), ey=yv(vals[vals.length-1]);
+  x.beginPath(); x.arc(ex,ey,W*0.009,0,7); x.fillStyle=B.accent; x.fill();
+  const elTxt=smProtect(smNum(vals[vals.length-1])+(E.unit?" "+E.unit:""));
+  const elFS=bodyFS*1.1; x.font="800 "+elFS+"px "+BRAND.font;
+  const elW=x.measureText(elTxt).width, elPadX=W*0.016, elPadY=elFS*0.34;
+  const eLblY=Math.max(ey-W*0.024, cy0+bodyFS*1.6);
+  x.fillStyle=B.dark?"rgba(8,1,4,0.72)":"rgba(255,255,255,0.82)";
+  smRound(x, ex-4-elW-elPadX, eLblY-elFS-elPadY, elW+2*elPadX, elFS+2*elPadY, elFS*0.4); x.fill();
+  x.fillStyle=B.ink; x.textAlign="right"; x.fillText(elTxt, ex-4, eLblY);
+  /* X-Achse: erstes + letztes Label */
+  if(!tight){
+    x.font="500 "+bodyFS*0.85+"px "+BRAND.font; x.fillStyle=B.muted;
+    x.textAlign="left"; x.fillText(smProtect(labels[0]||""), cx0, cy1+bodyFS*1.3);
+    x.textAlign="right"; x.fillText(smProtect(labels[labels.length-1]||""), cx1, cy1+bodyFS*1.3);
+    x.textAlign="left";
+  }
+}
+
 function smNum(v){ return Math.round(v).toLocaleString("de-DE"); }
 function smEur(v){ return Math.round(v).toLocaleString("de-DE")+" €"; }
 function smBeat(a,e){
@@ -6726,6 +6990,41 @@ async function smGenBg(){
     img.onerror=()=>{ st.textContent="Bild konnte nicht geladen werden."; _bgDone&&_bgDone(false); };
     img.src=url;
   }catch(e){ st.textContent="Fehler: "+e.message; _bgDone&&_bgDone(false); }
+}
+
+/* ---------- Extra-Grafik: freie Illustration erzeugen (Christian 21.07.2026) ----------
+   Nutzt die bestehende Bild-Route. Prompt fordert isoliertes Motiv auf sauberem/transparentem
+   Grund, damit es im definierten Bereich der Extra-Slide über dem Branding liegen kann. */
+async function smExtraGenIllu(){
+  const st=$("smExtraIlluStatus");
+  if(genMode()==="demo"){ if(st) st.textContent="Demo-Modus: KI-Modell oben rechts verbinden."; return; }
+  const up=($("smExtraIlluPrompt")&&$("smExtraIlluPrompt").value.trim())||(window.smExtra.title||"")||"abstract financial concept illustration";
+  if(st) st.textContent="Illustration wird erzeugt …";
+  const model=($("smModel")&&$("smModel").value)||curModel;
+  const B=SM_BRANDS[smBrand];
+  const prompt=up+". Single isolated illustration / icon-style graphic, centered, generous empty margins, "
+    +(B.dark?"on a plain dark near-black background":"on a plain white background")
+    +", premium editorial finance style, subtle "+(B.dark?"pink/violet":"green/blue")+" accents, flat modern vector-like look, soft depth."
+    +SM_NEG;
+  try{
+    let url;
+    if(genMode()==="direct"){ url=await generateImageDirect(prompt, smFmt, model, _orKey); }
+    else{
+      const params=new URLSearchParams();
+      params.set("action","generate-image"); params.set("prompt",prompt);
+      params.set("format",smFmt); params.set("theme",($("smTheme")&&$("smTheme").value)||"metaphor"); params.set("model",model);
+      params.set("slide","extra_illustration");
+      const res=await fetch(CONFIG.API_BASE,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:params.toString()});
+      const data=await res.json();
+      if(!data.ok||!data.image) throw new Error(data.error||"Bildgenerierung fehlgeschlagen");
+      url=data.image;
+    }
+    try{ url=await smAutoTrimBorders(url); }catch(e){}
+    const img=new Image();
+    img.onload=()=>{ window.smExtra.illuImg=img; window.smExtra.illuUrl=url; if(st) st.textContent="Illustration gesetzt."; if($("smExtraIlluClear")) $("smExtraIlluClear").style.display=""; smRender(); };
+    img.onerror=()=>{ if(st) st.textContent="Bild konnte nicht geladen werden."; };
+    img.src=url;
+  }catch(e){ if(st) st.textContent="Fehler: "+e.message; }
 }
 
 /* ---------- Editor-Übergabe: gerenderte Slides als Bild-Ebenen in den Fabric-Editor ---------- */
@@ -6829,6 +7128,7 @@ async function smOpenInEditor(){
   current=imgs.length-1;
   await showSlide(0);
   renderSlideTabs();
+  _smLoggedThisExport=false; smLogEntry("post-generiert");
 }
 
 /* Zentraler zero-Renderer für Export/Bundle (Yuki 15.07.): rendert eine zero-Slide in EINEM
@@ -6851,17 +7151,58 @@ async function smRenderSlideToDataURL(fmt, slideIndex){
 }
 
 /* ---------- Export ---------- */
-function smDoExport(){
+/* ---------- Post-Log / Quellen-Übersicht für Yuki (Christian 21.07.2026) ----------
+   Sammelt bei jedem Export einen Eintrag (Zeit, Marke, Template, Headline, Quell-URL, Hook).
+   Persistiert im localStorage des Browsers; als CSV exportierbar für die Abnahme. */
+const SM_LOG_KEY="fnce_post_log_v1";
+function smLogRead(){ try{ return JSON.parse(localStorage.getItem(SM_LOG_KEY)||"[]"); }catch(e){ return []; } }
+function smLogWrite(a){ try{ localStorage.setItem(SM_LOG_KEY, JSON.stringify(a.slice(-500))); }catch(e){} }
+let _smLoggedThisExport=false;   /* verhindert Mehrfach-Log bei "Alle Slides" */
+function smLogEntry(kind){
+  if(_smLoggedThisExport) return;
+  _smLoggedThisExport=true;
+  const meta=(window.smMeta||{}), ex=(window.smExtra||{});
+  const rec={
+    ts:new Date().toISOString(),
+    brand:(window._smBrand||smBrand||""),
+    template:(typeof smTpl!=="undefined"&&smTpl)?smTpl.name:"",
+    headline:(smData&&(smData.headline||smData.term||smData.label||smData.value)||"").toString().slice(0,140),
+    source:(meta.sourceUrl||"").trim(),
+    hook:(meta.hook||"").trim(),
+    extra: ex.on?(({chart:"Datenchart",context:"Kennzahl im Kontext",illu:"Illustration"}[ex.type]||ex.type)):"",
+    format:(typeof smFmt!=="undefined")?smFmt:"",
+    kind:kind||"export"
+  };
+  const all=smLogRead(); all.push(rec); smLogWrite(all);
+  const b=$("smLogBtn"); if(b) b.textContent="Quellen-Log ("+all.length+")";
+}
+function smLogCsv(){
+  const all=smLogRead();
+  if(!all.length){ toast("Noch keine Einträge im Post-Log"); return; }
+  const esc=s=>'"'+(""+(s==null?"":s)).replace(/"/g,'""')+'"';
+  const head=["Zeitpunkt","Marke","Template","Headline","Quell-Artikel","Frage-Hook","Extra-Grafik","Format","Aktion"];
+  const rows=all.map(r=>[new Date(r.ts).toLocaleString("de-DE"),r.brand,r.template,r.headline,r.source,r.hook,r.extra,r.format,r.kind].map(esc).join(";"));
+  const csv="﻿"+head.map(esc).join(";")+"\n"+rows.join("\n");
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+  a.download="finanzennet_post_log_"+new Date().toISOString().slice(0,10)+".csv";
+  a.click();
+}
+
+function smDoExport(fromBatch){
   if(smBrand==="zero" && !smExportGate()) return;   /* Regel-Gate vor Export (Christian 16.07.) */
   const a=document.createElement("a");
   a.download=(window.smFileBase?smFileBase(smData.headline||smData.term||smTpl.name):smTpl.id)+"_"+smFmt.replace(":","x")+(smSlides().length>1?"_slide"+(smSlide+1):"")+".png";
   a.href=$("smCanvas").toDataURL("image/png");
   a.click();
+  if(!fromBatch){ _smLoggedThisExport=false; smLogEntry("png"); }
+  else smLogEntry("png");
 }
 async function smExportAll(){
   if(smBrand==="zero" && !smExportGate()) return;   /* Regel-Gate vor Export */
   const sl=smSlides(), keep=smSlide;
-  for(let i=0;i<sl.length;i++){ smSlide=i; smRender(); await new Promise(r=>setTimeout(r,350)); smDoExport(); }
+  _smLoggedThisExport=false;   /* ein Log-Eintrag pro "Alle Slides"-Aktion */
+  for(let i=0;i<sl.length;i++){ smSlide=i; smRender(); await new Promise(r=>setTimeout(r,350)); smDoExport(true); }
   smSlide=keep; smRender();
 }
 /* LinkedIn-Dokument-Export: alle Slides als EIN PDF (echtes LinkedIn-Karussell). */
@@ -6879,6 +7220,7 @@ async function smExportPdf(){
   }
   smSlide=keep; smRender();
   pdf.save((window.smFileBase?smFileBase(smData.headline||smData.term||smTpl.name):smTpl.id)+"_"+smFmt.replace(":","x")+"_linkedin.pdf");
+  _smLoggedThisExport=false; smLogEntry("pdf");
 }
 
 /* ---------- Init ---------- */
@@ -6904,6 +7246,42 @@ function initSocialMedia(){
   };
   $("smExportAll").onclick=smExportAll;
   $("smExportPdf").onclick=smExportPdf;
+  const _lb=$("smLogBtn"); if(_lb){ _lb.onclick=smLogCsv; const n=smLogRead().length; if(n) _lb.textContent="Quellen-Log ("+n+")"; }
+  smWireExtra();
+}
+
+/* ---------- Extra-Grafik-Slide: UI verdrahten (Christian 21.07.2026) ---------- */
+function smExtraSyncType(){
+  const t=(($("smExtraType")||{}).value)||"chart";
+  window.smExtra.type=t;
+  const isIllu=(t==="illu");
+  if($("smExtraDataWrap")) $("smExtraDataWrap").style.display=isIllu?"none":"";
+  if($("smExtraIlluWrap")) $("smExtraIlluWrap").style.display=isIllu?"":"none";
+  const h=$("smExtraDataHint");
+  if(h) h.textContent = t==="context"
+    ? "— historische Reihe, letzter Punkt = aktueller Wert (wird hervorgehoben)"
+    : "— je Zeile: Label = Wert, mind. 2 Zeilen";
+}
+function smWireExtra(){
+  const on=$("smExtraOn"); if(!on) return;
+  on.addEventListener("change",()=>{
+    window.smExtra.on=on.checked;
+    if($("smExtraBody")) $("smExtraBody").style.display=on.checked?"":"none";
+    /* Beim Aktivieren direkt zur Extra-Slide springen, damit man sie sieht */
+    if(on.checked){ const sl=smSlides(); smSlide=sl.length-1; }
+    smRender();
+  });
+  const bind=(id,key)=>{ const el=$(id); if(el) el.addEventListener("input",()=>{ window.smExtra[key]=el.value; smRender(); }); };
+  bind("smExtraTitle","title"); bind("smExtraData","data"); bind("smExtraUnit","unit");
+  bind("smExtraNote","note"); bind("smExtraIlluPrompt","illuPrompt");
+  const ts=$("smExtraType"); if(ts) ts.addEventListener("change",()=>{ smExtraSyncType(); smRender(); });
+  const ig=$("smExtraIlluGen"); if(ig) ig.onclick=smExtraGenIllu;
+  const ic=$("smExtraIlluClear"); if(ic) ic.onclick=()=>{ window.smExtra.illuImg=null; window.smExtra.illuUrl=""; ic.style.display="none"; if($("smExtraIlluStatus")) $("smExtraIlluStatus").textContent=""; smRender(); };
+  smExtraSyncType();
+  /* Frage-Hook + Fokus + Quell-URL verdrahten */
+  const hk=$("smHook"); if(hk) hk.addEventListener("input",()=>{ window.smMeta.hook=hk.value; smRender(); });
+  const fc=$("smFocus"); if(fc) fc.addEventListener("input",()=>{ window.smMeta.focus=fc.value; });
+  const su=$("smSourceUrl"); if(su) su.addEventListener("input",()=>{ window.smMeta.sourceUrl=su.value; });
 }
 
 
