@@ -702,7 +702,6 @@
           <label class="lab">Stil</label>
           <div class="seg" id="themeSeg" style="display:flex">
             <button class="on" data-theme="clean">Clean</button>
-            <button data-theme="cinematic">Cinematic</button>
             <button data-theme="metaphor">Metaphor</button>
           </div>
         </div>
@@ -820,7 +819,6 @@
               <label class="lab" style="margin-top:0">Stil</label>
               <div class="selwrap"><select class="sel" id="smTheme">
                 <option value="clean" selected>Clean · ruhig, präzise</option>
-                <option value="cinematic">Cinematic · dramatisch</option>
                 <option value="metaphor">Metaphorisch · illustrativ</option>
               </select><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
             </div>
@@ -1265,7 +1263,7 @@ let curFmt = "4:5", curTheme = "clean", curModel = "google/gemini-3-pro-image", 
    ============================================================ */
 const NEG_PROMPT = "Keine hellen Standard-PowerPoint-Folien, keine pastellige Start-up-Optik, keine fotorealistischen Personen, keine echten Markenlogos, keine Produktfotos, keine urheberrechtlich geschützten Logos, keine überladene Dekoration, keine unlesbaren Mini-Texte, keine langen Fließtextblöcke, keine falschen Fantasiezahlen, keine chaotische Typografie, keine englischen Texte in der Grafik, keine Wasserzeichen, keine ae/oe/ue-Schreibweise anstelle von ä/ö/ü, keine Stockfoto-Optik, keine Comic-Optik, keine bunten Zufallsfarben.";
 const USECASES = {
-  "frei": { label:"Frei / Social (Standard)", redakteur:"–", fmt:"4:5", theme:"cinematic", dataHeavy:false, prompt:"" },
+  "frei": { label:"Frei / Social (Standard)", redakteur:"–", fmt:"4:5", theme:"clean", dataHeavy:false, prompt:"" },
 
   "top5_scoreboard": { label:"Top-5 Scoreboard", redakteur:"Bank", fmt:"16:9", theme:"clean", dataHeavy:true,
     prompt:"Moderne, professionell gestaltete Finanzinfografik im Format 16:9, Thema 'Top 5 Gewinner der Woche' im jeweiligen Megatrend, Stand %%DATUM%%. Zeige eine klare Tabelle mit zwei Spalten: Aktienname und Performance 1 Woche in Prozent. Dunkler Finanz-/Tech-Hintergrund (Navy/Schwarz), grüne Akzente für positive Performance, jede Zeile mit Pfeil nach oben, klare gut lesbare serifenlose Typografie, dezente Tech-Linien, Überschrift prominent oben. Daten exakt aus dem Text, keine Zahlen erfinden. " + NEG_PROMPT },
@@ -1279,7 +1277,7 @@ const USECASES = {
   "magazin_artikel": { label:"Magazin-Artikel-Grafik", redakteur:"Bank", fmt:"16:9", theme:"clean", dataHeavy:false,
     prompt:"Professionelle, minimalistische Finanzinfografik 16:9 zum Artikel. Sehr übersichtlich, nicht überladen, maximal 1-3 Kernbotschaften. Farbwelt an die Branche des Unternehmens angepasst. Millionen=Mio., Milliarden=Mrd., Währungen USD/EUR, %-Zeichen. Wenig Text, große prominente Zahlen, generische Icons, clean editorial / Barron's style, dunkler Premium-Hintergrund mit dezenten Verläufen. Daten exakt aus dem Text. " + NEG_PROMPT },
 
-  "header_grafik": { label:"Header-/Teaser-Grafik", redakteur:"Bank", fmt:"16:9", theme:"cinematic", dataHeavy:false,
+  "header_grafik": { label:"Header-/Teaser-Grafik", redakteur:"Bank", fmt:"16:9", theme:"clean", dataHeavy:false,
     prompt:"Atmosphärische Header-Grafik 16:9, ohne Logo, sehr wenig Text, als Klick-Anreiz. Illustrativ, dunkler Premium-Stil, großer Titel und optional kurze Kennzahl-Subline, branchenpassende Akzentfarben. Thema aus dem Text. " + NEG_PROMPT },
 
   "tenbagger": { label:"Tenbagger-Magazinseite", redakteur:"Haslinger", fmt:"2:3", theme:"clean", dataHeavy:true,
@@ -1297,7 +1295,7 @@ const USECASES = {
   "musterdepot": { label:"Musterdepot-Tabelle", redakteur:"Duenn", fmt:"16:9", theme:"clean", dataHeavy:true,
     prompt:"Hochwertige, hochauflösende Finanztabelle 16:9 als Übersichtsseite für ein Musterdepot. Kopf-KPI-Streifen (Startkapital, Cashbestand, investiert EUR und USD GLEICH GROSS dargestellt, Gesamtwert, Rendite %). Positionstabelle mit Spalten: Aktie, WKN, Kaufdatum, Stück, Kaufkurs, Akt. Kurs, Dividende je Aktie, Gesamtrendite %, nächster Zahltag. Untere Zeile Überschrift 'Depotzusammenfassung'. Positive Werte grün, negative rot, Zahlen monospace tabular. Daten exakt aus dem Text. " + NEG_PROMPT },
 
-  "featured": { label:"Featured Image (Blog)", redakteur:"Duenn", fmt:"16:9", theme:"cinematic", dataHeavy:false,
+  "featured": { label:"Featured Image (Blog)", redakteur:"Duenn", fmt:"16:9", theme:"clean", dataHeavy:false,
     prompt:"Simples, übersichtliches Featured Image 16:9 für einen Depot-Blog-Beitrag mit hohem Wiedererkennungswert. Einfach gehalten, eine klare visuelle Kernaussage, dunkler Premium-Stil, branchenpassende Akzentfarben, generische Icons, sehr wenig Text. Thema aus dem Text. " + NEG_PROMPT },
 
   "thorsten_fokus": { label:"IM FOKUS (Reich: Saisonal/Rangliste)", redakteur:"Reich", fmt:"16:9", theme:"clean", dataHeavy:true,
@@ -1442,7 +1440,7 @@ const FMT_COMP = {
   "4:5":  "Vertical 4:5 portrait framing.",
   "9:16": "Tall 9:16 full-bleed vertical framing.",
   "1:1":  "Balanced 1:1 square framing.",
-  "16:9": "Wide 16:9 cinematic framing.",
+  "16:9": "Wide 16:9 horizontal framing.",
 };
 const SLIDE_COMP = {
   cover:   "Hero shot: place the main subject in the upper two thirds. Keep the lower 40 percent of the frame visually calm, low in detail and a touch darker, so headline text placed there stays perfectly readable. Nothing important in the bottom strip.",
@@ -1450,14 +1448,14 @@ const SLIDE_COMP = {
   content: "Calm, uncluttered scene that works as a quiet background.",
 };
 const THEME_LOOK = {
-  clean:     "clean editorial finance photography, blue hour, premium institutional mood, soft natural light",
-  cinematic: "editorial documentary-style photography, warm natural directional light, gentle contrast, subtle film grade — restrained and believable, not overly dramatic or artificial",
-  metaphor:  "modern conceptual visual metaphor, slightly surreal, premium color grading",
+  clean:     "plain business/finance stock photograph, neutral even daylight, natural office or city setting, ordinary and clean, no dramatic lighting",
+  cinematic: "everyday stock-style photograph, soft flat natural light, gentle contrast, calm and believable — NOT cinematic, no dramatic or moody lighting",
+  metaphor:  "simple conceptual stock-style image, clean and literal, neutral lighting, no surreal or heavy color grading",
 };
 /* Realismus-Klausel (Yuki Feature #1, Christian 21.07.2026): erzwingt echte Foto-Anmutung und
    unterdrückt den typischen KI-Look (Plastikhaut, Wachsfiguren, Überglättung, HDR-Übertreibung).
    Wird in buildImagePrompt an jeden Stimmungs-/Szenen-Bildprompt angehängt. */
-const REALISM_LOOK = "Photorealism is essential: the image must look like a real photograph taken with a professional camera (natural depth of field, realistic lighting and shadows, authentic textures and materials). If any person appears, render natural, realistic human skin with real pores and fine texture and natural skin tone — absolutely NO plastic, waxy, glossy, airbrushed, over-smoothed or mannequin-like skin, no uncanny or artificial faces, no deformed hands or eyes. Avoid the typical AI look: no over-saturated colors, no exaggerated HDR, no unrealistic bokeh, no overly cinematic or CGI/3D-render feel. Keep it grounded, natural and believable.";
+const REALISM_LOOK = "Natural stock-photography look: an ordinary, believable real photograph like a professional business/finance stock image, evenly and softly lit with flat natural daylight or normal office/indoor light — NOT dramatic, NOT cinematic, no strong directional key light, no heavy shadows or spotlights, no lens flares, no moody color grade. Neutral, realistic colors (not over-saturated), normal contrast, ordinary depth of field. If any person appears, render natural realistic human skin with real texture and normal skin tone — absolutely NO plastic, waxy, glossy, airbrushed, over-smoothed or mannequin-like skin, no uncanny or artificial faces, no deformed hands or eyes. Avoid the typical AI look and any CGI/3D-render feel. Keep it plain, grounded and believable, as if pulled from a stock photo library.";
 function buildImagePrompt(userPrompt, fmt, slideType, theme, brand){
   const parts=[
     userPrompt.trim() + ".",
@@ -3410,9 +3408,9 @@ async function extractSM(txt,opts){
   smTpl.fields.forEach(f=>{
     schema[f.k]=f.l+(f.max?(" (max "+f.max+" Zeichen)"):"")+(f.type==="sel"?(" — exakt einer dieser Werte: "+f.opts.join(" | ")):"")+(f.type==="num"?" — nur Zahl":"");
   });
-  schema["bg_prompt"]="kurzer englischer Bild-Prompt für einen thematisch passenden Stimmungshintergrund ohne Text, ohne Zahlen, ohne Logos";
-  schema["theme"]="einer von: clean | cinematic | metaphor — passend zur Tonalität des Inhalts";
-  schema["motive"]={"empfohlen":"person|logo|szene|metapher — welches Cover-Motiv zu diesem Artikel am stärksten passt (nicht immer logo, für echte Varianz)","person":"englischer Bild-Prompt: Schlüsselperson thematisch inszeniert, photorealistic, NO text overlays","logo":"englischer Bild-Prompt: Markenwelt der Firma, Logo an Fassade/Store/Produkt","szene":"englischer Bild-Prompt: die Story als thematische Szene ohne Logo-Fokus","metapher":"englischer Bild-Prompt: visuelle Metapher zur Kernaussage, premium editorial style"};
+  schema["bg_prompt"]="AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze, 50-90 Wörter) für einen thematisch GENAU passenden Stimmungshintergrund ohne Text/Zahlen/Logos. Beschreibe konkret: Hauptmotiv/Szene zum Artikelthema, Umgebung/Setting, relevante Objekte/Requisiten, Bildkomposition und wo die ruhige Textzone liegt. STIL IMMER: natürliches, ruhiges Business-/Finanz-Stockfoto, weiches gleichmäßiges Tageslicht, neutrale realistische Farben — NICHT dramatisch/cinematisch, kein hartes Licht, kein CGI-Look. Motiv muss klar zum konkreten Thema des Artikels passen (nicht generisch).";
+  schema["theme"]="einer von: clean | metaphor — passend zur Tonalität des Inhalts (immer ruhiger, natürlicher Stockfoto-Look)";
+  schema["motive"]={"empfohlen":"person|logo|szene|metapher — welches Cover-Motiv zu diesem Artikel am stärksten passt (nicht immer logo, für echte Varianz)","person":"AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze, 50-90 Wörter): Schlüsselperson thematisch passend inszeniert (Rolle, Umgebung, Tätigkeit, Requisiten), natürliches Stockfoto, weiches gleichmäßiges Licht, realistische Haut, NO text overlays","logo":"AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze): Markenwelt der Firma konkret beschrieben (Store/Fassade/Produkt im realen Kontext, Umgebung, Tageslicht), natürliches Stockfoto","szene":"AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze): die Story als konkrete thematische Szene ohne Logo-Fokus, mit Setting/Objekten/Komposition, natürliches ruhiges Stockfoto","metapher":"AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze): konkrete visuelle Metapher zur Kernaussage, klar und literal beschrieben, cleaner Stockfoto-Stil, neutrales Licht"};
   schema["caption_instagram"]="Instagram-Caption im zero-Ton (packende erste Zeile, kurze Absätze, gezielt einzelne Emojis, Engagement-Frage am Ende, KEINE Anlageberatung)";
   schema["caption_linkedin"]="LinkedIn-Caption: sachlich-analytisch, längerer Fließtext, keine Emojis. WICHTIG: jede Firma nur beim ERSTEN Vorkommen mit @ markieren (z.B. @Apple), bei allen weiteren Erwähnungen derselben Firma OHNE @";
   schema["x_text"]="X/Twitter-Post, max 260 Zeichen, prägnant";
@@ -3457,7 +3455,7 @@ async function extractSM(txt,opts){
       }
     }
   }catch(e){ /* darf nie blockieren */ }
-  if(out.theme && $("smTheme") && ["clean","cinematic","metaphor"].includes(out.theme)) $("smTheme").value=out.theme;
+  if(out.theme && $("smTheme")){ var _th=(out.theme==="cinematic")?"clean":out.theme; if(["clean","metaphor"].includes(_th)) $("smTheme").value=_th; }
   // Bildmotiv (Cover-Varianz, wie finanzen.net): bei Auto das von Claude empfohlene Motiv übernehmen,
   // bei manuell bereits gewähltem Motiv dessen Prompt nehmen. Fallback: genereller bg_prompt.
   window._smMotivesZ=(out.motive&&typeof out.motive==="object")?out.motive:null;
@@ -4605,12 +4603,12 @@ extractSocial = async function(txt){
     "\"closeHead\":\"kurze Headline für die Schluss-Slide, max 40 Zeichen, inhaltlich zum Artikel passend, NICHT generisch\","+
     "\"brand\":\"die zentrale Firma oder Marke, sonst leerer String\","+
     "\"companies\":[\"alle im Artikel genannten Firmennamen\"],"+
-    "\"prompt\":\"kurzer englischer Bild-Prompt für ein passendes Hintergrundfoto ohne Text\","+
+    "\"prompt\":\"AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze, 50-90 Wörter) für ein thematisch GENAU passendes Hintergrundfoto ohne Text: Hauptmotiv, Setting, Objekte, Komposition, ruhige Textzone. STIL IMMER natürliches ruhiges Business-/Finanz-Stockfoto, weiches gleichmäßiges Tageslicht, neutrale Farben, NICHT dramatisch/cinematisch\","+
     "\"motive\":{\"empfohlen\":\"person|logo|szene|metapher — welches Cover-Motiv zu diesem Artikel am stärksten ist. WICHTIG für Varianz: nicht immer logo! person wenn eine bekannte Person (CEO, Gründer) im Zentrum steht, szene bei Ereignissen/Prozessen, metapher bei abstrakten Themen (Bewertung, Strategie, Risiko)\","+
-    "\"person\":\"englischer Bild-Prompt: die Schlüsselperson des Artikels thematisch inszeniert (z.B. 'CEO-like businessman looking thoughtfully at falling stock chart'), Stimmung passend zur Nachricht (ernst bei schlechten News, zuversichtlich bei guten), photorealistic, NO text overlays\","+
-    "\"logo\":\"englischer Bild-Prompt: Markenwelt der Firma — Logo an Fassade/Store/Produkt, authentisch\","+
-    "\"szene\":\"englischer Bild-Prompt: die Story als thematische Szene ohne Logo-Fokus (z.B. trading floor, factory, product in use)\","+
-    "\"metapher\":\"englischer Bild-Prompt: visuelle Metapher zur Kernaussage des Artikels, premium editorial style\"},"+
+    "\"person\":\"AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze, 50-90 Wörter): die Schlüsselperson thematisch inszeniert (Rolle, Umgebung, Tätigkeit, Requisiten, Stimmung passend zur Nachricht — ernst bei schlechten, zuversichtlich bei guten News). Natürliches Stockfoto, weiches gleichmäßiges Licht, realistische Haut mit Textur, photorealistic, NO text overlays\","+
+    "\"logo\":\"AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze): Markenwelt der Firma konkret — Logo an Fassade/Store/Produkt im realen Alltagskontext, Umgebung, Tageslicht, authentisch, natürliches Stockfoto\","+
+    "\"szene\":\"AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze): die Story als konkrete thematische Szene ohne Logo-Fokus (Setting, handelnde Elemente, Objekte, Komposition), natürliches ruhiges Stockfoto\","+
+    "\"metapher\":\"AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze): konkrete, literal beschriebene visuelle Metapher zur Kernaussage, cleaner Stockfoto-Stil, neutrales Licht\"},"+
     "\"formats\":[maximal 3 Vorschlaege, jeweils {\"key\":\"news|quartalszahlen|vergleich|zitat\",\"grund\":\"1 Satz warum dieses Format passt\",\"bildprompt\":\"englischer Bild-Prompt passend zum Format, ohne Text im Bild\"}] sortiert nach Eignung,"+
     "\"captions\":{\"instagram\":\"fertige Instagram-Caption im Markenton mit Absätzen. STIL: wie ein erfahrener Redakteur, NICHT wie KI — Information direkt in vollständigen Sätzen, jeder Absatz beginnt anders (mal Zahl, mal Akteur, mal Folge). Der Abschluss ergibt sich aus dem Artikel (Einordnung, Ausblick oder kurze Frage an die Community) — KEIN generischer Standard-CTA\",\"linkedin\":\"fertige LinkedIn-Caption, sachlicher und länger, WICHTIG: jede Firma nur beim ERSTEN Vorkommen mit @ markieren (z.B. @Apple), bei allen weiteren Erwähnungen derselben Firma OHNE @, Frage oder Einordnung am Ende\"},"+
     "\"story\":{\"text\":\"kurzer knackiger Story-Text, max 200 Zeichen, für ein Text-Overlay auf der Instagram Story — KEIN Call-to-Action, KEIN Link-Hinweis\",\"umfrage\":\"optionale Idee für einen Umfrage-Sticker als Frage mit 2 Antwortoptionen, sonst leerer String\"},"+
@@ -5569,7 +5567,7 @@ const SM_TEMPLATES=[
   desc:"Belegtes Zitat mit Kontext und Primärquelle.",
   note:"Ohne Primärquelle keine Veröffentlichung. Niedrigstes KI-Risiko: Text deterministisch, Stimmung aus KI.",
   formats:["4:5","9:16"], master:"4:5",
-  bgPrompt:"Abstract fintech mood background, premium atmosphere, cinematic soft light, empty center text zone, muted tones",
+  bgPrompt:"Abstract fintech mood background, premium atmosphere, soft even light, empty center text zone, muted tones",
   legal:["base"],
   fields:[
     {k:"quote",l:"Zitat (Auslassungen kennzeichnen)",type:"area",max:220},
@@ -6853,18 +6851,26 @@ function smDrawExtra(ctx,S,headFS,bodyFS){
   const pts=(typeof smExtraPoints==="function")?smExtraPoints():[];
 
   if(E.type==="illu"){
-    /* Illustration in eingerücktem Rahmen — NICHT vollflächig, Branding bleibt sichtbar */
+    /* Illustration füllt den definierten Kasten EXAKT aus (cover + clip) — nie vollflächig über die
+       Slide, aber auch kein Schieben nötig, weil das Bild im Kasten-Seitenverhältnis generiert wird
+       (siehe smExtraBox / smExtraGenIllu). Christian 21.07.2026. */
+    const box={x:M, y:gTop, w:W-2*M, h:Math.max(gBot-gTop,S*0.2)};
+    /* Kasten-Seitenverhältnis merken (Christian 21.07.2026): smExtraGenIllu generiert das Bild
+       im nächstpassenden Format, damit es den Kasten füllt statt hineingeschrumpft zu werden. */
+    window._smExtraBoxAR = box.w/box.h;
     if(E.illuImg){
-      const availW=W-2*M, availH=Math.max(gBot-gTop,S*0.2);
       const iw=E.illuImg.width, ih=E.illuImg.height;
-      const sc=Math.min(availW/iw, availH/ih);
-      const dw=iw*sc, dh=ih*sc, dx=(W-dw)/2, dy=gTop+(availH-dh)/2;
+      const sc=Math.max(box.w/iw, box.h/ih);          /* COVER: füllt den Kasten komplett */
+      const dw=iw*sc, dh=ih*sc, dx=box.x+(box.w-dw)/2, dy=box.y+(box.h-dh)/2;
+      x.save();
+      smRound(x,box.x,box.y,box.w,box.h,W*0.02); x.clip();   /* auf den Kasten beschneiden */
       x.drawImage(E.illuImg, dx, dy, dw, dh);
+      x.restore();
     } else {
       x.fillStyle=B.dark?"rgba(255,255,255,0.05)":"rgba(10,31,68,0.04)";
-      smRound(x,M,gTop,W-2*M,Math.max(gBot-gTop,S*0.2),W*0.02); x.fill();
+      smRound(x,box.x,box.y,box.w,box.h,W*0.02); x.fill();
       x.font="500 "+bodyFS+"px "+BRAND.font; x.fillStyle=B.muted; x.textAlign="center";
-      x.fillText("Illustration über den Button anlegen", W/2, gTop+Math.max(gBot-gTop,S*0.2)/2);
+      x.fillText("Illustration über den Button anlegen", W/2, box.y+box.h/2);
       x.textAlign="left";
     }
   } else if(pts.length>=2){
@@ -6954,9 +6960,9 @@ function smCalc(){
 /* ---------- KI-Hintergrund (Pfad C) über bestehenden Make-Webhook ---------- */
 const SM_NEG=" Strictly no text, no letters, no words, no numbers, no digits, no logos, no watermarks, no charts, no tables, no invented data, no currency symbols, no percentage signs, no brand names, no realistic photography of real people. Completely full-bleed edge to edge, no white or light border, no frame, no margin, no letterboxing.";
 const SM_THEME_TXT={
-  clean:"calm, precise, minimal, controlled studio light",
-  cinematic:"dramatic cinematic light, strong atmosphere, depth of field",
-  metaphor:"illustrative, conceptual metaphor, premium editorial illustration style"
+  clean:"calm, precise, minimal, soft even light",
+  cinematic:"subtle atmosphere, soft natural light, gentle depth — restrained, not dramatic or overblown",
+  metaphor:"illustrative, conceptual, clean editorial style, neutral light"
 };
 async function smGenBg(){
   const st=$("smBgStatus");
@@ -7002,17 +7008,24 @@ async function smExtraGenIllu(){
   if(st) st.textContent="Illustration wird erzeugt …";
   const model=($("smModel")&&$("smModel").value)||curModel;
   const B=SM_BRANDS[smBrand];
-  const prompt=up+". Single isolated illustration / icon-style graphic, centered, generous empty margins, "
-    +(B.dark?"on a plain dark near-black background":"on a plain white background")
-    +", premium editorial finance style, subtle "+(B.dark?"pink/violet":"green/blue")+" accents, flat modern vector-like look, soft depth."
+  const prompt=up+". Single clear subject that FILLS THE FRAME edge to edge (no isolated icon on empty background), natural composition, "
+    +(B.dark?"dark near-black tones fitting a dark layout":"light clean tones fitting a light layout")
+    +", premium editorial finance style, subtle "+(B.dark?"pink/violet":"green/blue")+" accents, natural stock-photo look, soft even light, believable — not dramatic, no CGI feel. Full-bleed, fills the entire image."
     +SM_NEG;
+  /* Format so wählen, dass es dem Kasten-Seitenverhältnis am nächsten kommt (Christian 21.07.2026)
+     -> das Bild entsteht in Kasten-Proportion und muss NICHT mehr im Slide verschoben werden. */
+  try{ smRender(); }catch(e){}   /* stellt sicher, dass _smExtraBoxAR aktuell ist */
+  const boxAR = window._smExtraBoxAR || 1;
+  const cand=[["16:9",1920/1080],["1:1",1],["4:5",1080/1350],["9:16",1080/1920]];
+  let illuFmt="1:1", best=1e9;
+  cand.forEach(([f,ar])=>{ const d=Math.abs(ar-boxAR); if(d<best){ best=d; illuFmt=f; } });
   try{
     let url;
-    if(genMode()==="direct"){ url=await generateImageDirect(prompt, smFmt, model, _orKey); }
+    if(genMode()==="direct"){ url=await generateImageDirect(prompt, illuFmt, model, _orKey); }
     else{
       const params=new URLSearchParams();
       params.set("action","generate-image"); params.set("prompt",prompt);
-      params.set("format",smFmt); params.set("theme",($("smTheme")&&$("smTheme").value)||"metaphor"); params.set("model",model);
+      params.set("format",illuFmt); params.set("theme",($("smTheme")&&$("smTheme").value)||"clean"); params.set("model",model);
       params.set("slide","extra_illustration");
       const res=await fetch(CONFIG.API_BASE,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:params.toString()});
       const data=await res.json();
