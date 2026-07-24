@@ -6291,13 +6291,11 @@ QN_RENDER.topperformer=function(x, W, H, slide){
   if(!items.length){ x.fillStyle=mut; x.font="500 "+(W*0.036)+"px "+BRAND.font; x.textAlign="center";
     x.fillText("Werte eingeben: je Zeile  Name = Wert%", W/2, chartTop+chartH/2); x.textAlign="left"; }
 
-  /* Footer: Seiten-Indikator nur wenn wirklich 2 Slides (Christian 22.07.2026) */
+  /* Footer: nur Quelle (Seiten-Indikator "01/02" + Punkt davor entfernt, Christian 24.07.2026) */
   const fcy=H-M-W*0.005;
   qnDrawZeroLogo(x, M+W*0.18, fcy-W*0.004, W*0.16, dark);
-  const both=(smData.tpwhich||"beide")==="beide";
-  const pageTxt=both?((isFlop?"02/02":"01/02")+"  ·  "):"";
   x.textAlign="right"; x.fillStyle=mut; x.font="500 "+(W*0.030)+"px "+BRAND.font;
-  x.fillText(pageTxt+"Quelle: "+(d.source||"finanzen.net"), W-M, fcy);
+  x.fillText("Quelle: "+(d.source||"finanzen.net"), W-M, fcy);
   x.textAlign="left";
 };
 
@@ -6328,12 +6326,10 @@ function qnAzfHeaderLight(x,W,H,M,label,sym){
 }
 /* Cover: KI-Foto (Stockfoto-Stil) als Vollbild + pink Verlauf unten, Kicker-Badge + Headline + Pfeil */
 function qnAzfCover(x,W,H,d,M){
-  x.fillStyle="#e9ebee"; x.fillRect(0,0,W,H);
+  /* Grundfläche: dunkles Bordeaux (kein Filler-Text mehr; Cover-Bild wird beim Generieren
+     automatisch erzeugt, s. smOpenInEditor). Christian 24.07.2026. */
+  x.fillStyle="#4D0825"; x.fillRect(0,0,W,H);
   if(typeof smBgImg!=="undefined" && smBgImg) smDrawCover(x,smBgImg,W,H);
-  else { /* dezenter Platzhalter-Hinweis, wenn noch kein Cover-Bild erzeugt wurde */
-    x.fillStyle="#dfe3e8"; x.fillRect(0,0,W,H);
-    x.fillStyle="#aab2bd"; x.textAlign="center"; x.font="500 "+(W*0.032)+"px "+BRAND.font;
-    x.fillText("Cover-Bild über die KI-Bild-Karte erzeugen", W/2, H*0.4); x.textAlign="left"; }
   const g=x.createLinearGradient(0,H*0.15,0,H);
   g.addColorStop(0,"rgba(60,6,30,0)"); g.addColorStop(0.55,"rgba(90,8,45,0.55)"); g.addColorStop(1,"rgba(45,4,22,0.96)");
   x.fillStyle=g; x.fillRect(0,0,W,H);
@@ -6364,17 +6360,19 @@ function qnAzfContent(x,W,H,d,M,slide){
   let y=H*0.185;
   const hlFS=W*0.066; x.font="800 "+hlFS+"px "+BRAND.font; x.fillStyle="#0b0b0f"; x.textAlign="left";
   smWrap(x,d["s"+i+"head"]||d.headline||"Überschrift",W-2*M).slice(0,3).forEach(ln=>{ x.fillText(ln,M,y); y+=hlFS*1.08; });
-  /* Trader-Bullets mit Hook-Charakter: prägnant, kontextreich, nicht zu zahlenlastig */
+  /* Trader-Bullets: NICHT bold (Gewicht 600), Punkt sitzt exakt auf der 1. Textzeile,
+     Folgezeilen eingerückt (Christian 24.07.2026, analog finanzen.net-Bullet-Fix). */
   y+=W*0.055;
   const bul=[d["s"+i+"b1"],d["s"+i+"b2"],d["s"+i+"b3"]].filter(b=>(b||"").trim());
-  const bFS=W*0.046;
+  const bFS=W*0.046, textX=M+W*0.056, blh=bFS*1.24;
+  x.font="500 "+bFS+"px "+BRAND.font;   /* für korrektes measureText beim Umbruch */
   bul.forEach(b=>{
-    /* pinker Akzent-Punkt */
-    x.fillStyle=QN_PINK; x.beginPath(); x.arc(M+W*0.016, y-bFS*0.32, W*0.016, 0, 7); x.fill();
-    x.fillStyle="#0b0b0f"; x.font="700 "+bFS+"px "+BRAND.font; x.textAlign="left";
     const lines=smWrap(x,b,W-2*M-W*0.06);
-    lines.forEach((ln,k)=>{ x.fillText(ln, M+W*0.056, y); y+=bFS*1.24; });
-    y+=W*0.028;
+    /* Punkt auf Höhe der ERSTEN Zeile */
+    x.fillStyle=QN_PINK; x.beginPath(); x.arc(M+W*0.016, y-bFS*0.30, W*0.015, 0, 7); x.fill();
+    x.fillStyle="#0b0b0f"; x.font="500 "+bFS+"px "+BRAND.font; x.textAlign="left";
+    lines.forEach(ln=>{ x.fillText(ln, textX, y); y+=blh; });
+    y+=W*0.026;   /* fester Abstand zum nächsten Bullet */
   });
   if(!bul.length){ x.fillStyle="#aab2bd"; x.font="500 "+(W*0.034)+"px "+BRAND.font;
     x.fillText("Punkte eingeben (Trader-Fokus, mit Hook)", M, y+W*0.05); }
@@ -6390,47 +6388,39 @@ function qnAzfContent(x,W,H,d,M,slide){
 /* Podcast-CTA-Abschluss: keine Bildzone mehr — großflächige, saubere CTA mit Mikrofon-Bühne,
    Podcast-URL und Hinweis auf die zero App (Christian 24.07.2026). */
 function qnAzfPodcast(x,W,H,d,M){
-  /* dunkler Grund mit dezentem Pink-Gradient, damit die CTA eigenständig wirkt */
-  x.fillStyle=QN_DARKBG; x.fillRect(0,0,W,H);
-  const bg=x.createRadialGradient(W*0.5,H*0.42,0,W*0.5,H*0.42,W*0.9);
-  bg.addColorStop(0,"rgba(120,10,55,0.5)"); bg.addColorStop(0.55,"rgba(50,5,26,0.4)"); bg.addColorStop(1,"rgba(10,2,6,0)");
-  x.fillStyle=bg; x.fillRect(0,0,W,H);
-  qnAzfHeaderDark(x,W,H,M,"Podcast","mic");
+  /* Light-Theme (Christian 24.07.2026): weißer Grund, dunkle Schrift; Header hell. */
+  x.fillStyle="#ffffff"; x.fillRect(0,0,W,H);
+  qnAzfHeaderLight(x,W,H,M,"Podcast","mic");
+  const cx=W*0.5;
 
   /* große zentrierte Mikrofon-Bühne */
-  const cx=W*0.5, cyr=H*0.32, rr=W*0.16;
+  const cyr=H*0.32, rr=W*0.16;
   x.beginPath(); x.arc(cx,cyr,rr,0,7); x.fillStyle=QN_PINK; x.fill();
   qnHeaderIcon(x, cx, cyr, rr*0.62, "mic", QN_PINK, "#fff");
 
   /* Titel */
   let y=H*0.52;
-  x.textAlign="center"; x.fillStyle="#ffffff"; x.font="800 "+(W*0.075)+"px "+BRAND.font;
+  x.textAlign="center"; x.fillStyle="#0b0b0f"; x.font="800 "+(W*0.075)+"px "+BRAND.font;
   x.fillText("Aktien zum Frühstück", cx, y);
   y+=W*0.058;
-  x.fillStyle="rgba(255,255,255,0.75)"; x.font="500 "+(W*0.040)+"px "+BRAND.font;
+  x.fillStyle="rgba(11,11,15,0.6)"; x.font="500 "+(W*0.040)+"px "+BRAND.font;
   ["Die ganze Analyse gibt's im Podcast –","jeden Morgen, kompakt eingeordnet."].forEach((ln,k)=>{ x.fillText(ln,cx,y+k*W*0.052); });
   y+=W*0.16;
 
-  /* CTA-Button mit Podcast-URL */
+  /* CTA-Button mit Podcast-URL — URL im Button horizontal ZENTRIERT (Christian 24.07.2026) */
   const label=(d.podcasturl||"aktienzumfruehstuck.podbean.com").replace(/^https?:\/\//,"").replace(/\/$/,"");
   x.font="800 "+(W*0.040)+"px "+BRAND.font;
-  const tW=x.measureText(label).width, btnH=W*0.115, btnW=Math.min(W-2*M, tW+W*0.30), btnX=cx-btnW/2, btnY=y;
+  const tW=x.measureText(label).width, btnH=W*0.115, btnW=Math.min(W-2*M, tW+W*0.34), btnX=cx-btnW/2, btnY=y;
   x.fillStyle=QN_PINK; smRound(x, btnX, btnY, btnW, btnH, btnH/2); x.fill();
-  x.textAlign="left"; x.fillStyle="#fff"; x.textBaseline="middle";
-  /* Play-Kreis links im Button */
-  const cr=btnH*0.32, pcx=btnX+btnH*0.62, pcy=btnY+btnH/2;
-  x.beginPath(); x.arc(pcx,pcy,cr,0,7); x.fillStyle="#fff"; x.fill();
-  x.fillStyle=QN_PINK; x.beginPath(); x.moveTo(pcx-cr*0.3,pcy-cr*0.45); x.lineTo(pcx+cr*0.5,pcy); x.lineTo(pcx-cr*0.3,pcy+cr*0.45); x.closePath(); x.fill();
-  x.fillStyle="#fff"; x.font="800 "+(W*0.038)+"px "+BRAND.font;
-  x.fillText(label, btnX+btnH*1.15, btnY+btnH/2+W*0.002);
+  x.fillStyle="#fff"; x.font="800 "+(W*0.040)+"px "+BRAND.font;
+  x.textAlign="center"; x.textBaseline="middle";
+  x.fillText(label, cx, btnY+btnH/2+W*0.002);
   x.textBaseline="alphabetic";
 
-  /* Hinweis auf zero App + Quelle unten, zentriert */
-  y=btnY+btnH+W*0.09;
-  x.textAlign="center"; x.fillStyle="rgba(255,255,255,0.8)"; x.font="600 "+(W*0.038)+"px "+BRAND.font;
+  /* Hinweis auf zero App, zentriert — Footer-Logo entfernt (steht schon oben rechts) */
+  y=btnY+btnH+W*0.10;
+  x.textAlign="center"; x.fillStyle="rgba(11,11,15,0.6)"; x.font="600 "+(W*0.038)+"px "+BRAND.font;
   x.fillText("Alle weiteren Infos in der finanzen.net zero App", cx, y);
-  /* zero-Logo unten mittig */
-  qnDrawZeroLogo(x, cx+W*0.11, H-M-W*0.01, W*0.22, true);
   x.textAlign="left";
 }
 
@@ -7580,6 +7570,12 @@ async function smExtraGenIllu(){
 
 /* ---------- Editor-Übergabe: gerenderte Slides als Bild-Ebenen in den Fabric-Editor ---------- */
 async function smOpenInEditor(){
+  /* AZF-Karussell: Cover-Bild automatisch erzeugen, falls noch keins da ist (Christian 24.07.2026).
+     Kein Filler mehr — beim "Post generieren" wird das KI-Foto direkt mitgeneriert. smGenBg setzt
+     window._smBgPending; auf das eigentliche Bild-Load wartet der Block direkt darunter. */
+  if(smTpl.id==="zero_azf_carousel" && !smBgImg && genMode&&genMode()!=="demo"){
+    try{ smGenBg(); }catch(e){}
+  }
   /* FIX Hintergrundbild im Editor (Christian 15.07.): läuft noch eine Hintergrund-Generierung,
      erst auf sie warten — sonst wurden die Slides OHNE Bild eingefroren in den Editor übergeben. */
   if(window._smBgPending){ showLoading&&showLoading("Hintergrund wird fertiggestellt","Slides werden gleich übergeben"); try{ await window._smBgPending; }catch(e){} window._smBgPending=null; hideLoading&&hideLoading(); }
