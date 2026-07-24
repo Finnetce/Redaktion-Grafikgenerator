@@ -6146,14 +6146,9 @@ QN_RENDER.quicknews=function(x, W, H, slide){
   const M=Math.round(W*0.066);
   const ink=dark?"#ffffff":"#0b0b0f";
   const mut=dark?"rgba(255,255,255,0.62)":"rgba(11,11,15,0.55)";
-  /* Hintergrund: dunkler Grund mit schwachem Pink-Gradient (nicht reines Schwarz, Christian 22.07.2026) */
-  if(dark){
-    x.fillStyle=QN_DARKBG; x.fillRect(0,0,W,H);
-    const dg=x.createLinearGradient(0,0,W,H);
-    dg.addColorStop(0,"rgba(120,12,58,0.55)"); dg.addColorStop(0.5,"rgba(60,6,30,0.30)"); dg.addColorStop(1,"rgba(20,3,11,0.0)");
-    x.fillStyle=dg; x.fillRect(0,0,W,H);
-  }
-  else { x.fillStyle="#FFF0F5"; x.fillRect(0,0,W,H); }
+  /* Hintergrund: Dark = einheitliches Bordeaux #4D0825 (Christian 24.07.2026), Light = weiß */
+  if(dark){ x.fillStyle="#4D0825"; x.fillRect(0,0,W,H); }
+  else { x.fillStyle="#ffffff"; x.fillRect(0,0,W,H); }
   /* großer pinker Kreis (Hauptbühne) — unten/mitte, ragt rechts raus */
   x.save();
   x.beginPath(); x.arc(W*0.42, H*0.60, W*0.66, 0, 7); x.fillStyle=QN_PINK; x.fill();
