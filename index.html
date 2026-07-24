@@ -6180,22 +6180,27 @@ QN_RENDER.quicknews=function(x, W, H, slide){
   x.font="500 "+dkFS+"px "+BRAND.font; x.fillStyle="rgba(255,255,255,0.92)";
   smWrap(x,d.deck||"",W*0.72).slice(0,3).forEach(ln=>{ x.fillText(ln, M, y); y+=dkFS*1.4; });
 
-  /* "Was steckt dahinter?" + Bullets */
+  /* Ticker-Karte etwas höher/größer und mit Sicherheitsabstand zu den Bullets (Yuki 24.07.2026).
+     cardTop wird VOR den Bullets bestimmt, damit die Bullets eine harte Untergrenze haben. */
+  const note=(d.tknote||"").trim();
+  const cardW=W-2*M, cardH=W*0.115, cardY=note?H*0.795:H*0.825;
+  const bulletsBottom=cardY-W*0.045;   /* Bullets dürfen hier nicht drunter */
+
+  /* "Was steckt dahinter?" + Bullets — bricht nicht in die Ticker-Karte (Untergrenze bulletsBottom) */
   if((d.bhead||"").trim() || [d.b1,d.b2,d.b3].some(b=>(b||"").trim())){
     y+=W*0.03;
     x.font="800 "+(W*0.044)+"px "+BRAND.font; x.fillStyle="#ffffff";
     x.fillText(d.bhead||"Was steckt dahinter?", M, y); y+=W*0.058;
-    [d.b1,d.b2,d.b3].filter(b=>(b||"").trim()).forEach(b=>{
+    const bl=[d.b1,d.b2,d.b3].filter(b=>(b||"").trim());
+    const step=W*0.058;
+    bl.forEach(b=>{
+      if(y>bulletsBottom) return;   /* Sicherheitsstopp: nie in die Karte laufen */
       x.beginPath(); x.arc(M+W*0.014, y-W*0.013, W*0.010, 0, 7); x.fillStyle="#ffffff"; x.fill();
       x.font="600 "+(W*0.040)+"px "+BRAND.font; x.fillStyle="#ffffff";
-      x.fillText(smProtect(b), M+W*0.045, y); y+=W*0.058;
+      x.fillText(smProtect(b), M+W*0.045, y); y+=step;
     });
   }
 
-  /* Ticker-Karte (halbtransparent auf Pink) — Footer (URL/Seitenzahl) entfernt (Christian 22.07.2026),
-     Karte sitzt daher etwas tiefer und nutzt den frei gewordenen Platz. */
-  const note=(d.tknote||"").trim();
-  const cardW=W-2*M, cardH=W*0.105, cardY=note?H*0.815:H*0.845;
   const rad=cardH*0.30;
   x.fillStyle="rgba(255,255,255,0.16)"; smRound(x, M, cardY, cardW, cardH, rad); x.fill();
   qnTickerInner(x, M, cardY, cardW, cardH, d, true, "#ffffff");
@@ -6212,11 +6217,15 @@ function qnTickerInner(x, cardX, cardY, cardW, cardH, d, forceLight, forceInk){
   qnFlag(x, cardX+pad+fr, cy, fr, d.tkflag||"us");
   const nameFS=cardH*0.30, ink=forceInk||"#0b0b0f", mut=forceLight?"rgba(255,255,255,0.7)":"rgba(11,11,15,0.5)";
   let tx=cardX+pad+fr*2+cardH*0.28;
-  x.textAlign="left"; x.textBaseline="middle";
-  x.font="800 "+nameFS+"px "+BRAND.font; x.fillStyle=ink; x.fillText(d.tkname||"", tx, cy);
+  /* vertikal exakt mittig via gemessener Cap-Height (baseline "middle" sitzt zu hoch), Christian 24.07.2026 */
+  x.font="800 "+nameFS+"px "+BRAND.font;
+  const _m=x.measureText(d.tkname||"Xg"); const asc=_m.actualBoundingBoxAscent, dsc=_m.actualBoundingBoxDescent;
+  const ty=(isFinite(asc)&&isFinite(dsc))? cy+(asc-dsc)/2 : cy+nameFS*0.34;
+  x.textAlign="left"; x.textBaseline="alphabetic";
+  x.font="800 "+nameFS+"px "+BRAND.font; x.fillStyle=ink; x.fillText(d.tkname||"", tx, ty);
   const nameW=x.measureText(d.tkname||"").width;
   x.font="500 "+nameFS+"px "+BRAND.font; x.fillStyle=mut;
-  x.fillText("  |  "+(d.tktime||""), tx+nameW, cy);
+  x.fillText("  |  "+(d.tktime||""), tx+nameW, ty);
   const up=qnUp(d.tkchange), dirCol=up===false?QN_RED:"#8CF0B8";
   x.textAlign="right"; let rx=cardX+cardW-pad;
   /* Sauberer diagonaler Pfeil (Christian 24.07.2026: altes krakeliges Artefakt entfernt).
@@ -6237,9 +6246,9 @@ function qnTickerInner(x, cardX, cardY, cardW, cardH, d, forceLight, forceInk){
   x.stroke(); x.lineCap="butt"; x.lineJoin="miter";
   rx-=arS*2.4;
   const chFS=cardH*0.30;
-  x.font="800 "+chFS+"px "+BRAND.font; x.fillStyle=dirCol; x.fillText(d.tkchange||"", rx, cy);
+  x.font="800 "+chFS+"px "+BRAND.font; x.fillStyle=dirCol; x.fillText(d.tkchange||"", rx, ty);
   const chW=x.measureText(d.tkchange||"").width; rx-=chW+cardH*0.30;
-  x.font="800 "+chFS+"px "+BRAND.font; x.fillStyle=ink; x.fillText(d.tkvalue||"", rx, cy);
+  x.font="800 "+chFS+"px "+BRAND.font; x.fillStyle=ink; x.fillText(d.tkvalue||"", rx, ty);
   x.textBaseline="alphabetic"; x.textAlign="left";
 }
 
