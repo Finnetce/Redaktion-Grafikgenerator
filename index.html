@@ -6012,12 +6012,17 @@ function qnTicker(x, cardX, cardY, cardW, cardH, d, dark){
     if(wName+wSepTime + cardH*0.30 + wVal+wChg <= availW || fs<=cardH*0.16) break;
     fs*=0.95;
   }
-  /* vertikal exakt mittig */
-  x.textAlign="left"; x.textBaseline="middle";
+  /* vertikal exakt mittig — baseline "alphabetic" + gemessener Offset (middle sitzt bei
+     Plus Jakarta Sans optisch zu hoch). ty so, dass die Cap-Height mittig in der Karte sitzt. */
+  x.font="800 "+fs+"px "+BRAND.font;
+  const _m=x.measureText(name||"Xg");
+  const asc=_m.actualBoundingBoxAscent, dsc=_m.actualBoundingBoxDescent;
+  const ty = (isFinite(asc)&&isFinite(dsc)) ? cy + (asc-dsc)/2 : cy + fs*0.34;
+  x.textAlign="left"; x.textBaseline="alphabetic";
   qnFlag(x, cardX+pad+fr, cy, fr, d.tkflag||"de");
-  x.font="800 "+fs+"px "+BRAND.font; x.fillStyle=ink; x.fillText(name, leftX, cy);
+  x.font="800 "+fs+"px "+BRAND.font; x.fillStyle=ink; x.fillText(name, leftX, ty);
   const nameW=x.measureText(name).width;
-  x.font="500 "+fs+"px "+BRAND.font; x.fillStyle=mut; x.fillText(sep+time, leftX+nameW, cy);
+  x.font="500 "+fs+"px "+BRAND.font; x.fillStyle=mut; x.fillText(sep+time, leftX+nameW, ty);
   /* rechts: Δ% + Pfeil, davor Wert */
   const up=qnUp(change), dirCol=up===false?QN_RED:QN_GREEN;
   x.textAlign="right"; let rx=rightEdge;
@@ -6029,9 +6034,9 @@ function qnTicker(x, cardX, cardY, cardW, cardH, d, dark){
   else { x.moveTo(axc-arS,ayc+arS); x.lineTo(axc,ayc-arS*0.1); x.lineTo(axc-arS*0.05,ayc+arS*0.05); x.moveTo(axc,ayc-arS*0.1); x.lineTo(axc-arS,ayc-arS*0.05); }
   x.stroke(); x.lineCap="butt"; x.lineJoin="miter";
   rx-=arS*2.2;
-  x.font="800 "+fs+"px "+BRAND.font; x.fillStyle=dirCol; x.fillText(change, rx, cy);
+  x.font="800 "+fs+"px "+BRAND.font; x.fillStyle=dirCol; x.fillText(change, rx, ty);
   const chW=x.measureText(change).width; rx-=chW+cardH*0.28;
-  x.font="800 "+fs+"px "+BRAND.font; x.fillStyle=ink; x.fillText(value, rx, cy);
+  x.font="800 "+fs+"px "+BRAND.font; x.fillStyle=ink; x.fillText(value, rx, ty);
   x.textBaseline="alphabetic"; x.textAlign="left";
 }
 /* Große Richtungs-Pfeil-Deko rechts (zwei weiche Dreiecke), getönt in Richtungsfarbe. */
