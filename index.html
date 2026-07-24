@@ -3380,7 +3380,7 @@ async function extractSocial(txt){
    aus dem Artikel. Danach Schritt 2: Felder füllen + Stil + Auto-Bild. */
 async function smPickTemplate(txt){
   const list=SM_TEMPLATES.map(t=>t.id+" = "+t.name+" ("+t.desc+" Formate: "+t.formats.join(",")+")").join("; ");
-  const sys="Du bist Social-Media-Redakteur bei finanzen.net zero (deutscher Neobroker). Wähle für den Artikel das am besten passende Grafik-Template und das beste Format. Antworte NUR mit reinem JSON: {\"template_id\":\"...\",\"format\":\"...\",\"begruendung\":\"max 90 Zeichen, deutsch\"}. Verfügbare Templates: "+list+". Regeln: Quartalszahlen/Earnings -> zero_sm_company_earnings. Eine markante Einzelzahl -> zero_sm_data_number_of_day. Kursverlauf/Zeitreihe mit mehreren Werten im Text -> zero_sm_data_chart_story. Marktüberblick mehrerer Indizes -> zero_sm_market_pulse. Begriffs-/Konzept-Erklärung -> zero_sm_edu_explainer. Rangliste -> zero_sm_data_ranking. Einzelnes Wertpapier-Porträt -> zero_sm_instrument_snapshot. Sparplan/Zinseszins -> zero_sm_investing_savings_calc. Zitat als Kern -> zero_sm_editorial_quote. Umfrage mit Ergebnis/Prozenten -> zero_sm_community_poll_result. Offene Abstimmung zwischen ZWEI Firmen/Aktien (Duell, 'welche würdest du wählen') -> zero_sm_story_poll_vs. Termin/Event -> zero_sm_event_announcement. Produkt-/Feature-News von zero selbst -> zero_sm_brand_product_announcement. Format: 4:5 ist Standard (Feed), 9:16 nur wenn explizit Story gewünscht, 16:9 nur für X/Twitter-lastige Chart-Themen.";
+  const sys="Du bist Social-Media-Redakteur bei finanzen.net zero (deutscher Neobroker). Wähle für den Artikel das am besten passende Grafik-Template und das beste Format. Antworte NUR mit reinem JSON: {\"template_id\":\"...\",\"format\":\"...\",\"begruendung\":\"max 90 Zeichen, deutsch\"}. Verfügbare Templates: "+list+". Regeln: Quartalszahlen/Earnings-Meldung einer Aktie -> zero_qn_earnings. Wochenrückblick mit Top- und Flop-Werten/Ranking -> zero_topperformer. Mehrteilige Story/Analyse-Thema (Karussell) -> zero_azf_carousel. Format: 4:5 ist Standard (Feed), 9:16 nur wenn explizit Story gewünscht.";
   const out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,6000)}]));
   return out;
 }
@@ -5427,217 +5427,49 @@ function smTriggerCheck(data){
 /* ---------- Feld-Definitionen ---------- */
 /* type: text|area|num|sel|date  ·  max: Zeichenlimit  ·  def: Default */
 const SM_TEMPLATES=[
-{ id:"zero_sm_edu_explainer", name:"Erklär-Karussell", prio:"P1", path:"C", carousel:true,
-  desc:"Finanzbegriff in 3–7 Karten erklären. Hook → Aufbau → Takeaway.",
-  note:"Evidenz: belegt (Rang 1, Finanzfluss-Muster). Dramaturgie: Hook-Slide → Karten → Abschluss mit CTA „Speichern“. Max. 8 Slides.",
+/* ================= NEUAUFBAU zero-Formate (Christian 22.07.2026) =================
+   Die bisherigen zero-Templates wurden entfernt. Diese drei Platzhalter-Gerüste werden
+   nach den Figma-Vorlagen 1:1 nachgebaut (Reverse Engineering). Bis dahin zeigen sie
+   einen Hinweis. Alte Render-Zweige in smDrawContent bleiben vorerst als toter Code
+   erhalten (leicht reaktivierbar), werden aber nicht mehr referenziert.
+   ================================================================================= */
+{ id:"zero_market_update", name:"Market Update", prio:"P1", path:"A", carousel:false, renderer:"market_update",
+  desc:"Index-/Markt-Eröffnung mit großer Prozentzahl, Richtungspfeil und Ticker-Karte. Light/Dark.",
+  note:"Voll-Design nach Figma. Zahlenfarbe/Pfeil automatisch aus Vorzeichen (+ grün, − rot). Ticker-Karte deterministisch.",
   formats:["4:5","9:16"], master:"4:5",
-  bgPrompt:"Modern fintech slide background, clean composition, large empty text zone in upper two thirds, generous negative space, subtle abstract shapes, premium dark atmosphere",
-  legal:["base","risk"],
+  legal:[],
   fields:[
-    {k:"kicker",l:"Kicker",type:"text",max:28,def:"Einfach erklärt"},
-    {k:"term",l:"Begriff",type:"text",max:32,ph:"z.B. Thesaurierer"},
-    {k:"definition",l:"Definition (Cover)",type:"area",max:180,ph:"Verständlich ohne Vorwissen …"},
-    {k:"c1t",l:"Karte 1 – Titel",type:"text",max:34},{k:"c1b",l:"Karte 1 – Text",type:"area",max:220},
-    {k:"c2t",l:"Karte 2 – Titel",type:"text",max:34},{k:"c2b",l:"Karte 2 – Text",type:"area",max:220},
-    {k:"c3t",l:"Karte 3 – Titel",type:"text",max:34},{k:"c3b",l:"Karte 3 – Text",type:"area",max:220},
-    {k:"c4t",l:"Karte 4 – Titel (optional)",type:"text",max:34},{k:"c4b",l:"Karte 4 – Text",type:"area",max:220},
-    {k:"c5t",l:"Karte 5 – Titel (optional)",type:"text",max:34},{k:"c5b",l:"Karte 5 – Text",type:"area",max:220},
-    {k:"takeaway",l:"Takeaway (Abschluss-Slide)",type:"area",max:140},
-    {k:"source",l:"Quelle",type:"text",max:60,def:"finanzen.net Redaktion"}
+    {k:"mkmode",l:"Modus",type:"sel",opts:["light","dark"],def:"light"},
+    {k:"mkindex",l:"Index / Markt",type:"text",max:14,def:"DAX"},
+    {k:"mkverb",l:"Verb",type:"text",max:16,def:"eröffnet"},
+    {k:"mkchange",l:"Veränderung (mit Vorzeichen)",type:"text",max:10,ph:"+1,2%"},
+    {k:"deck",l:"Kontextsatz",type:"text",max:60,ph:"z.B. Stark nach US-Vorgaben."},
+    {k:"tkflag",l:"Ticker: Länder-Code (de/us/gb/fr…)",type:"text",max:4,def:"de"},
+    {k:"tkname",l:"Ticker: Name",type:"text",max:20,def:"DAX"},
+    {k:"tktime",l:"Ticker: Uhrzeit/Label",type:"text",max:16,ph:"09:00 Uhr"},
+    {k:"tkvalue",l:"Ticker: Wert",type:"text",max:14,ph:"23.520"},
+    {k:"tkchange",l:"Ticker: Δ% (mit Vorzeichen)",type:"text",max:10,ph:"+1,2%"},
+    {k:"source",l:"Quelle",type:"text",max:50,def:"finanzen.net"},{k:"stand",l:"Stand",type:"text",max:24}
   ]},
-{ id:"zero_sm_data_chart_story", name:"Chart-Story", prio:"P1", path:"A", carousel:false,
-  desc:"Entwicklung über Zeit mit Punchline. Linienchart, deterministisch.",
-  note:"Evidenz: belegt (Rang 2, Bloomberg/Chartr-Muster). Achsen + Werte werden IMMER deterministisch gerendert – nie KI. Balken beginnen bei 0.",
-  formats:["4:5","9:16"], master:"4:5",
-  legal:["base","perf"],
-  fields:[
-    {k:"kicker",l:"Kicker",type:"text",max:28,def:"Chart"},
-    {k:"headline",l:"Headline (Hauptaussage, keine Themenbezeichnung)",type:"text",max:64,ph:"z.B. DAX klettert seit Zinswende um 18 Prozent"},
-    {k:"deck",l:"Kontextsatz (optional)",type:"text",max:110},
-    {k:"slabel",l:"Reihen-Label",type:"text",max:22,def:"DAX"},
-    {k:"values",l:"Werte (kommagetrennt, chronologisch)",type:"area",max:600,ph:"z.B. 17650, 17820, 18100, 17960, 18400, 18720, 19050"},
-    {k:"xstart",l:"Zeitraum von",type:"text",max:16,ph:"Jan 26"},{k:"xend",l:"Zeitraum bis",type:"text",max:16,ph:"Jul 26"},
-    {k:"yunit",l:"Einheit",type:"text",max:12,def:"Punkte"},
-    {k:"anno",l:"Annotation am letzten Punkt (optional)",type:"text",max:60},
-    {k:"source",l:"Datenquelle",type:"text",max:50,ph:"z.B. Xetra"},
-    {k:"stand",l:"Stand (Datum/Zeit)",type:"text",max:24,ph:"14.07.2026, 17:30"}
-  ]},
-{ id:"zero_sm_data_number_of_day", name:"Zahl des Tages", prio:"P1", path:"C", carousel:false,
-  desc:"Eine Kennzahl prominent, mit Kontext und Vergleich.",
-  note:"Evidenz: belegt. Zahl wird deterministisch gesetzt (KI-Fehlerrate bei Dezimalzahlen 35–55 %). Optional KI-Hintergrund (Pfad C).",
-  formats:["4:5","9:16"], master:"4:5",
-  bgPrompt:"Abstract premium fintech background, subtle depth, soft gradient, atmospheric glow, generous empty center area",
-  legal:["base","risk"],
-  fields:[
-    {k:"kicker",l:"Kicker",type:"text",max:28,def:"Zahl des Tages"},
-    {k:"value",l:"Kennzahl (z.B. +12,4)",type:"text",max:12,ph:"+12,4"},
-    {k:"unit",l:"Einheit",type:"sel",opts:["%","€","Mrd. €","Mio. €","Punkte","$","Mrd. $"]},
-    {k:"label",l:"Was wird gemessen?",type:"text",max:54,ph:"z.B. NVIDIA-Kursreaktion nachbörslich"},
-    {k:"context",l:"Kontextsatz",type:"area",max:150,ph:"Ein vollständiger Satz Einordnung."},
-    {k:"compare",l:"Vergleich (optional)",type:"text",max:70,ph:"z.B. Vor einem Jahr: +3,1 %"},
-    {k:"quote_now",l:"Aktueller Kurs (optional, zum Einordnen)",type:"text",max:24,ph:"z.B. 230 EUR"},
-    {k:"source",l:"Quelle",type:"text",max:50},{k:"stand",l:"Stand",type:"text",max:24}
-  ]},
-{ id:"zero_sm_market_pulse", name:"Market Pulse", prio:"P1", path:"A", carousel:false,
-  desc:"3–6 Märkte/Assets zu einem Zeitpunkt. Tägliches Arbeitspferd.",
-  note:"Farbe/Pfeil werden aus dem Vorzeichen berechnet, nie aus Freitext. Werte deterministisch.",
-  formats:["4:5","9:16"], master:"4:5",
-  legal:["base","risk"],
-  fields:[
-    {k:"kind",l:"Update-Typ",type:"sel",opts:["Börsenschluss","Handelsstart","Intraday","Wochenrückblick","Breaking"]},
-    {k:"headline",l:"Headline",type:"text",max:52,def:"Die Märkte im Überblick"},
-    {k:"m1l",l:"Markt 1 – Name",type:"text",max:18,def:"DAX"},{k:"m1v",l:"Stand",type:"text",max:12,ph:"19.050"},{k:"m1c",l:"Δ %",type:"text",max:8,ph:"+0,8"},
-    {k:"m2l",l:"Markt 2 – Name",type:"text",max:18,def:"S&P 500"},{k:"m2v",l:"Stand",type:"text",max:12},{k:"m2c",l:"Δ %",type:"text",max:8},
-    {k:"m3l",l:"Markt 3 – Name",type:"text",max:18,def:"Nasdaq 100"},{k:"m3v",l:"Stand",type:"text",max:12},{k:"m3c",l:"Δ %",type:"text",max:8},
-    {k:"m4l",l:"Markt 4 – Name (optional)",type:"text",max:18,def:"EUR/USD"},{k:"m4v",l:"Stand",type:"text",max:12},{k:"m4c",l:"Δ %",type:"text",max:8},
-    {k:"m5l",l:"Markt 5 – Name (optional)",type:"text",max:18,def:"Gold"},{k:"m5v",l:"Stand",type:"text",max:12},{k:"m5c",l:"Δ %",type:"text",max:8},
-    {k:"m6l",l:"Markt 6 – Name (optional)",type:"text",max:18,def:"Bitcoin"},{k:"m6v",l:"Stand",type:"text",max:12},{k:"m6c",l:"Δ %",type:"text",max:8},
-    {k:"source",l:"Datenquelle",type:"text",max:50},{k:"stand",l:"Stand",type:"text",max:24}
-  ], rows:[["m1l","m1v","m1c"],["m2l","m2v","m2c"],["m3l","m3v","m3c"],["m4l","m4v","m4c"],["m5l","m5v","m5c"],["m6l","m6v","m6c"]]},
-{ id:"zero_sm_data_ranking", name:"Ranking (Top/Flop)", prio:"P2", path:"A", carousel:false,
-  desc:"Rangfolgen – nur deskriptiv/neutral, Methodik sichtbar.",
-  note:"Compliance-Leitplanke K1: KEINE Kaufwertung („Top-Pick“ verboten). Methodik-Feld ist Pflicht und wird sichtbar gerendert.",
-  formats:["4:5","9:16"], master:"4:5",
-  legal:["base","risk"],
-  fields:[
-    {k:"kicker",l:"Kicker",type:"text",max:28,def:"Ranking"},
-    {k:"headline",l:"Headline (Zeitraum/Grundgesamtheit nennen)",type:"text",max:58,ph:"z.B. Meistgehandelte ETFs der Woche bei zero"},
-    {k:"metric",l:"Kennzahl-Label",type:"text",max:28,def:"Performance 1 Woche"},
-    {k:"r1l",l:"Platz 1",type:"text",max:26},{k:"r1v",l:"Wert",type:"text",max:12},
-    {k:"r2l",l:"Platz 2",type:"text",max:26},{k:"r2v",l:"Wert",type:"text",max:12},
-    {k:"r3l",l:"Platz 3",type:"text",max:26},{k:"r3v",l:"Wert",type:"text",max:12},
-    {k:"r4l",l:"Platz 4 (optional)",type:"text",max:26},{k:"r4v",l:"Wert",type:"text",max:12},
-    {k:"r5l",l:"Platz 5 (optional)",type:"text",max:26},{k:"r5v",l:"Wert",type:"text",max:12},
-    {k:"methodology",l:"Methodik (Pflicht: Grundgesamtheit + Filter)",type:"area",max:120,ph:"z.B. Nach Handelsvolumen bei finanzen.net zero, 07.–11.07.2026"},
-    {k:"source",l:"Quelle",type:"text",max:50},{k:"stand",l:"Stand",type:"text",max:24}
-  ]},
-{ id:"zero_sm_company_earnings", name:"Earnings-Reaktion", prio:"P2", path:"A", carousel:false,
-  desc:"Quartalszahlen: KPIs vs. Erwartung + Kursreaktion.",
-  note:"„Beat/Miss“ wird nur berechnet, wenn Ist UND Erwartung gefüllt sind. Keine wertenden Adjektive ohne Zahl.",
+{ id:"zero_topperformer", name:"Topperformer der Woche (Top/Flop)", prio:"P1", path:"A", carousel:true, wip:true,
+  desc:"2 Slides: Top-Werte und Flop-Werte der Woche.",
+  note:"IN ARBEIT — wird nach Figma-Vorlage nachgebaut. Assets/Specs ausstehend.",
   formats:["4:5","9:16"], master:"4:5",
   legal:["base","risk","perf"],
   fields:[
-    {k:"kicker",l:"Kicker",type:"text",max:28,def:"Quartalszahlen"},
-    {k:"company",l:"Unternehmen",type:"text",max:36,ph:"NVIDIA"},
-    {k:"period",l:"Berichtszeitraum",type:"text",max:24,ph:"Q2 2026"},
-    {k:"k1l",l:"KPI 1 – Label",type:"text",max:24,def:"Umsatz"},{k:"k1a",l:"Ist",type:"text",max:18},{k:"k1e",l:"Erwartet",type:"text",max:18},
-    {k:"k2l",l:"KPI 2 – Label",type:"text",max:24,def:"EPS"},{k:"k2a",l:"Ist",type:"text",max:18},{k:"k2e",l:"Erwartet",type:"text",max:18},
-    {k:"k3l",l:"KPI 3 – Label (optional)",type:"text",max:24},{k:"k3a",l:"Ist",type:"text",max:18},{k:"k3e",l:"Erwartet",type:"text",max:18},
-    {k:"reaction",l:"Kursreaktion in % (optional)",type:"text",max:8,ph:"+8,2"},
-    {k:"rwindow",l:"Reaktions-Fenster",type:"sel",opts:["nachbörslich","seit Vortagesschluss","intraday"]},
-    {k:"summary",l:"Einordnung (max. 2 Sätze, faktisch)",type:"area",max:140},
-    {k:"source",l:"Quelle (IR/Marktdaten)",type:"text",max:60},{k:"stand",l:"Stand",type:"text",max:24}
+    {k:"headline",l:"Headline",type:"text",max:60,ph:"z.B. Die Woche an der Börse"},
+    {k:"zeitraum",l:"Zeitraum",type:"text",max:40,ph:"KW 30 · 21.–25.07.2026"},
+    {k:"source",l:"Quelle",type:"text",max:50,def:"finanzen.net"},{k:"stand",l:"Stand",type:"text",max:24}
   ]},
-{ id:"zero_sm_instrument_snapshot", name:"Instrument-Snapshot", prio:"P2", path:"A", carousel:false,
-  desc:"Aktie/ETF/Krypto als neutrales Faktenprofil.",
-  note:"Neutrale Headline, keine Kaufaufforderung. Frage-Framing erlaubt („Sollte man … jetzt kaufen?“) – Antwort auf der Grafik bleibt neutral. Assetklasse Krypto triggert MiCAR-Hinweis. Fakten-Auswahl (Christian 15.07.): nur anlegerrelevante Kern-Fakten (Kursziel, Rating, Potenzial in %, Marktkapitalisierung) — Bilanz-Detailposten wie Liquiditätsquoten weglassen.",
+{ id:"zero_azf_carousel", name:"Karussell (AZF Newsletter)", prio:"P1", path:"C", carousel:true, wip:true,
+  desc:"Mehrteiliges Karussell aus dem AZF-Newsletter (Cover + Inhaltsslides + Podcast-Promo).",
+  note:"IN ARBEIT — wird nach Figma-Vorlage + AZF-Newsletter nachgebaut. Assets/Specs ausstehend.",
   formats:["4:5","9:16"], master:"4:5",
   legal:["base","risk"],
   fields:[
-    {k:"aclass",l:"Assetklasse",type:"sel",opts:["Aktie","ETF","Krypto","Index"]},
-    {k:"headline",l:"Headline (neutral oder Frage)",type:"text",max:54,ph:"z.B. MSCI World ETF im Überblick"},
-    {k:"iname",l:"Instrument-Name",type:"text",max:36},
-    {k:"isin",l:"ISIN/Ticker",type:"text",max:16},
-    {k:"quote",l:"Kurs",type:"text",max:14,ph:"112,48 €"},
-    {k:"exchange",l:"Börsenplatz",type:"text",max:24,ph:"Xetra"},
-    {k:"change",l:"Δ %",type:"text",max:8,ph:"-0,4"},
-    {k:"cperiod",l:"Δ-Zeitraum (wörtlich aus dem Artikel)",type:"sel",opts:["1 Tag","vorbörslich","nachbörslich","1 Woche","1 Monat","1 Jahr","YTD"]},
-    {k:"f1l",l:"Fakt 1 – Label (anlegerrelevanteste Kennzahl zuerst. Aktie: Kursziel, Rating, Potenzial in %, Marktkap., KGV, Dividendenrendite. ETF/Fonds: TER/Kosten, Anzahl Titel, Region/Länder, Ausschüttung (thesaurierend/ausschüttend), Fondsvolumen. NUR was den Anleger interessiert; Replikationsmethode/technische Detailposten nur wenn sonst nichts Relevanteres da ist. KEINE Bilanz-Detailposten wie Liquidität. AUSGESCHRIEBEN)",type:"text",max:28,ph:"Kursziel"},{k:"f1v",l:"Wert (Einheit ausschreiben, z.B. USD/Jahr)",type:"text",max:26,ph:"330 USD"},
-    {k:"f2l",l:"Fakt 2 – Label (z.B. Potenzial zum Kursziel in %, wenn Kurs+Kursziel im Artikel stehen; AUSGESCHRIEBEN)",type:"text",max:28,ph:"Potenzial"},{k:"f2v",l:"Wert",type:"text",max:26,ph:"+81 %"},
-    {k:"f3l",l:"Fakt 3 – Label (optional, AUSGESCHRIEBEN)",type:"text",max:28},{k:"f3v",l:"Wert",type:"text",max:26},
-    {k:"f4l",l:"Fakt 4 – Label (optional, AUSGESCHRIEBEN)",type:"text",max:28},{k:"f4v",l:"Wert",type:"text",max:26},
-    {k:"analyst",l:"Analysten-Bezug (Pflicht bei jeder Wertung: Haus, Datum, Kursziel/Rating)",type:"text",max:90,ph:"z.B. Konsens laut Bloomberg, 14.07.2026: 12× Buy, 4× Hold, Kursziel Ø 128 €"},
-    {k:"source",l:"Datenquelle",type:"text",max:50},{k:"stand",l:"Stand",type:"text",max:24}
-  ]},
-{ id:"zero_sm_investing_savings_calc", name:"Sparplan-Rechenbeispiel", prio:"P2", path:"A", carousel:true,
-  desc:"Zinseszins transparent – Ergebnis wird berechnet, nie eingegeben.",
-  note:"Ergebniswerte (Einzahlungen, Endwert, Wertzuwachs) berechnet das Studio selbst (Art. 44 Abs. 6 DelVO: Annahmen kennzeichnen, keine Garantie).",
-  formats:["4:5","9:16"], master:"4:5",
-  legal:["base","model"],
-  fields:[
-    {k:"kicker",l:"Kicker",type:"text",max:28,def:"Rechenbeispiel"},
-    {k:"headline",l:"Headline (Konjunktiv!)",type:"text",max:64,def:"Was aus einem Sparplan werden könnte"},
-    {k:"monthly",l:"Monatliche Rate (€)",type:"num",def:"100"},
-    {k:"initial",l:"Startbetrag (€)",type:"num",def:"0"},
-    {k:"years",l:"Laufzeit (Jahre)",type:"num",def:"20"},
-    {k:"ret",l:"Rendite-Annahme p.a.",type:"sel",opts:["3 %","6 %","9 %","0 %"]},
-    {k:"fee",l:"Kosten-Annahme p.a.",type:"sel",opts:["0 %","0,2 %","0,5 %","1,0 %"]}
-  ]},
-{ id:"zero_sm_editorial_quote", name:"Quote-Card", prio:"P3", path:"C", carousel:false,
-  desc:"Belegtes Zitat mit Kontext und Primärquelle.",
-  note:"Ohne Primärquelle keine Veröffentlichung. Niedrigstes KI-Risiko: Text deterministisch, Stimmung aus KI.",
-  formats:["4:5","9:16"], master:"4:5",
-  bgPrompt:"Abstract fintech mood background, premium atmosphere, soft even light, empty center text zone, muted tones",
-  legal:["base"],
-  fields:[
-    {k:"quote",l:"Zitat (Auslassungen kennzeichnen)",type:"area",max:220},
-    {k:"speaker",l:"Name",type:"text",max:40},
-    {k:"role",l:"Rolle/Organisation",type:"text",max:64},
-    {k:"context",l:"Anlass/Kontext",type:"text",max:100,ph:"z.B. im Interview mit finanzen.net, 14.07.2026"},
-    {k:"source",l:"Primärquelle",type:"text",max:60}
-  ]},
-{ id:"zero_sm_community_poll_result", name:"Umfrage-Ergebnis", prio:"P3", path:"A", carousel:false,
-  desc:"Community-Abstimmung transparent darstellen.",
-  note:"Prozente sollten in Summe 100 % ergeben. Keine Repräsentativität suggerieren.",
-  formats:["4:5","9:16"], master:"4:5",
-  legal:["base","poll"],
-  fields:[
-    {k:"kicker",l:"Kicker",type:"text",max:28,def:"Community-Umfrage"},
-    {k:"question",l:"Frage (Original-Wortlaut)",type:"area",max:120},
-    {k:"o1l",l:"Antwort 1",type:"text",max:42},{k:"o1p",l:"%",type:"text",max:5},
-    {k:"o2l",l:"Antwort 2",type:"text",max:42},{k:"o2p",l:"%",type:"text",max:5},
-    {k:"o3l",l:"Antwort 3 (optional)",type:"text",max:42},{k:"o3p",l:"%",type:"text",max:5},
-    {k:"o4l",l:"Antwort 4 (optional)",type:"text",max:42},{k:"o4p",l:"%",type:"text",max:5},
-    {k:"sample",l:"Teilnehmerzahl",type:"num"},
-    {k:"zeitraum",l:"Befragungszeitraum",type:"text",max:40,ph:"10.–13.07.2026"},
-    {k:"kanal",l:"Kanal",type:"sel",opts:["Instagram-Umfrage","Community-Umfrage","Kundenbefragung"]}
-  ]},
-{ id:"zero_sm_story_poll_vs", name:"Aktien-Duell (Story-Umfrage)", prio:"P2", path:"A", carousel:false,
-  desc:"Zwei Firmen gegenüberstellen, Community abstimmen lassen. Für Instagram-Story mit Umfrage-Sticker.",
-  note:"Story-Format 9:16. Die Grafik zeigt zwei Optionen als VS-Gegenüberstellung — der eigentliche Umfrage-Sticker wird beim Hochladen in der Instagram-App darübergelegt. Neutral halten (keine Kaufempfehlung), reine Fragestellung.",
-  formats:["9:16","4:5"], master:"9:16",
-  legal:["base","risk"],
-  fields:[
-    {k:"kicker",l:"Kicker",type:"text",max:28,def:"Deine Meinung?"},
-    {k:"question",l:"Frage",type:"area",max:90,def:"In welche Aktie würdest du eher investieren?"},
-    {k:"aname",l:"Option A – Name",type:"text",max:26,ph:"z.B. NVIDIA"},
-    {k:"asub",l:"Option A – kurze Einordnung",type:"text",max:60,ph:"z.B. KI-Chips, +180 % in 12 Monaten"},
-    {k:"bname",l:"Option B – Name",type:"text",max:26,ph:"z.B. ASML"},
-    {k:"bsub",l:"Option B – kurze Einordnung",type:"text",max:60,ph:"z.B. Monopol bei EUV-Lithografie"},
-    {k:"hint",l:"Hinweiszeile unten (optional)",type:"text",max:70,def:"Stimme oben in der Story ab 👆"},
-    {k:"source",l:"Quelle",type:"text",max:50,def:"finanzen.net Redaktion"}
-  ]},
-{ id:"zero_sm_event_announcement", name:"Event-Ankündigung", prio:"P3", path:"C", carousel:false,
-  desc:"Webinar, Livestream oder Termin ankündigen.",
-  note:"Keine KI-generierten Abbilder realer Speaker – nur freigegebene Fotos oder neutrales Motiv.",
-  formats:["4:5","9:16"], master:"4:5",
-  bgPrompt:"Modern fintech event background, atmospheric stage light, depth of field, empty lower third for event details",
-  legal:["base"],
-  fields:[
-    {k:"kicker",l:"Kicker",type:"text",max:28,def:"Termin"},
-    {k:"ename",l:"Event-Name",type:"text",max:70},
-    {k:"etype",l:"Typ",type:"sel",opts:["Webinar","Livestream","Vor Ort","Börsentermin"]},
-    {k:"edate",l:"Datum",type:"text",max:24,ph:"Do, 24.07.2026"},
-    {k:"etime",l:"Uhrzeit",type:"text",max:20,ph:"18:00 Uhr"},
-    {k:"elocation",l:"Ort/Plattform",type:"text",max:70,ph:"Live auf YouTube"},
-    {k:"speakers",l:"Speaker (optional)",type:"text",max:80},
-    {k:"cta",l:"CTA",type:"text",max:24,def:"Jetzt anmelden"}
-  ]},
-{ id:"zero_sm_brand_product_announcement", name:"Produkt-Ankündigung", prio:"P3", path:"C", carousel:false,
-  desc:"Neues Feature/Konditionen – Statement-Karten-Stil.",
-  note:"Evidenz: belegt (Trade-Republic-Muster: Dark Mode, ein Akzent). Preise/Claims nur mit Beleg – kein unbelegter Superlativ.",
-  formats:["4:5","9:16"], master:"4:5",
-  bgPrompt:"Premium fintech brand background, dark mode, subtle accent glow, minimal, elegant, large empty text zone",
-  legal:["base","risk"],
-  fields:[
-    {k:"kicker",l:"Kicker",type:"text",max:28,def:"Neu bei finanzen.net zero"},
-    {k:"headline",l:"Headline (Hauptnutzen, keine unbelegten Superlative)",type:"text",max:60,ph:"z.B. Sparpläne ab 1 Euro."},
-    {k:"summary",l:"Erklärungssatz",type:"area",max:120},
-    {k:"b1",l:"Benefit 1",type:"text",max:70},
-    {k:"b2",l:"Benefit 2 (optional)",type:"text",max:70},
-    {k:"b3",l:"Benefit 3 (optional)",type:"text",max:70},
-    {k:"adate",l:"Verfügbar ab",type:"text",max:24},
-    {k:"cta",l:"CTA",type:"text",max:24,def:"Mehr erfahren"}
+    {k:"headline",l:"Cover-Headline",type:"text",max:60,ph:"z.B. Deutsche Autobauer geraten unter Druck"},
+    {k:"kicker",l:"Cover-Kicker",type:"text",max:40,ph:"z.B. Deutliche Gewinnrückgänge"},
+    {k:"source",l:"Quelle",type:"text",max:50,def:"finanzen.net"},{k:"stand",l:"Stand",type:"text",max:24}
   ]}
 ];
 
@@ -5934,12 +5766,193 @@ function smBuildPager(){
    RENDERING (deterministisch, 2D-Canvas in voller Zielauflösung)
    ============================================================ */
 const SM_SCALE=2;  /* Yuki: Render/Export in doppelter Auflösung (4:5 -> 2160x2700), schärfere Anzeige */
+
+/* ============================================================
+   NEUE zero-FORMATE (Reverse Engineering aus Figma, Christian 22.07.2026)
+   Voll-Design-Renderer: zeichnen Hintergrund, Header, Content, Ticker,
+   Footer und Logo komplett selbst. Registriert in QN_RENDER, per
+   smTpl.renderer in smRender abgezweigt. Zahlenfarbe grün/rot aus Vorzeichen.
+   ============================================================ */
+const QN_PINK="#F81C7D", QN_GREEN="#12B76A", QN_RED="#F83A3E", QN_DARKBG="#0a0206";
+function qnUp(v){ v=(v||"").trim(); if(/^[+]/.test(v)) return true; if(/^[-−]/.test(v)) return false; return null; }
+function qnDirColor(v){ const u=qnUp(v); return u===false?QN_RED:QN_GREEN; }
+/* zero-Logo aus dem Cache holen (fn_zero: dunkel=bunt für helle BG, hell=weiß für dunkle BG) */
+function qnZeroLogo(dark){ return _smLogoCache["fn_zero_"+(dark?"hell":"dunkel")]||null; }
+function qnDrawZeroLogo(x, rightX, cy, targetW, dark){
+  const img=qnZeroLogo(dark); if(!img) return;
+  const ar=img.height/img.width, w=targetW, h=w*ar;
+  x.drawImage(img, rightX-w, cy-h/2, w, h);
+}
+/* Header-Icon: pinker Kreis mit weißem Symbol. sym: 'trend' (Pfeil hoch), 'bulb', 'mic'. */
+function qnHeaderIcon(x, cx, cy, r, sym, circleFill, glyphColor){
+  x.beginPath(); x.arc(cx,cy,r,0,7); x.fillStyle=circleFill; x.fill();
+  x.strokeStyle=glyphColor; x.fillStyle=glyphColor; x.lineWidth=r*0.14; x.lineCap="round"; x.lineJoin="round";
+  if(sym==="trend"){
+    /* Aufwärts-Zacken-Pfeil */
+    const s=r*0.55; x.beginPath();
+    x.moveTo(cx-s, cy+s*0.5); x.lineTo(cx-s*0.15, cy-s*0.25); x.lineTo(cx+s*0.25, cy+s*0.15); x.lineTo(cx+s, cy-s*0.55);
+    x.stroke();
+    /* Pfeilspitze */
+    x.beginPath(); x.moveTo(cx+s*0.45, cy-s*0.55); x.lineTo(cx+s, cy-s*0.55); x.lineTo(cx+s, cy-s*0.1); x.stroke();
+  } else if(sym==="bulb"){
+    const br=r*0.42; x.beginPath(); x.arc(cx,cy-r*0.12,br,0,7); x.fill();
+    x.fillRect(cx-br*0.5, cy-r*0.12+br*0.7, br, br*0.7);
+    x.strokeStyle=circleFill; x.lineWidth=r*0.08;
+    x.beginPath(); x.moveTo(cx-br*0.3,cy+r*0.42); x.lineTo(cx+br*0.3,cy+r*0.42); x.stroke();
+  } else if(sym==="mic"){
+    const mw=r*0.42, mh=r*0.8;
+    x.beginPath(); x.moveTo(cx-mw/2, cy-mh*0.4);
+    x.arc(cx, cy-mh*0.4, mw/2, Math.PI, 0); x.lineTo(cx+mw/2, cy+mh*0.05);
+    x.arc(cx, cy+mh*0.05, mw/2, 0, Math.PI); x.closePath(); x.fill();
+    x.lineWidth=r*0.1; x.strokeStyle=glyphColor;
+    x.beginPath(); x.arc(cx, cy+mh*0.05, mw*0.95, 0.15*Math.PI, 0.85*Math.PI); x.stroke();
+    x.beginPath(); x.moveTo(cx, cy+mh*0.05+mw*0.95); x.lineTo(cx, cy+mh*0.7); x.stroke();
+  }
+  x.lineCap="butt"; x.lineJoin="miter";
+}
+/* Länderflagge als Kreis. Sauber gezeichnet: de, us, gb, fr; sonst grauer Kreis mit Kürzel. */
+function qnFlag(x, cx, cy, r, cc){
+  cc=(cc||"de").toLowerCase();
+  x.save(); x.beginPath(); x.arc(cx,cy,r,0,7); x.clip();
+  const L=cx-r, T=cy-r, D=r*2;
+  if(cc==="de"){ x.fillStyle="#000"; x.fillRect(L,T,D,D/3); x.fillStyle="#D00"; x.fillRect(L,T+D/3,D,D/3); x.fillStyle="#FFCE00"; x.fillRect(L,T+2*D/3,D,D/3); }
+  else if(cc==="us"){ const sh=D/13; for(let i=0;i<13;i++){ x.fillStyle=i%2?"#fff":"#B22234"; x.fillRect(L,T+i*sh,D,sh); } x.fillStyle="#3C3B6E"; x.fillRect(L,T,D*0.5,sh*7); }
+  else if(cc==="gb"){ x.fillStyle="#012169"; x.fillRect(L,T,D,D); x.strokeStyle="#fff"; x.lineWidth=r*0.5; x.beginPath(); x.moveTo(L,T); x.lineTo(L+D,T+D); x.moveTo(L+D,T); x.lineTo(L,T+D); x.stroke(); x.strokeStyle="#C8102E"; x.lineWidth=r*0.26; x.beginPath(); x.moveTo(L,T); x.lineTo(L+D,T+D); x.moveTo(L+D,T); x.lineTo(L,T+D); x.stroke(); x.strokeStyle="#fff"; x.lineWidth=r*0.66; x.beginPath(); x.moveTo(cx,T); x.lineTo(cx,T+D); x.moveTo(L,cy); x.lineTo(L+D,cy); x.stroke(); x.strokeStyle="#C8102E"; x.lineWidth=r*0.4; x.beginPath(); x.moveTo(cx,T); x.lineTo(cx,T+D); x.moveTo(L,cy); x.lineTo(L+D,cy); x.stroke(); }
+  else if(cc==="fr"){ x.fillStyle="#0055A4"; x.fillRect(L,T,D/3,D); x.fillStyle="#fff"; x.fillRect(L+D/3,T,D/3,D); x.fillStyle="#EF4135"; x.fillRect(L+2*D/3,T,D/3,D); }
+  else { x.fillStyle="#e2e6ec"; x.fillRect(L,T,D,D); x.fillStyle="#7b8794"; x.textAlign="center"; x.font="800 "+(r*0.8)+"px "+BRAND.font; x.fillText(cc.toUpperCase(), cx, cy+r*0.28); x.textAlign="left"; }
+  x.restore();
+  x.beginPath(); x.arc(cx,cy,r,0,7); x.strokeStyle="rgba(0,0,0,0.12)"; x.lineWidth=Math.max(1,r*0.04); x.stroke();
+}
+/* Ticker-Karte: Flagge · Name | Uhrzeit ............ Wert  Δ% ↗/↘ . Deterministisch aus Feldern. */
+function qnTicker(x, cardX, cardY, cardW, cardH, d, dark){
+  const rad=cardH*0.30;
+  x.fillStyle = dark ? "rgba(255,255,255,0.07)" : "#ffffff";
+  smRound(x, cardX, cardY, cardW, cardH, rad); x.fill();
+  const cy=cardY+cardH/2, pad=cardH*0.42;
+  const fr=cardH*0.26;
+  qnFlag(x, cardX+pad+fr, cy, fr, d.tkflag||"de");
+  const nameFS=cardH*0.30, ink=dark?"#fff":"#0b0b0f", mut=dark?"rgba(255,255,255,0.55)":"rgba(11,11,15,0.5)";
+  let tx=cardX+pad+fr*2+cardH*0.28;
+  x.textAlign="left"; x.textBaseline="middle";
+  x.font="800 "+nameFS+"px "+BRAND.font; x.fillStyle=ink; x.fillText(d.tkname||"", tx, cy);
+  const nameW=x.measureText(d.tkname||"").width;
+  x.font="500 "+nameFS+"px "+BRAND.font; x.fillStyle=mut;
+  x.fillText("  |  "+(d.tktime||""), tx+nameW, cy);
+  /* rechts: Δ% + Pfeil, davor Wert */
+  const up=qnUp(d.tkchange), dirCol=up===false?QN_RED:QN_GREEN;
+  x.textAlign="right";
+  let rx=cardX+cardW-pad;
+  /* Pfeil */
+  const arS=cardH*0.16;
+  x.strokeStyle=dirCol; x.lineWidth=cardH*0.05; x.lineCap="round"; x.lineJoin="round";
+  const axc=rx-arS*0.4, ayc=cy;
+  x.beginPath();
+  if(up===false){ x.moveTo(axc-arS,ayc-arS); x.lineTo(axc,ayc); x.lineTo(axc-arS,ayc+arS*0.2); x.moveTo(axc,ayc); x.lineTo(axc-arS*1.1,ayc-arS*0.1);
+    x.moveTo(axc-arS,ayc-arS); x.lineTo(axc,ayc); x.lineTo(axc-arS*0.1,ayc-arS); }
+  else { x.moveTo(axc-arS,ayc+arS); x.lineTo(axc,ayc-arS*0.1); x.lineTo(axc-arS*0.05,ayc+arS*0.05); x.moveTo(axc,ayc-arS*0.1); x.lineTo(axc-arS,ayc-arS*0.05); }
+  x.stroke(); x.lineCap="butt"; x.lineJoin="miter";
+  rx-=arS*1.8;
+  const chFS=cardH*0.30;
+  x.font="800 "+chFS+"px "+BRAND.font; x.fillStyle=dirCol; x.fillText(d.tkchange||"", rx, cy);
+  const chW=x.measureText(d.tkchange||"").width;
+  rx-=chW+cardH*0.30;
+  x.font="800 "+chFS+"px "+BRAND.font; x.fillStyle=ink; x.fillText(d.tkvalue||"", rx, cy);
+  x.textBaseline="alphabetic"; x.textAlign="left";
+}
+/* Große Richtungs-Pfeil-Deko rechts (zwei weiche Dreiecke), getönt in Richtungsfarbe. */
+function qnArrowDeco(x, W, H, cx, cy, up, col){
+  x.save();
+  const w=W*0.34, tri=(yTop, alpha)=>{ x.globalAlpha=alpha; x.fillStyle=col; x.beginPath();
+    if(up){ x.moveTo(cx, yTop); x.lineTo(cx+w/2, yTop+w*0.55); x.lineTo(cx-w/2, yTop+w*0.55); }
+    else  { x.moveTo(cx-w/2, yTop); x.lineTo(cx+w/2, yTop); x.lineTo(cx, yTop+w*0.55); }
+    x.closePath(); x.fill(); };
+  if(up){ tri(cy-w*0.30, 0.16); tri(cy+w*0.02, 0.30); }
+  else  { tri(cy-w*0.30, 0.30); tri(cy+w*0.02, 0.16); }
+  x.restore(); x.globalAlpha=1;
+}
+/* Market Update Renderer (Light + Dark je nach smBrand-Helligkeit über d.mkdark). */
+const QN_RENDER={};
+QN_RENDER.market_update=function(x, W, H, slide){
+  const d=smData;
+  const dark=(d.mkmode==="dark");
+  const M=Math.round(W*0.066);
+  /* Hintergrund */
+  if(dark){
+    x.fillStyle=QN_DARKBG; x.fillRect(0,0,W,H);
+    const rg=x.createRadialGradient(W*0.5,H*0.62,0,W*0.5,H*0.62,W*0.9);
+    rg.addColorStop(0,"rgba(120,10,55,0.55)"); rg.addColorStop(0.5,"rgba(40,4,22,0.5)"); rg.addColorStop(1,"rgba(10,2,6,0)");
+    x.fillStyle=rg; x.fillRect(0,0,W,H);
+  } else {
+    x.fillStyle="#F7F3F5"; x.fillRect(0,0,W,H);
+  }
+  const ink=dark?"#ffffff":"#0b0b0f";
+  const mut=dark?"rgba(255,255,255,0.5)":"rgba(11,11,15,0.45)";
+  const change=(d.mkchange||"+0,0%");
+  const up=qnUp(change), dirCol=up===false?QN_RED:QN_GREEN;
+
+  /* Header */
+  const hy=M+W*0.045, ir=W*0.052;
+  qnHeaderIcon(x, M+ir, hy, ir, "trend", QN_PINK, "#fff");
+  x.textAlign="left"; x.textBaseline="middle";
+  x.font="800 "+(W*0.050)+"px "+BRAND.font; x.fillStyle=ink;
+  x.fillText("Market Update", M+ir*2+W*0.028, hy);
+  x.textAlign="right"; x.font="500 "+(W*0.036)+"px "+BRAND.font; x.fillStyle=mut;
+  x.fillText("finanzen.net/zero", W-M, hy);
+  x.textAlign="left"; x.textBaseline="alphabetic";
+
+  /* Index-Badge + Verb */
+  let y=H*0.30;
+  const idxFS=W*0.115;
+  x.font="800 "+idxFS+"px "+BRAND.font;
+  const idxTxt=(d.mkindex||"DAX"), idxW=x.measureText(idxTxt).width;
+  const bx=M, padX=W*0.022, padY=idxFS*0.12, bh=idxFS*1.18;
+  x.fillStyle=QN_PINK; smRound(x, bx, y-bh*0.80, idxW+2*padX, bh, W*0.012); x.fill();
+  x.fillStyle="#fff"; x.textBaseline="alphabetic"; x.fillText(idxTxt, bx+padX, y);
+  x.fillStyle=ink; x.fillText(" "+(d.mkverb||"eröffnet"), bx+idxW+2*padX+W*0.012, y);
+
+  /* Große Prozentzahl */
+  y+=idxFS*1.15;
+  const pctFS=W*0.155;
+  x.font="800 "+pctFS+"px "+BRAND.font; x.fillStyle=dirCol; x.textBaseline="alphabetic";
+  x.fillText(change, M-W*0.006, y);
+
+  /* Deck */
+  y+=W*0.055;
+  x.font="700 "+(W*0.050)+"px "+BRAND.font; x.fillStyle=ink;
+  x.fillText(d.deck||"", M, y);
+
+  /* Pfeil-Deko rechts, mittig neben der Prozentzahl */
+  qnArrowDeco(x, W, H, W*0.80, H*0.42, up!==false, dirCol);
+
+  /* Ticker-Karte */
+  const cardW=W-2*M, cardH=W*0.105, cardY=H*0.76;
+  qnTicker(x, M, cardY, cardW, cardH, d, dark);
+
+  /* Footer: zero-Logo links, Disclaimer rechts */
+  const fcy=H-M-W*0.028;
+  qnDrawZeroLogo(x, M+W*0.22, fcy, W*0.20, dark);
+  x.textAlign="right"; x.fillStyle=mut; x.font="500 "+(W*0.030)+"px "+BRAND.font;
+  x.fillText("Investieren birgt Verlustrisiken.", W-M, fcy-W*0.018);
+  x.fillText("Keine Anlageberatung", W-M, fcy+W*0.020);
+  x.textAlign="left";
+};
+
 function smRender(){
   const F=FORMATS[smFmt], c=$("smCanvas");
   if(!c) return;
   const sl=smSlides(); if(smSlide>=sl.length) smSlide=0;
   c.width=F.w*SM_SCALE; c.height=F.h*SM_SCALE;
   const x=c.getContext("2d"), B=SM_BRANDS[smBrand];
+  /* Neue Voll-Design-zero-Formate (Christian 22.07.2026): zeichnen ALLES selbst
+     (Hintergrund, Header, Content, Ticker, Footer, Logo) und überspringen den Standard-Chrome. */
+  if(smTpl.renderer && typeof QN_RENDER[smTpl.renderer]==="function"){
+    BRAND.font="Plus Jakarta Sans";
+    x._capTag=window._smCaptureOn?"main":null;
+    QN_RENDER[smTpl.renderer](x, c.width, c.height, sl[smSlide]||{t:"single"});
+    smBuildPager();
+    $("smExpHint").textContent=(F.w*SM_SCALE)+"×"+(F.h*SM_SCALE)+" px (2x) · "+smTpl.name+(sl.length>1?" · Slide "+(smSlide+1)+"/"+sl.length:"");
+    return;
+  }
   /* Marken-Font (Christian 15.07.): zero rendert IMMER in Plus Jakarta Sans — alle sm*-Zeichen-
      funktionen nutzen BRAND.font, daher hier pro Render-Pass verbindlich setzen. */
   BRAND.font=(smBrand==="zero")?"Plus Jakarta Sans":"Poppins";
@@ -6363,6 +6376,24 @@ function smDrawContent(ctx){
      abfangen (Christian 21.07.2026). Grafik liegt im definierten Mittelbereich; Kicker/Titel
      oben, Einordnung unten — Logo/Quelle/Legal werden außerhalb in smRender gezeichnet. */
   if(ctx.slide && ctx.slide.t==="extra"){ smDrawExtra(ctx,S,headFS,bodyFS); return; }
+
+  /* Platzhalter für neue, noch nicht gebaute zero-Formate (Christian 22.07.2026):
+     zeigt Headline + Hinweis, bis das Format nach Figma-Vorlage nachgebaut ist. */
+  if(smTpl.wip){
+    y=smKicker(ctx,(d.kicker||smTpl.name));
+    y=smText(x,d.headline||smTpl.name,M,y+headFS,headFS*0.95,"800",B.ink,W-2*M,headFS*1.15);
+    if(d.deck) y=smText(x,d.deck,M,y+W*0.04,bodyFS*1.1,"400",B.dark?"rgba(255,255,255,.85)":B.ink,W-2*M,bodyFS*1.6);
+    /* Hinweis-Box */
+    const by=y+W*0.06, bh=W*0.22;
+    x.fillStyle=B.dark?"rgba(255,255,255,0.06)":"rgba(10,31,68,0.05)"; smRound(x,M,by,W-2*M,bh,W*0.03); x.fill();
+    x.fillStyle=B.accent; smRound(x,M,by,W*0.016,bh,W*0.008); x.fill();
+    x.textAlign="left"; x.fillStyle=B.ink; x.font="800 "+bodyFS*1.05+"px "+BRAND.font;
+    x.fillText("Format in Arbeit", M+W*0.05, by+bh*0.4);
+    x.fillStyle=B.muted; x.font="500 "+bodyFS*0.9+"px "+BRAND.font;
+    smText(x,"Wird nach der Figma-Vorlage nachgebaut. Inhalte hier schon eingebbar.",M+W*0.05,by+bh*0.62,bodyFS*0.9,"500",B.muted,W-2*M-W*0.1,bodyFS*1.35);
+    x.textAlign="left";
+    return;
+  }
 
   if(id==="zero_sm_edu_explainer"){
     const s=ctx.slide;
