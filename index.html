@@ -6219,13 +6219,23 @@ function qnTickerInner(x, cardX, cardY, cardW, cardH, d, forceLight, forceInk){
   x.fillText("  |  "+(d.tktime||""), tx+nameW, cy);
   const up=qnUp(d.tkchange), dirCol=up===false?QN_RED:"#8CF0B8";
   x.textAlign="right"; let rx=cardX+cardW-pad;
-  const arS=cardH*0.16;
-  x.strokeStyle=dirCol; x.lineWidth=cardH*0.05; x.lineCap="round"; x.lineJoin="round";
-  const axc=rx-arS*0.4, ayc=cy; x.beginPath();
-  if(up===false){ x.moveTo(axc-arS,ayc-arS); x.lineTo(axc,ayc); x.lineTo(axc-arS*0.1,ayc-arS); x.moveTo(axc,ayc); x.lineTo(axc-arS,ayc+arS*0.05); }
-  else { x.moveTo(axc-arS,ayc+arS); x.lineTo(axc,ayc-arS*0.1); x.lineTo(axc-arS*0.05,ayc+arS*0.05); x.moveTo(axc,ayc-arS*0.1); x.lineTo(axc-arS,ayc-arS*0.05); }
+  /* Sauberer diagonaler Pfeil (Christian 24.07.2026: altes krakeliges Artefakt entfernt).
+     Schaft von unten-links nach oben-rechts (up) bzw. oben-links nach unten-rechts (down),
+     plus zwei kurze Spitzen-Linien an der Spitze. */
+  const arS=cardH*0.18, cxA=rx-arS/2, cyA=cy;
+  x.strokeStyle=dirCol; x.lineWidth=cardH*0.055; x.lineCap="round"; x.lineJoin="round";
+  x.beginPath();
+  if(up===false){
+    x.moveTo(cxA-arS, cyA-arS); x.lineTo(cxA+arS, cyA+arS);         /* Schaft ↘ */
+    x.moveTo(cxA+arS, cyA-arS*0.15); x.lineTo(cxA+arS, cyA+arS);    /* Spitze vertikal */
+    x.lineTo(cxA-arS*0.15, cyA+arS);                                /* Spitze horizontal */
+  } else {
+    x.moveTo(cxA-arS, cyA+arS); x.lineTo(cxA+arS, cyA-arS);         /* Schaft ↗ */
+    x.moveTo(cxA+arS*0.15, cyA-arS); x.lineTo(cxA+arS, cyA-arS);    /* Spitze horizontal */
+    x.lineTo(cxA+arS, cyA-arS*0.15);                                /* Spitze vertikal */
+  }
   x.stroke(); x.lineCap="butt"; x.lineJoin="miter";
-  rx-=arS*1.8;
+  rx-=arS*2.4;
   const chFS=cardH*0.30;
   x.font="800 "+chFS+"px "+BRAND.font; x.fillStyle=dirCol; x.fillText(d.tkchange||"", rx, cy);
   const chW=x.measureText(d.tkchange||"").width; rx-=chW+cardH*0.30;
