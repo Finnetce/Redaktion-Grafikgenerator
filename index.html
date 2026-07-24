@@ -5549,6 +5549,7 @@ const SM_TEMPLATES=[
     {k:"tktime",l:"Ticker: Uhrzeit/Label",type:"text",max:16,def:"09:00 Uhr",ph:"09:00 Uhr"},
     {k:"tkvalue",l:"Ticker: Wert",type:"text",max:14,def:"23.520",ph:"23.520"},
     {k:"tkchange",l:"Ticker: Δ% (mit Vorzeichen)",type:"text",max:10,def:"+1,2%",ph:"+1,2%"},
+    {k:"tknote",l:"Zusatzzeile unter Kurs (optional)",type:"text",max:40,ph:"z.B. Vorbörslich"},
     {k:"source",l:"Quelle",type:"text",max:50,def:"finanzen.net"},{k:"stand",l:"Stand",type:"text",max:24}
   ]},
 { id:"zero_qn_earnings", name:"Quick News · Earnings", prio:"P1", path:"C", carousel:false, renderer:"quicknews",
@@ -5994,35 +5995,43 @@ function qnTicker(x, cardX, cardY, cardW, cardH, d, dark){
   const rad=cardH*0.30;
   x.fillStyle = dark ? "rgba(255,255,255,0.07)" : "#ffffff";
   smRound(x, cardX, cardY, cardW, cardH, rad); x.fill();
-  const cy=cardY+cardH/2, pad=cardH*0.42;
-  const fr=cardH*0.26;
-  qnFlag(x, cardX+pad+fr, cy, fr, d.tkflag||"de");
-  const nameFS=cardH*0.30, ink=dark?"#fff":"#0b0b0f", mut=dark?"rgba(255,255,255,0.55)":"rgba(11,11,15,0.5)";
-  let tx=cardX+pad+fr*2+cardH*0.28;
+  const cy=cardY+cardH/2, pad=cardH*0.42, fr=cardH*0.26, gapArrow=cardH*0.16*1.8;
+  const ink=dark?"#fff":"#0b0b0f", mut=dark?"rgba(255,255,255,0.55)":"rgba(11,11,15,0.5)";
+  const name=(d.tkname||""), time=(d.tktime||""), sep="  |  ";
+  const value=(d.tkvalue||""), change=(d.tkchange||"");
+  /* Auto-Fit (Christian 24.07.2026): Schrift so wählen, dass linke Gruppe (Name | Uhrzeit)
+     und rechte Gruppe (Wert + Δ% + Pfeil) zusammen in die Karte passen — bleibt IMMER einzeilig. */
+  const leftX=cardX+pad+fr*2+cardH*0.28;   /* Textstart nach der Flagge */
+  const rightEdge=cardX+cardW-pad;
+  const availW=(rightEdge - leftX) - gapArrow - cardH*0.30;  /* minus Pfeil + Wert/Δ-Abstand */
+  let fs=cardH*0.30;
+  for(let g=0; g<30; g++){
+    x.font="800 "+fs+"px "+BRAND.font;
+    const wName=x.measureText(name).width, wVal=x.measureText(value).width, wChg=x.measureText(change).width;
+    x.font="500 "+fs+"px "+BRAND.font; const wSepTime=x.measureText(sep+time).width;
+    if(wName+wSepTime + cardH*0.30 + wVal+wChg <= availW || fs<=cardH*0.16) break;
+    fs*=0.95;
+  }
+  /* vertikal exakt mittig */
   x.textAlign="left"; x.textBaseline="middle";
-  x.font="800 "+nameFS+"px "+BRAND.font; x.fillStyle=ink; x.fillText(d.tkname||"", tx, cy);
-  const nameW=x.measureText(d.tkname||"").width;
-  x.font="500 "+nameFS+"px "+BRAND.font; x.fillStyle=mut;
-  x.fillText("  |  "+(d.tktime||""), tx+nameW, cy);
+  qnFlag(x, cardX+pad+fr, cy, fr, d.tkflag||"de");
+  x.font="800 "+fs+"px "+BRAND.font; x.fillStyle=ink; x.fillText(name, leftX, cy);
+  const nameW=x.measureText(name).width;
+  x.font="500 "+fs+"px "+BRAND.font; x.fillStyle=mut; x.fillText(sep+time, leftX+nameW, cy);
   /* rechts: Δ% + Pfeil, davor Wert */
-  const up=qnUp(d.tkchange), dirCol=up===false?QN_RED:QN_GREEN;
-  x.textAlign="right";
-  let rx=cardX+cardW-pad;
-  /* Pfeil */
-  const arS=cardH*0.16;
-  x.strokeStyle=dirCol; x.lineWidth=cardH*0.05; x.lineCap="round"; x.lineJoin="round";
-  const axc=rx-arS*0.4, ayc=cy;
-  x.beginPath();
+  const up=qnUp(change), dirCol=up===false?QN_RED:QN_GREEN;
+  x.textAlign="right"; let rx=rightEdge;
+  const arS=fs*0.5;
+  x.strokeStyle=dirCol; x.lineWidth=fs*0.14; x.lineCap="round"; x.lineJoin="round";
+  const axc=rx-arS*0.4, ayc=cy; x.beginPath();
   if(up===false){ x.moveTo(axc-arS,ayc-arS); x.lineTo(axc,ayc); x.lineTo(axc-arS,ayc+arS*0.2); x.moveTo(axc,ayc); x.lineTo(axc-arS*1.1,ayc-arS*0.1);
     x.moveTo(axc-arS,ayc-arS); x.lineTo(axc,ayc); x.lineTo(axc-arS*0.1,ayc-arS); }
   else { x.moveTo(axc-arS,ayc+arS); x.lineTo(axc,ayc-arS*0.1); x.lineTo(axc-arS*0.05,ayc+arS*0.05); x.moveTo(axc,ayc-arS*0.1); x.lineTo(axc-arS,ayc-arS*0.05); }
   x.stroke(); x.lineCap="butt"; x.lineJoin="miter";
-  rx-=arS*1.8;
-  const chFS=cardH*0.30;
-  x.font="800 "+chFS+"px "+BRAND.font; x.fillStyle=dirCol; x.fillText(d.tkchange||"", rx, cy);
-  const chW=x.measureText(d.tkchange||"").width;
-  rx-=chW+cardH*0.30;
-  x.font="800 "+chFS+"px "+BRAND.font; x.fillStyle=ink; x.fillText(d.tkvalue||"", rx, cy);
+  rx-=arS*2.2;
+  x.font="800 "+fs+"px "+BRAND.font; x.fillStyle=dirCol; x.fillText(change, rx, cy);
+  const chW=x.measureText(change).width; rx-=chW+cardH*0.28;
+  x.font="800 "+fs+"px "+BRAND.font; x.fillStyle=ink; x.fillText(value, rx, cy);
   x.textBaseline="alphabetic"; x.textAlign="left";
 }
 /* Große Richtungs-Pfeil-Deko rechts (zwei weiche Dreiecke), getönt in Richtungsfarbe. */
@@ -6105,9 +6114,16 @@ QN_RENDER.market_update=function(x, W, H, slide){
   /* Pfeil-Deko rechts, auf Höhe der Prozentzahl */
   qnArrowDeco(x, W, H, W*0.80, H*0.46, up!==false, dirCol);
 
-  /* Ticker-Karte */
-  const cardW=W-2*M, cardH=W*0.105, cardY=H*0.76;
+  /* Ticker-Karte — bei optionaler Zusatzzeile (z.B. "Vorbörslich") um ~Kartenhöhe nach oben,
+     damit die Zeile darunter Platz hat (Christian 24.07.2026). */
+  const note=(d.tknote||"").trim();
+  const cardW=W-2*M, cardH=W*0.105, cardY=(H*0.76)-(note?cardH*1.05:0);
   qnTicker(x, M, cardY, cardW, cardH, d, dark);
+  if(note){
+    x.textAlign="left"; x.textBaseline="alphabetic";
+    x.font="600 "+(W*0.032)+"px "+BRAND.font; x.fillStyle=mut;
+    x.fillText(note, M+W*0.006, cardY+cardH+W*0.055);
+  }
 
   /* Footer: zero-Logo links, Disclaimer rechts */
   const fcy=H-M-W*0.028;
