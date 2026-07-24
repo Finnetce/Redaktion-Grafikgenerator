@@ -144,6 +144,10 @@
   .seg{display:inline-flex;background:#f1f3f7;border:1px solid var(--line);border-radius:11px;padding:4px;gap:3px}
   .seg button{font-size:13px;font-weight:600;padding:8px 15px;border-radius:8px;color:var(--muted);transition:.14s;white-space:nowrap}
   .seg button.on{background:#fff;color:var(--navy);box-shadow:var(--shadow-sm)}
+  /* Theme-Umschalter in der zero-Feldliste (Christian 22.07.2026): klar sichtbar, volle Breite */
+  .sm-seg{display:flex!important;width:100%;margin:2px 0 4px;background:#f1f3f7;border:1px solid var(--line);border-radius:11px;padding:4px;gap:4px}
+  .sm-seg button{flex:1;font-size:13px;font-weight:700;padding:9px 0;border-radius:8px;color:var(--muted);cursor:pointer;border:0;background:transparent;transition:.14s}
+  .sm-seg button.on{background:var(--navy);color:#fff}
 
   .fmt-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}
   .fmt{border:1.5px solid var(--line);border-radius:13px;padding:16px 8px 11px;text-align:center;transition:.14s;background:#fff;cursor:pointer}
@@ -5478,6 +5482,7 @@ const SM_TEMPLATES=[
   legal:[],
   fields:[
     {k:"tpmode",l:"Theme",type:"seg",opts:["light","dark"],optlabels:["Light","Dark"],def:"light"},
+    {k:"tpwhich",l:"Welche Slides?",type:"seg",opts:["beide","top","flop"],optlabels:["Beide","Nur Top","Nur Flop"],def:"beide"},
     {k:"headline",l:"Titel-Zeile",type:"text",max:50,def:"Die Börsenwoche"},
     {k:"zeitraum",l:"Zeitraum",type:"text",max:40,def:"KW 30",ph:"KW 30 · 21.–25.07.2026"},
     {k:"topdata",l:"Top-Werte (je Zeile: Name = Wert%)",type:"area",max:300,def:"SAP = 5,8\nSiemens Energy = 7,1\nRheinmetall = 9,4"},
@@ -5791,9 +5796,10 @@ function smSlides(){
   else if(smTpl.id==="zero_sm_investing_savings_calc"){
     base=[{t:"sc_intro"},{t:"sc_bars"},{t:"sc_result"}];
   }
-  /* Topperformer: 2 Slides (Gewinner / Verlierer) */
+  /* Topperformer: Auswahl Beide / nur Top / nur Flop (Christian 22.07.2026) */
   else if(smTpl.id==="zero_topperformer"){
-    base=[{t:"top"},{t:"flop"}];
+    const w=smData.tpwhich||"beide";
+    base = w==="top" ? [{t:"top"}] : w==="flop" ? [{t:"flop"}] : [{t:"top"},{t:"flop"}];
   }
   /* AZF-Karussell: Cover + Inhalts-Slides (nur gefüllte) + optional Podcast-Promo */
   else if(smTpl.id==="zero_azf_carousel"){
@@ -5950,8 +5956,6 @@ QN_RENDER.market_update=function(x, W, H, slide){
   x.textAlign="left"; x.textBaseline="middle";
   x.font="800 "+(W*0.050)+"px "+BRAND.font; x.fillStyle=ink;
   x.fillText("Market Update", M+ir*2+W*0.028, hy);
-  x.textAlign="right"; x.font="500 "+(W*0.036)+"px "+BRAND.font; x.fillStyle=mut;
-  x.fillText("finanzen.net/zero", W-M, hy);
   x.textAlign="left"; x.textBaseline="alphabetic";
 
   /* Index-Badge + Verb */
@@ -5970,8 +5974,8 @@ QN_RENDER.market_update=function(x, W, H, slide){
   x.font="800 "+pctFS+"px "+BRAND.font; x.fillStyle=dirCol; x.textBaseline="alphabetic";
   x.fillText(change, M-W*0.006, y);
 
-  /* Deck */
-  y+=W*0.058;
+  /* Deck — klarer Abstand zur Prozentzeile (Christian 22.07.2026: Überschneidung vermeiden) */
+  y+=W*0.085;
   x.font="700 "+(W*0.050)+"px "+BRAND.font; x.fillStyle=ink;
   x.fillText(d.deck||"", M, y);
 
@@ -5998,8 +6002,13 @@ QN_RENDER.quicknews=function(x, W, H, slide){
   const M=Math.round(W*0.066);
   const ink=dark?"#ffffff":"#0b0b0f";
   const mut=dark?"rgba(255,255,255,0.62)":"rgba(11,11,15,0.55)";
-  /* Hintergrund: heller/dunkler Grund + großer pinker Kreis, der von rechts hereinragt */
-  if(dark){ x.fillStyle=QN_DARKBG; x.fillRect(0,0,W,H); }
+  /* Hintergrund: dunkler Grund mit schwachem Pink-Gradient (nicht reines Schwarz, Christian 22.07.2026) */
+  if(dark){
+    x.fillStyle=QN_DARKBG; x.fillRect(0,0,W,H);
+    const dg=x.createLinearGradient(0,0,W,H);
+    dg.addColorStop(0,"rgba(120,12,58,0.55)"); dg.addColorStop(0.5,"rgba(60,6,30,0.30)"); dg.addColorStop(1,"rgba(20,3,11,0.0)");
+    x.fillStyle=dg; x.fillRect(0,0,W,H);
+  }
   else { x.fillStyle="#FFF0F5"; x.fillRect(0,0,W,H); }
   /* großer pinker Kreis (Hauptbühne) — unten/mitte, ragt rechts raus */
   x.save();
@@ -6043,19 +6052,12 @@ QN_RENDER.quicknews=function(x, W, H, slide){
     });
   }
 
-  /* Ticker-Karte (halbtransparent auf Pink) */
-  const cardW=W-2*M, cardH=W*0.105, cardY=H*0.80;
-  /* eigener Ticker-Look auf Pink: leicht aufgehellte Fläche */
+  /* Ticker-Karte (halbtransparent auf Pink) — Footer (URL/Seitenzahl) entfernt (Christian 22.07.2026),
+     Karte sitzt daher etwas tiefer und nutzt den frei gewordenen Platz. */
+  const cardW=W-2*M, cardH=W*0.105, cardY=H*0.845;
   const rad=cardH*0.30;
   x.fillStyle="rgba(255,255,255,0.16)"; smRound(x, M, cardY, cardW, cardH, rad); x.fill();
   qnTickerInner(x, M, cardY, cardW, cardH, d, true, "#ffffff");
-
-  /* Footer: URL links, Seitenzahl rechts */
-  const fcy=H-M-W*0.005;
-  x.textAlign="left"; x.fillStyle=ink; x.font="700 "+(W*0.034)+"px "+BRAND.font;
-  x.fillText("www.finanzen.net/zero", M, fcy);
-  x.textAlign="right"; x.fillStyle=ink; x.fillText("01", W-M, fcy);
-  x.textAlign="left";
 };
 /* Ticker-Innenzeichnung ohne eigene Karten-Fläche (für Overlay auf farbigem Grund). */
 function qnTickerInner(x, cardX, cardY, cardW, cardH, d, forceLight, forceInk){
@@ -6101,17 +6103,17 @@ QN_RENDER.topperformer=function(x, W, H, slide){
   x.textAlign="left"; x.textBaseline="middle";
   x.font="800 "+(W*0.050)+"px "+BRAND.font; x.fillStyle=ink;
   x.fillText("Topperformer", M+ir*2+W*0.028, hy);
-  x.textAlign="right"; x.font="500 "+(W*0.036)+"px "+BRAND.font; x.fillStyle=mut;
-  x.fillText("finanzen.net/zero", W-M, hy);
   x.textAlign="left"; x.textBaseline="alphabetic";
 
-  /* Titel */
-  let y=H*0.17;
+  /* Titel — etwas tiefer (Christian 22.07.2026) */
+  let y=H*0.205;
   x.font="800 "+(W*0.072)+"px "+BRAND.font; x.fillStyle=ink;
   x.fillText(isFlop?"Die größten Verlierer":"Die größten Gewinner", M, y);
-  y+=W*0.052;
-  x.font="500 "+(W*0.038)+"px "+BRAND.font; x.fillStyle=mut;
-  x.fillText((d.headline||"Die Börsenwoche")+(d.zeitraum?("  ·  "+d.zeitraum):""), M, y);
+  /* Sub-Zeile: tiefer + auf Bildbreite umbrechen statt abschneiden */
+  y+=W*0.060;
+  x.font="500 "+(W*0.036)+"px "+BRAND.font; x.fillStyle=mut;
+  const subTxt=(d.headline||"Die Börsenwoche")+(d.zeitraum?("  ·  "+d.zeitraum):"");
+  smWrap(x,subTxt,W-2*M).slice(0,2).forEach(ln=>{ x.fillText(ln, M, y); y+=W*0.046; });
 
   /* Werte aus Feldern: je Zeile "Name = Wert%" */
   const raw=(isFlop?d.flopdata:d.topdata)||"";
@@ -6142,11 +6144,13 @@ QN_RENDER.topperformer=function(x, W, H, slide){
   if(!items.length){ x.fillStyle=mut; x.font="500 "+(W*0.036)+"px "+BRAND.font; x.textAlign="center";
     x.fillText("Werte eingeben: je Zeile  Name = Wert%", W/2, chartTop+chartH/2); x.textAlign="left"; }
 
-  /* Footer */
+  /* Footer: Seiten-Indikator nur wenn wirklich 2 Slides (Christian 22.07.2026) */
   const fcy=H-M-W*0.005;
   qnDrawZeroLogo(x, M+W*0.18, fcy-W*0.004, W*0.16, dark);
+  const both=(smData.tpwhich||"beide")==="beide";
+  const pageTxt=both?((isFlop?"02/02":"01/02")+"  ·  "):"";
   x.textAlign="right"; x.fillStyle=mut; x.font="500 "+(W*0.030)+"px "+BRAND.font;
-  x.fillText((isFlop?"02/02":"01/02")+"  ·  Quelle: "+(d.source||"finanzen.net"), W-M, fcy);
+  x.fillText(pageTxt+"Quelle: "+(d.source||"finanzen.net"), W-M, fcy);
   x.textAlign="left";
 };
 
