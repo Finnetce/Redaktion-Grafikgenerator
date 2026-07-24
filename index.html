@@ -3408,6 +3408,7 @@ function smExtractKeyValue(txt){
     "tickerländercode":"tkflag", "tickerlandercode":"tkflag", "tickername":"tkname",
     "tickeruhrzeit":"tktime", "tickeruhrzeitlabel":"tktime", "tickerwert":"tkvalue",
     "tickerδ":"tkchange", "tickerδmitvorzeichen":"tkchange", "tickeränderung":"tkchange",
+    "zusatzzeileunterkurs":"tknote", "zusatzzeile":"tknote",
     /* AZF-Karussell: Header-Label, Cover-Prompt, Slide-Überschriften + Punkte, Podcast */
     "headerlabelobennebenicon":"eyebrow","coverbildmotivpromptkifoto":"covprompt",
     "slide2überschrift":"s1head","slide2punkt1":"s1b1","slide2punkt2":"s1b2","slide2punkt3":"s1b3",
@@ -5551,6 +5552,7 @@ const SM_TEMPLATES=[
     {k:"tktime",l:"Ticker: Uhrzeit/Label",type:"text",max:16,def:"10:30 Uhr"},
     {k:"tkvalue",l:"Ticker: Wert",type:"text",max:14,def:"188,42"},
     {k:"tkchange",l:"Ticker: Δ% (mit Vorzeichen)",type:"text",max:10,def:"+1,4%"},
+    {k:"tknote",l:"Zusatzzeile unter Kurs (optional)",type:"text",max:40,ph:"z.B. Vorbörslich"},
     {k:"source",l:"Quelle",type:"text",max:50,def:"finanzen.net"},{k:"stand",l:"Stand",type:"text",max:24}
   ]},
 { id:"zero_topperformer", name:"Topperformer der Woche (Top/Flop)", prio:"P1", path:"A", carousel:true, renderer:"topperformer",
@@ -6151,10 +6153,17 @@ QN_RENDER.quicknews=function(x, W, H, slide){
 
   /* Ticker-Karte (halbtransparent auf Pink) — Footer (URL/Seitenzahl) entfernt (Christian 22.07.2026),
      Karte sitzt daher etwas tiefer und nutzt den frei gewordenen Platz. */
-  const cardW=W-2*M, cardH=W*0.105, cardY=H*0.845;
+  const note=(d.tknote||"").trim();
+  const cardW=W-2*M, cardH=W*0.105, cardY=note?H*0.815:H*0.845;
   const rad=cardH*0.30;
   x.fillStyle="rgba(255,255,255,0.16)"; smRound(x, M, cardY, cardW, cardH, rad); x.fill();
   qnTickerInner(x, M, cardY, cardW, cardH, d, true, "#ffffff");
+  /* Optionale Zusatzzeile unter der Kurszeile (z.B. "Vorbörslich"), Yuki 24.07.2026 */
+  if(note){
+    x.textAlign="left"; x.textBaseline="alphabetic";
+    x.font="600 "+(W*0.032)+"px "+BRAND.font; x.fillStyle="rgba(255,255,255,0.75)";
+    x.fillText(note, M+W*0.006, cardY+cardH+W*0.055);
+  }
 };
 /* Ticker-Innenzeichnung ohne eigene Karten-Fläche (für Overlay auf farbigem Grund). */
 function qnTickerInner(x, cardX, cardY, cardW, cardH, d, forceLight, forceInk){
