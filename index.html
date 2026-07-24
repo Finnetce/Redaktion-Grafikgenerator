@@ -5439,36 +5439,66 @@ const SM_TEMPLATES=[
   formats:["4:5","9:16"], master:"4:5",
   legal:[],
   fields:[
-    {k:"mkmode",l:"Modus",type:"sel",opts:["light","dark"],def:"light"},
+    {k:"mkmode",l:"Theme",type:"seg",opts:["light","dark"],optlabels:["Light","Dark"],def:"light"},
     {k:"mkindex",l:"Index / Markt",type:"text",max:14,def:"DAX"},
     {k:"mkverb",l:"Verb",type:"text",max:16,def:"eröffnet"},
-    {k:"mkchange",l:"Veränderung (mit Vorzeichen)",type:"text",max:10,ph:"+1,2%"},
-    {k:"deck",l:"Kontextsatz",type:"text",max:60,ph:"z.B. Stark nach US-Vorgaben."},
+    {k:"mkchange",l:"Veränderung (mit Vorzeichen)",type:"text",max:10,def:"+1,2%",ph:"+1,2%"},
+    {k:"deck",l:"Kontextsatz",type:"text",max:60,def:"Stark nach US-Vorgaben.",ph:"z.B. Stark nach US-Vorgaben."},
     {k:"tkflag",l:"Ticker: Länder-Code (de/us/gb/fr…)",type:"text",max:4,def:"de"},
     {k:"tkname",l:"Ticker: Name",type:"text",max:20,def:"DAX"},
-    {k:"tktime",l:"Ticker: Uhrzeit/Label",type:"text",max:16,ph:"09:00 Uhr"},
-    {k:"tkvalue",l:"Ticker: Wert",type:"text",max:14,ph:"23.520"},
-    {k:"tkchange",l:"Ticker: Δ% (mit Vorzeichen)",type:"text",max:10,ph:"+1,2%"},
+    {k:"tktime",l:"Ticker: Uhrzeit/Label",type:"text",max:16,def:"09:00 Uhr",ph:"09:00 Uhr"},
+    {k:"tkvalue",l:"Ticker: Wert",type:"text",max:14,def:"23.520",ph:"23.520"},
+    {k:"tkchange",l:"Ticker: Δ% (mit Vorzeichen)",type:"text",max:10,def:"+1,2%",ph:"+1,2%"},
     {k:"source",l:"Quelle",type:"text",max:50,def:"finanzen.net"},{k:"stand",l:"Stand",type:"text",max:24}
   ]},
-{ id:"zero_topperformer", name:"Topperformer der Woche (Top/Flop)", prio:"P1", path:"A", carousel:true, wip:true,
-  desc:"2 Slides: Top-Werte und Flop-Werte der Woche.",
-  note:"IN ARBEIT — wird nach Figma-Vorlage nachgebaut. Assets/Specs ausstehend.",
+{ id:"zero_qn_earnings", name:"Quick News · Earnings", prio:"P1", path:"C", carousel:false, renderer:"quicknews",
+  desc:"Earnings-/Nachrichten-Meldung einer Aktie mit Bullets und Ticker-Karte. Light/Dark.",
+  note:"Voll-Design nach Figma. Δ%/Farben automatisch aus Vorzeichen. Ticker deterministisch.",
   formats:["4:5","9:16"], master:"4:5",
-  legal:["base","risk","perf"],
+  legal:[],
   fields:[
-    {k:"headline",l:"Headline",type:"text",max:60,ph:"z.B. Die Woche an der Börse"},
-    {k:"zeitraum",l:"Zeitraum",type:"text",max:40,ph:"KW 30 · 21.–25.07.2026"},
+    {k:"qnmode",l:"Theme",type:"seg",opts:["light","dark"],optlabels:["Light","Dark"],def:"dark"},
+    {k:"headline",l:"Headline",type:"text",max:44,def:"Tesla +8% nach Earnings",ph:"z.B. Tesla +8% nach Earnings"},
+    {k:"deck",l:"Kontextsatz",type:"area",max:120,def:"Stärkere Margen als erwartet treiben die Aktie nach den Earnings deutlich nach oben."},
+    {k:"bhead",l:"Bullet-Überschrift",type:"text",max:30,def:"Was steckt dahinter?"},
+    {k:"b1",l:"Bullet 1",type:"text",max:34,def:"Effizienz steigt"},
+    {k:"b2",l:"Bullet 2",type:"text",max:34,def:"Kosten sinken"},
+    {k:"b3",l:"Bullet 3",type:"text",max:34,def:"Nachfrage stabil"},
+    {k:"tkflag",l:"Ticker: Länder-Code",type:"text",max:4,def:"us"},
+    {k:"tkname",l:"Ticker: Name",type:"text",max:20,def:"Tesla"},
+    {k:"tktime",l:"Ticker: Uhrzeit/Label",type:"text",max:16,def:"10:30 Uhr"},
+    {k:"tkvalue",l:"Ticker: Wert",type:"text",max:14,def:"188,42"},
+    {k:"tkchange",l:"Ticker: Δ% (mit Vorzeichen)",type:"text",max:10,def:"+1,4%"},
     {k:"source",l:"Quelle",type:"text",max:50,def:"finanzen.net"},{k:"stand",l:"Stand",type:"text",max:24}
   ]},
-{ id:"zero_azf_carousel", name:"Karussell (AZF Newsletter)", prio:"P1", path:"C", carousel:true, wip:true,
-  desc:"Mehrteiliges Karussell aus dem AZF-Newsletter (Cover + Inhaltsslides + Podcast-Promo).",
-  note:"IN ARBEIT — wird nach Figma-Vorlage + AZF-Newsletter nachgebaut. Assets/Specs ausstehend.",
+{ id:"zero_topperformer", name:"Topperformer der Woche (Top/Flop)", prio:"P1", path:"A", carousel:true, renderer:"topperformer",
+  desc:"2 Slides: größte Gewinner und größte Verlierer als Balken (aufsteigend nach Wert).",
+  note:"Voll-Design. Balken aufsteigend nach Wert (links klein, rechts groß), grün positiv / rot negativ.",
   formats:["4:5","9:16"], master:"4:5",
-  legal:["base","risk"],
+  legal:[],
   fields:[
-    {k:"headline",l:"Cover-Headline",type:"text",max:60,ph:"z.B. Deutsche Autobauer geraten unter Druck"},
-    {k:"kicker",l:"Cover-Kicker",type:"text",max:40,ph:"z.B. Deutliche Gewinnrückgänge"},
+    {k:"tpmode",l:"Theme",type:"seg",opts:["light","dark"],optlabels:["Light","Dark"],def:"light"},
+    {k:"headline",l:"Titel-Zeile",type:"text",max:50,def:"Die Börsenwoche"},
+    {k:"zeitraum",l:"Zeitraum",type:"text",max:40,def:"KW 30",ph:"KW 30 · 21.–25.07.2026"},
+    {k:"topdata",l:"Top-Werte (je Zeile: Name = Wert%)",type:"area",max:300,def:"SAP = 5,8\nSiemens Energy = 7,1\nRheinmetall = 9,4"},
+    {k:"flopdata",l:"Flop-Werte (je Zeile: Name = Wert%)",type:"area",max:300,def:"Bayer = -6,7\nZalando = -5,1\nBASF = -3,9"},
+    {k:"source",l:"Quelle",type:"text",max:50,def:"finanzen.net"},{k:"stand",l:"Stand",type:"text",max:24}
+  ]},
+{ id:"zero_azf_carousel", name:"Karussell (AZF Newsletter)", prio:"P1", path:"C", carousel:true, renderer:"azf_carousel",
+  desc:"Mehrteiliges Karussell: Cover (pink Verlauf) + bis zu 3 Inhalts-Slides mit Bildzone + Podcast-Promo.",
+  note:"Voll-Design. Bildzonen per KI-Bild (Karte 'KI-Bild') füllbar. Keine Seitenzahlen/URLs außer Quelle & Podcast-Handle.",
+  formats:["4:5","9:16"], master:"4:5",
+  legal:[],
+  fields:[
+    {k:"kicker",l:"Cover-Kicker (Badge)",type:"text",max:40,def:"Amundi vs. WisdomTree"},
+    {k:"headline",l:"Cover-Headline",type:"text",max:60,def:"Europas Rüstungsboom: Der günstigere ETF"},
+    {k:"s1head",l:"Slide 1 – Überschrift",type:"text",max:50,def:"Der günstigere Zugang"},
+    {k:"s1sub",l:"Slide 1 – Unterzeile",type:"area",max:130,def:"Ein junger Amundi-ETF bündelt 24 Titel und kostet weniger als der Marktführer."},
+    {k:"s2head",l:"Slide 2 – Überschrift",type:"text",max:50,def:"Breit gestreut"},
+    {k:"s2sub",l:"Slide 2 – Unterzeile",type:"area",max:130,def:"Großbritannien, Frankreich und Deutschland führen die Länderverteilung an."},
+    {k:"s3head",l:"Slide 3 – Überschrift (optional)",type:"text",max:50},
+    {k:"s3sub",l:"Slide 3 – Unterzeile (optional)",type:"area",max:130},
+    {k:"podcast",l:"Podcast-Promo-Slide anhängen",type:"seg",opts:["ja","nein"],optlabels:["Ja","Nein"],def:"ja"},
     {k:"source",l:"Quelle",type:"text",max:50,def:"finanzen.net"},{k:"stand",l:"Stand",type:"text",max:24}
   ]}
 ];
@@ -5566,12 +5596,26 @@ function smBuildFields(){
     inp.addEventListener("input",()=>{ smData[inp.dataset.smk]=inp.value; smUpdateCnt(inp,f); smCheckTriggers(); smRender(); if(smTpl.carousel) smBuildTplGrid(); });
     smUpdateCnt(inp,f);
   });
+  /* Segment-Umschalter (seg): initial Default in smData, Klick setzt Wert + Re-Render (Christian 22.07.2026) */
+  $("smFields").querySelectorAll("[data-smseg]").forEach(seg=>{
+    const k=seg.dataset.smseg, f=smTpl.fields.find(x=>x.k===k);
+    smData[k]=(f&&f.def)||(f&&f.opts&&f.opts[0])||"";
+    seg.querySelectorAll("[data-segval]").forEach(btn=>btn.addEventListener("click",()=>{
+      seg.querySelectorAll("[data-segval]").forEach(b=>b.classList.remove("on"));
+      btn.classList.add("on"); smData[k]=btn.dataset.segval; smRender();
+    }));
+  });
   smCheckTriggers();
 }
 function smFieldHtml(f){ return '<label class="lab">'+f.l+'</label>'+smInputHtml(f)+(f.max?'<div class="sm-cnt" data-cnt="'+f.k+'"></div>':''); }
 function smInputHtml(f){
   if(f.type==="area") return '<textarea class="ta" data-smk="'+f.k+'" style="min-height:56px" maxlength="'+f.max+'" placeholder="'+(f.ph||"")+'"></textarea>';
   if(f.type==="sel") return '<div class="selwrap"><select class="sel" data-smk="'+f.k+'">'+f.opts.map(o=>'<option>'+o+'</option>').join('')+'</select><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>';
+  if(f.type==="seg"){ /* Segment-Umschalter (z.B. Light/Dark), Christian 22.07.2026 */
+    const def=f.def||f.opts[0];
+    return '<div class="seg sm-seg" data-smseg="'+f.k+'" style="display:flex;gap:0">'+f.opts.map((o,i)=>
+      '<button type="button" class="'+(o===def?"on":"")+'" data-segval="'+o+'">'+((f.optlabels&&f.optlabels[i])||o)+'</button>').join('')+'</div>';
+  }
   if(f.type==="num") return '<input class="inp" type="number" data-smk="'+f.k+'" placeholder="'+(f.ph||"")+'" />';
   return '<input class="inp" data-smk="'+f.k+'" maxlength="'+(f.max||60)+'" placeholder="'+(f.ph||"")+'" />';
 }
@@ -5747,6 +5791,16 @@ function smSlides(){
   else if(smTpl.id==="zero_sm_investing_savings_calc"){
     base=[{t:"sc_intro"},{t:"sc_bars"},{t:"sc_result"}];
   }
+  /* Topperformer: 2 Slides (Gewinner / Verlierer) */
+  else if(smTpl.id==="zero_topperformer"){
+    base=[{t:"top"},{t:"flop"}];
+  }
+  /* AZF-Karussell: Cover + Inhalts-Slides (nur gefüllte) + optional Podcast-Promo */
+  else if(smTpl.id==="zero_azf_carousel"){
+    base=[{t:"cover"}];
+    for(let i=1;i<=3;i++){ if((smData["s"+i+"head"]||"").trim()||(smData["s"+i+"sub"]||"").trim()) base.push({t:"content",i:i}); }
+    if((smData.podcast||"ja")!=="nein") base.push({t:"podcast"});
+  }
   else base=[{t:"single"}];
   /* Optionale Extra-Grafik immer als LETZTE Slide anhängen */
   if(smExtraActive()) base.push({t:"extra"});
@@ -5757,7 +5811,7 @@ function smBuildPager(){
   if(sl.length<=1){ p.innerHTML=""; $("smExportAll").style.display="none"; $("smExportPdf").style.display="none"; return; }
   $("smExportPdf").style.display="";
   p.innerHTML=sl.map((s,i)=>'<button class="'+(i===smSlide?"on":"")+'" data-s="'+i+'">'+
-    (s.t==="cover"?"Cover":s.t==="closing"?"Abschluss":s.t==="sc_intro"?"Annahmen":s.t==="sc_bars"?"Verlauf":s.t==="sc_result"?"Ergebnis":s.t==="extra"?"Extra-Grafik":"Karte "+s.i)+'</button>').join('');
+    (s.t==="cover"?"Cover":s.t==="closing"?"Abschluss":s.t==="sc_intro"?"Annahmen":s.t==="sc_bars"?"Verlauf":s.t==="sc_result"?"Ergebnis":s.t==="extra"?"Extra-Grafik":s.t==="top"?"Gewinner":s.t==="flop"?"Verlierer":s.t==="content"?("Slide "+s.i):s.t==="podcast"?"Podcast":"Karte "+s.i)+'</button>').join('');
   p.querySelectorAll("[data-s]").forEach(el=>el.onclick=()=>{ smSlide=+el.dataset.s; smRender(); });
   $("smExportAll").style.display="";
 }
@@ -5901,7 +5955,7 @@ QN_RENDER.market_update=function(x, W, H, slide){
   x.textAlign="left"; x.textBaseline="alphabetic";
 
   /* Index-Badge + Verb */
-  let y=H*0.30;
+  let y=H*0.285;
   const idxFS=W*0.115;
   x.font="800 "+idxFS+"px "+BRAND.font;
   const idxTxt=(d.mkindex||"DAX"), idxW=x.measureText(idxTxt).width;
@@ -5910,19 +5964,19 @@ QN_RENDER.market_update=function(x, W, H, slide){
   x.fillStyle="#fff"; x.textBaseline="alphabetic"; x.fillText(idxTxt, bx+padX, y);
   x.fillStyle=ink; x.fillText(" "+(d.mkverb||"eröffnet"), bx+idxW+2*padX+W*0.012, y);
 
-  /* Große Prozentzahl */
-  y+=idxFS*1.15;
-  const pctFS=W*0.155;
+  /* Große Prozentzahl — klar abgesetzt vom Index-Badge (Christian 22.07.2026: mehr Abstand) */
+  const pctFS=W*0.165;
+  y+=idxFS*0.55+pctFS;   /* Grundlinie der %-Zahl deutlich tiefer */
   x.font="800 "+pctFS+"px "+BRAND.font; x.fillStyle=dirCol; x.textBaseline="alphabetic";
   x.fillText(change, M-W*0.006, y);
 
   /* Deck */
-  y+=W*0.055;
+  y+=W*0.058;
   x.font="700 "+(W*0.050)+"px "+BRAND.font; x.fillStyle=ink;
   x.fillText(d.deck||"", M, y);
 
-  /* Pfeil-Deko rechts, mittig neben der Prozentzahl */
-  qnArrowDeco(x, W, H, W*0.80, H*0.42, up!==false, dirCol);
+  /* Pfeil-Deko rechts, auf Höhe der Prozentzahl */
+  qnArrowDeco(x, W, H, W*0.80, H*0.46, up!==false, dirCol);
 
   /* Ticker-Karte */
   const cardW=W-2*M, cardH=W*0.105, cardY=H*0.76;
@@ -5936,6 +5990,272 @@ QN_RENDER.market_update=function(x, W, H, slide){
   x.fillText("Keine Anlageberatung", W-M, fcy+W*0.020);
   x.textAlign="left";
 };
+
+/* ---------- Quick News · Earnings (Light + Dark) ---------- */
+QN_RENDER.quicknews=function(x, W, H, slide){
+  const d=smData;
+  const dark=(d.qnmode==="dark");
+  const M=Math.round(W*0.066);
+  const ink=dark?"#ffffff":"#0b0b0f";
+  const mut=dark?"rgba(255,255,255,0.62)":"rgba(11,11,15,0.55)";
+  /* Hintergrund: heller/dunkler Grund + großer pinker Kreis, der von rechts hereinragt */
+  if(dark){ x.fillStyle=QN_DARKBG; x.fillRect(0,0,W,H); }
+  else { x.fillStyle="#FFF0F5"; x.fillRect(0,0,W,H); }
+  /* großer pinker Kreis (Hauptbühne) — unten/mitte, ragt rechts raus */
+  x.save();
+  x.beginPath(); x.arc(W*0.42, H*0.60, W*0.66, 0, 7); x.fillStyle=QN_PINK; x.fill();
+  x.restore();
+  /* kleiner Deko-Kreis oben rechts (dunkleres Pink) */
+  x.beginPath(); x.arc(W*0.92, H*0.075, W*0.24, 0, 7); x.fillStyle=dark?"rgba(248,28,125,0.55)":"rgba(248,28,125,0.85)"; x.fill();
+
+  /* Header: Glühbirnen-Icon (weißer Kreis, pinke Birne) + Quick News */
+  const hy=M+W*0.045, ir=W*0.052;
+  qnHeaderIcon(x, M+ir, hy, ir, "bulb", "#ffffff", QN_PINK);
+  x.textAlign="left"; x.textBaseline="middle";
+  x.font="800 "+(W*0.050)+"px "+BRAND.font; x.fillStyle=ink;
+  x.fillText("Quick News", M+ir*2+W*0.028, hy);
+  /* zero-Logo oben rechts (weiß auf Kreis) */
+  qnDrawZeroLogo(x, W-M, hy, W*0.20, true);
+  x.textBaseline="alphabetic";
+
+  /* Headline (weiß, auf dem pinken Kreis) */
+  let y=H*0.30;
+  const hlFS=W*0.088;
+  x.font="800 "+hlFS+"px "+BRAND.font; x.fillStyle="#ffffff"; x.textAlign="left";
+  const hlLines=smWrap(x,d.headline||"Headline",W*0.72);
+  hlLines.slice(0,3).forEach(ln=>{ x.fillText(ln, M, y); y+=hlFS*1.08; });
+
+  /* Deck */
+  y+=W*0.02;
+  const dkFS=W*0.040;
+  x.font="500 "+dkFS+"px "+BRAND.font; x.fillStyle="rgba(255,255,255,0.92)";
+  smWrap(x,d.deck||"",W*0.72).slice(0,3).forEach(ln=>{ x.fillText(ln, M, y); y+=dkFS*1.4; });
+
+  /* "Was steckt dahinter?" + Bullets */
+  if((d.bhead||"").trim() || [d.b1,d.b2,d.b3].some(b=>(b||"").trim())){
+    y+=W*0.03;
+    x.font="800 "+(W*0.044)+"px "+BRAND.font; x.fillStyle="#ffffff";
+    x.fillText(d.bhead||"Was steckt dahinter?", M, y); y+=W*0.058;
+    [d.b1,d.b2,d.b3].filter(b=>(b||"").trim()).forEach(b=>{
+      x.beginPath(); x.arc(M+W*0.014, y-W*0.013, W*0.010, 0, 7); x.fillStyle="#ffffff"; x.fill();
+      x.font="600 "+(W*0.040)+"px "+BRAND.font; x.fillStyle="#ffffff";
+      x.fillText(smProtect(b), M+W*0.045, y); y+=W*0.058;
+    });
+  }
+
+  /* Ticker-Karte (halbtransparent auf Pink) */
+  const cardW=W-2*M, cardH=W*0.105, cardY=H*0.80;
+  /* eigener Ticker-Look auf Pink: leicht aufgehellte Fläche */
+  const rad=cardH*0.30;
+  x.fillStyle="rgba(255,255,255,0.16)"; smRound(x, M, cardY, cardW, cardH, rad); x.fill();
+  qnTickerInner(x, M, cardY, cardW, cardH, d, true, "#ffffff");
+
+  /* Footer: URL links, Seitenzahl rechts */
+  const fcy=H-M-W*0.005;
+  x.textAlign="left"; x.fillStyle=ink; x.font="700 "+(W*0.034)+"px "+BRAND.font;
+  x.fillText("www.finanzen.net/zero", M, fcy);
+  x.textAlign="right"; x.fillStyle=ink; x.fillText("01", W-M, fcy);
+  x.textAlign="left";
+};
+/* Ticker-Innenzeichnung ohne eigene Karten-Fläche (für Overlay auf farbigem Grund). */
+function qnTickerInner(x, cardX, cardY, cardW, cardH, d, forceLight, forceInk){
+  const cy=cardY+cardH/2, pad=cardH*0.42, fr=cardH*0.26;
+  qnFlag(x, cardX+pad+fr, cy, fr, d.tkflag||"us");
+  const nameFS=cardH*0.30, ink=forceInk||"#0b0b0f", mut=forceLight?"rgba(255,255,255,0.7)":"rgba(11,11,15,0.5)";
+  let tx=cardX+pad+fr*2+cardH*0.28;
+  x.textAlign="left"; x.textBaseline="middle";
+  x.font="800 "+nameFS+"px "+BRAND.font; x.fillStyle=ink; x.fillText(d.tkname||"", tx, cy);
+  const nameW=x.measureText(d.tkname||"").width;
+  x.font="500 "+nameFS+"px "+BRAND.font; x.fillStyle=mut;
+  x.fillText("  |  "+(d.tktime||""), tx+nameW, cy);
+  const up=qnUp(d.tkchange), dirCol=up===false?QN_RED:"#8CF0B8";
+  x.textAlign="right"; let rx=cardX+cardW-pad;
+  const arS=cardH*0.16;
+  x.strokeStyle=dirCol; x.lineWidth=cardH*0.05; x.lineCap="round"; x.lineJoin="round";
+  const axc=rx-arS*0.4, ayc=cy; x.beginPath();
+  if(up===false){ x.moveTo(axc-arS,ayc-arS); x.lineTo(axc,ayc); x.lineTo(axc-arS*0.1,ayc-arS); x.moveTo(axc,ayc); x.lineTo(axc-arS,ayc+arS*0.05); }
+  else { x.moveTo(axc-arS,ayc+arS); x.lineTo(axc,ayc-arS*0.1); x.lineTo(axc-arS*0.05,ayc+arS*0.05); x.moveTo(axc,ayc-arS*0.1); x.lineTo(axc-arS,ayc-arS*0.05); }
+  x.stroke(); x.lineCap="butt"; x.lineJoin="miter";
+  rx-=arS*1.8;
+  const chFS=cardH*0.30;
+  x.font="800 "+chFS+"px "+BRAND.font; x.fillStyle=dirCol; x.fillText(d.tkchange||"", rx, cy);
+  const chW=x.measureText(d.tkchange||"").width; rx-=chW+cardH*0.30;
+  x.font="800 "+chFS+"px "+BRAND.font; x.fillStyle=ink; x.fillText(d.tkvalue||"", rx, cy);
+  x.textBaseline="alphabetic"; x.textAlign="left";
+}
+
+/* ---------- Topperformer der Woche (Top/Flop), 2 Slides ---------- */
+QN_RENDER.topperformer=function(x, W, H, slide){
+  const d=smData;
+  const isFlop=(slide&&slide.t==="flop");
+  const dark=(d.tpmode==="dark");
+  const M=Math.round(W*0.066);
+  if(dark){ x.fillStyle=QN_DARKBG; x.fillRect(0,0,W,H);
+    const rg=x.createRadialGradient(W*0.85,H*0.12,0,W*0.85,H*0.12,W*0.8); rg.addColorStop(0,"rgba(248,28,125,0.18)"); rg.addColorStop(1,"rgba(10,2,6,0)"); x.fillStyle=rg; x.fillRect(0,0,W,H); }
+  else { x.fillStyle="#F7F3F5"; x.fillRect(0,0,W,H); }
+  const ink=dark?"#ffffff":"#0b0b0f", mut=dark?"rgba(255,255,255,0.5)":"rgba(11,11,15,0.45)";
+
+  /* Header */
+  const hy=M+W*0.045, ir=W*0.052;
+  qnHeaderIcon(x, M+ir, hy, ir, "trend", QN_PINK, "#fff");
+  x.textAlign="left"; x.textBaseline="middle";
+  x.font="800 "+(W*0.050)+"px "+BRAND.font; x.fillStyle=ink;
+  x.fillText("Topperformer", M+ir*2+W*0.028, hy);
+  x.textAlign="right"; x.font="500 "+(W*0.036)+"px "+BRAND.font; x.fillStyle=mut;
+  x.fillText("finanzen.net/zero", W-M, hy);
+  x.textAlign="left"; x.textBaseline="alphabetic";
+
+  /* Titel */
+  let y=H*0.17;
+  x.font="800 "+(W*0.072)+"px "+BRAND.font; x.fillStyle=ink;
+  x.fillText(isFlop?"Die größten Verlierer":"Die größten Gewinner", M, y);
+  y+=W*0.052;
+  x.font="500 "+(W*0.038)+"px "+BRAND.font; x.fillStyle=mut;
+  x.fillText((d.headline||"Die Börsenwoche")+(d.zeitraum?("  ·  "+d.zeitraum):""), M, y);
+
+  /* Werte aus Feldern: je Zeile "Name = Wert%" */
+  const raw=(isFlop?d.flopdata:d.topdata)||"";
+  let items=[];
+  raw.split(/\n+/).forEach(line=>{ const s=line.trim(); if(!s) return;
+    const m=s.match(/^(.*?)[\s]*[=:]\s*(-?[\d.,]+)\s*%?\s*$/); if(!m) return;
+    const v=parseFloat(m[2].replace(/\./g,"").replace(",",".")); if(isNaN(v)) return;
+    items.push({name:m[1].trim(), v:v});
+  });
+  /* aufsteigend nach Wert (links kleinster -> rechts größter) */
+  items.sort((a,b)=>a.v-b.v);
+  const chartTop=y+W*0.06, chartBot=H*0.85, chartH=chartBot-chartTop;
+  const n=Math.max(items.length,1);
+  const gap=W*0.03, bw=(W-2*M-(n-1)*gap)/n;
+  const maxAbs=Math.max(1,...items.map(it=>Math.abs(it.v)));
+  items.forEach((it,i)=>{
+    const bx=M+i*(bw+gap);
+    const bh=Math.max(chartH*0.12, (Math.abs(it.v)/maxAbs)*chartH*0.76);
+    const by=chartBot-bh;
+    const col=it.v<0?QN_RED:QN_GREEN;
+    x.fillStyle=col; smRound(x,bx,by,bw,bh,W*0.014); x.fill();
+    x.textAlign="center"; x.fillStyle=ink; x.font="800 "+(W*0.036)+"px "+BRAND.font;
+    x.fillText((it.v>0?"+":"")+it.v.toString().replace(".",",")+"%", bx+bw/2, by-W*0.02);
+    x.fillStyle=mut; x.font="600 "+(W*0.026)+"px "+BRAND.font;
+    smWrap(x,it.name,bw*1.05).slice(0,2).forEach((ln,k)=>x.fillText(ln, bx+bw/2, chartBot+W*0.045+k*W*0.034));
+  });
+  x.textAlign="left";
+  if(!items.length){ x.fillStyle=mut; x.font="500 "+(W*0.036)+"px "+BRAND.font; x.textAlign="center";
+    x.fillText("Werte eingeben: je Zeile  Name = Wert%", W/2, chartTop+chartH/2); x.textAlign="left"; }
+
+  /* Footer */
+  const fcy=H-M-W*0.005;
+  qnDrawZeroLogo(x, M+W*0.18, fcy-W*0.004, W*0.16, dark);
+  x.textAlign="right"; x.fillStyle=mut; x.font="500 "+(W*0.030)+"px "+BRAND.font;
+  x.fillText((isFlop?"02/02":"01/02")+"  ·  Quelle: "+(d.source||"finanzen.net"), W-M, fcy);
+  x.textAlign="left";
+};
+
+/* ---------- Karussell (AZF Newsletter): Cover + Inhalts-Slides + Podcast-Promo ---------- */
+QN_RENDER.azf_carousel=function(x, W, H, slide){
+  const d=smData, M=Math.round(W*0.066), t=(slide&&slide.t)||"cover";
+  if(t==="podcast") return qnAzfPodcast(x,W,H,d,M);
+  if(t==="cover") return qnAzfCover(x,W,H,d,M);
+  return qnAzfContent(x,W,H,d,M,slide);
+};
+function qnAzfHeaderDark(x,W,H,M,label,sym){
+  const hy=M+W*0.045, ir=W*0.052;
+  qnHeaderIcon(x, M+ir, hy, ir, sym||"bulb", QN_PINK, "#fff");
+  x.textAlign="left"; x.textBaseline="middle";
+  x.font="800 "+(W*0.050)+"px "+BRAND.font; x.fillStyle="#fff";
+  x.fillText(label||"Quick News", M+ir*2+W*0.028, hy);
+  qnDrawZeroLogo(x, W-M, hy, W*0.20, true);
+  x.textBaseline="alphabetic";
+}
+function qnAzfHeaderLight(x,W,H,M,label,sym){
+  const hy=M+W*0.045, ir=W*0.052;
+  qnHeaderIcon(x, M+ir, hy, ir, sym||"bulb", QN_PINK, "#fff");
+  x.textAlign="left"; x.textBaseline="middle";
+  x.font="800 "+(W*0.050)+"px "+BRAND.font; x.fillStyle="#0b0b0f";
+  x.fillText(label||"Quick News", M+ir*2+W*0.028, hy);
+  qnDrawZeroLogo(x, W-M, hy, W*0.20, false);
+  x.textBaseline="alphabetic";
+}
+/* Cover: pink Verlauf unten, Kicker-Badge + Headline + Pfeil */
+function qnAzfCover(x,W,H,d,M){
+  x.fillStyle="#e9ebee"; x.fillRect(0,0,W,H);
+  if(typeof smBgImg!=="undefined" && smBgImg) smDrawCover(x,smBgImg,W,H);
+  const g=x.createLinearGradient(0,H*0.15,0,H);
+  g.addColorStop(0,"rgba(60,6,30,0)"); g.addColorStop(0.55,"rgba(90,8,45,0.55)"); g.addColorStop(1,"rgba(45,4,22,0.96)");
+  x.fillStyle=g; x.fillRect(0,0,W,H);
+  qnAzfHeaderDark(x,W,H,M,"Quick News","bulb");
+  let y=H*0.66;
+  if((d.kicker||"").trim()){
+    x.font="800 "+(W*0.042)+"px "+BRAND.font;
+    const kw=x.measureText(d.kicker).width, kpadX=W*0.028, kh=W*0.075;
+    x.fillStyle=QN_PINK; smRound(x, M, y-kh*0.72, kw+2*kpadX, kh, W*0.012); x.fill();
+    x.fillStyle="#fff"; x.textAlign="left"; x.fillText(d.kicker, M+kpadX, y);
+    y+=W*0.03;
+  }
+  y+=W*0.075;
+  const hlFS=W*0.088; x.font="800 "+hlFS+"px "+BRAND.font; x.fillStyle="#fff"; x.textAlign="left";
+  smWrap(x,d.headline||"Headline",W-2*M).slice(0,3).forEach(ln=>{ x.fillText(ln,M,y); y+=hlFS*1.06; });
+  const pr=W*0.058, px=W-M-pr, py=H-M-pr;
+  x.beginPath(); x.arc(px,py,pr,0,7); x.fillStyle=QN_PINK; x.fill();
+  x.strokeStyle="#fff"; x.lineWidth=W*0.008; x.lineCap="round"; x.lineJoin="round";
+  x.beginPath(); x.moveTo(px-pr*0.4,py); x.lineTo(px+pr*0.4,py); x.moveTo(px+pr*0.05,py-pr*0.35); x.lineTo(px+pr*0.4,py); x.lineTo(px+pr*0.05,py+pr*0.35); x.stroke();
+  x.lineCap="butt"; x.lineJoin="miter";
+}
+/* Inhalts-Slide: Header + Headline + Deck + große Bildzone + Pfeil */
+function qnAzfContent(x,W,H,d,M,slide){
+  x.fillStyle="#ffffff"; x.fillRect(0,0,W,H);
+  qnAzfHeaderLight(x,W,H,M,"Quick News","bulb");
+  const i=(slide&&slide.i)||1;
+  let y=H*0.145;
+  const hlFS=W*0.066; x.font="800 "+hlFS+"px "+BRAND.font; x.fillStyle="#0b0b0f"; x.textAlign="left";
+  smWrap(x,d["s"+i+"head"]||d.headline||"Überschrift",W-2*M).slice(0,2).forEach(ln=>{ x.fillText(ln,M,y); y+=hlFS*1.06; });
+  y+=W*0.008;
+  x.font="500 "+(W*0.040)+"px "+BRAND.font; x.fillStyle="rgba(11,11,15,0.7)";
+  smWrap(x,d["s"+i+"sub"]||"",W-2*M).slice(0,3).forEach(ln=>{ x.fillText(ln,M,y); y+=W*0.052; });
+  const zoneTop=y+W*0.03, zoneH=H*0.85-zoneTop;
+  if(typeof smBgImg!=="undefined" && smBgImg){ x.save(); smRound(x,M,zoneTop,W-2*M,zoneH,W*0.02); x.clip();
+    const iw=smBgImg.width, ih=smBgImg.height, sc=Math.max((W-2*M)/iw, zoneH/ih);
+    x.drawImage(smBgImg,(W-2*M-iw*sc)/2+M, zoneTop+(zoneH-ih*sc)/2, iw*sc, ih*sc); x.restore(); }
+  else { x.fillStyle="#eef0f2"; smRound(x,M,zoneTop,W-2*M,zoneH,W*0.02); x.fill();
+    x.fillStyle="#aab2bd"; x.textAlign="center"; x.font="500 "+(W*0.032)+"px "+BRAND.font;
+    x.fillText("Bildzone — KI-Bild erzeugen", W/2, zoneTop+zoneH/2); x.textAlign="left"; }
+  x.textAlign="left"; x.fillStyle="rgba(11,11,15,0.45)"; x.font="500 "+(W*0.028)+"px "+BRAND.font;
+  x.fillText("Quelle: "+(d.source||"finanzen.net"), M, H-M-W*0.005);
+  const pr=W*0.058, px=W-M-pr, py=H-M-pr;
+  x.beginPath(); x.arc(px,py,pr,0,7); x.fillStyle=QN_PINK; x.fill();
+  x.strokeStyle="#fff"; x.lineWidth=W*0.008; x.lineCap="round"; x.lineJoin="round";
+  x.beginPath(); x.moveTo(px-pr*0.4,py); x.lineTo(px+pr*0.4,py); x.moveTo(px+pr*0.05,py-pr*0.35); x.lineTo(px+pr*0.4,py); x.lineTo(px+pr*0.05,py+pr*0.35); x.stroke();
+  x.lineCap="butt"; x.lineJoin="miter";
+}
+/* Podcast-Promo-Abschluss */
+function qnAzfPodcast(x,W,H,d,M){
+  x.fillStyle="#ffffff"; x.fillRect(0,0,W,H);
+  qnAzfHeaderLight(x,W,H,M,"Podcast","mic");
+  const zoneTop=H*0.13, zoneH=H*0.42;
+  if(typeof smBgImg!=="undefined" && smBgImg){ x.save(); x.beginPath(); x.rect(0,zoneTop,W,zoneH); x.clip();
+    const iw=smBgImg.width, ih=smBgImg.height, sc=Math.max(W/iw, zoneH/ih);
+    x.drawImage(smBgImg,(W-iw*sc)/2,zoneTop+(zoneH-ih*sc)/2,iw*sc,ih*sc); x.restore(); }
+  else { x.fillStyle="#eef0f2"; x.fillRect(0,zoneTop,W,zoneH); }
+  let y=zoneTop+zoneH+W*0.09;
+  x.textAlign="left"; x.fillStyle="rgba(11,11,15,0.55)"; x.font="600 "+(W*0.042)+"px "+BRAND.font;
+  x.fillText("Mehr Insights", M, y); x.fillText("wie diese?", M, y+W*0.055);
+  x.fillStyle="#0b0b0f"; x.font="800 "+(W*0.070)+"px "+BRAND.font;
+  x.fillText("Jetzt im", M, y+W*0.15); x.fillText("Podcast.", M, y+W*0.15+W*0.078);
+  x.textAlign="right"; x.fillStyle="rgba(11,11,15,0.55)"; x.font="500 "+(W*0.036)+"px "+BRAND.font;
+  ["Gute Performance ist","nichts ohne Verständnis.","Wir liefern dir die","Einordnung im Podcast."].forEach((ln,k)=>x.fillText(ln, W-M, y+k*W*0.05));
+  const btnW=W*0.42, btnH=W*0.10, btnX=W-M-btnW, btnY=y+W*0.24;
+  x.fillStyle=QN_PINK; smRound(x, btnX, btnY, btnW, btnH, btnH/2); x.fill();
+  x.textAlign="left"; x.fillStyle="#fff"; x.font="800 "+(W*0.038)+"px "+BRAND.font; x.textBaseline="middle";
+  x.fillText("Link in der Bio", btnX+W*0.04, btnY+btnH/2);
+  const cr=btnH*0.34, cx2=btnX+btnW-btnH*0.55, cy2=btnY+btnH/2;
+  x.beginPath(); x.arc(cx2,cy2,cr,0,7); x.fillStyle="#fff"; x.fill();
+  x.strokeStyle=QN_PINK; x.lineWidth=cr*0.28; x.lineCap="round"; x.lineJoin="round";
+  x.beginPath(); x.moveTo(cx2-cr*0.4,cy2); x.lineTo(cx2+cr*0.35,cy2); x.moveTo(cx2,cy2-cr*0.35); x.lineTo(cx2+cr*0.4,cy2); x.lineTo(cx2,cy2+cr*0.35); x.stroke();
+  x.lineCap="butt"; x.lineJoin="miter"; x.textBaseline="alphabetic";
+  x.textAlign="left"; x.fillStyle="#0b0b0f"; x.font="700 "+(W*0.034)+"px "+BRAND.font;
+  x.fillText("www.finanzen.net/zero", M, H-M-W*0.005);
+  x.textAlign="right"; x.fillText("@finanzen.net_zero", W-M, H-M-W*0.005);
+  x.textAlign="left";
+}
 
 function smRender(){
   const F=FORMATS[smFmt], c=$("smCanvas");
