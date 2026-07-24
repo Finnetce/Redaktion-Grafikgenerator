@@ -3391,10 +3391,84 @@ async function smPickTemplate(txt){
 
 /* Auto-Fill für den zero-Template-Katalog: baut das JSON-Schema dynamisch
    aus den Feld-Definitionen des gewählten Templates. */
+/* "Label: Wert"-Block direkt in die Template-Felder übernehmen (Christian 22.07.2026).
+   Versteht: einzeilige Felder, mehrzeilige Blöcke (Top-/Flop-Werte, Kontextsätze) und
+   Segment-Umschalter (Theme, Welche Slides?). Gibt true zurück, wenn >=2 Felder gematcht wurden. */
+function smNorm(s){ return (s||"").toLowerCase().replace(/\(.*?\)/g,"").replace(/[^a-z0-9äöüß]/g,""); }
+function smExtractKeyValue(txt){
+  if(!smTpl||!smTpl.fields) return false;
+  const lines=(txt||"").split(/\r?\n/);
+  /* Label -> Feld (normalisiert). Zusätzlich ein paar Synonyme für bequemes Copy-Paste. */
+  const map={};
+  smTpl.fields.forEach(f=>{ map[smNorm(f.l)]=f; });
+  const syn={ "veränderung":"mkchange", "verb":"mkverb", "indexmarkt":"mkindex", "index":"mkindex",
+    "topwerte":"topdata", "flopwerte":"flopdata", "titelzeile":"headline", "coverkicker":"kicker",
+    "coverheadline":"headline", "kontextsatz":"deck", "bulletüberschrift":"bhead",
+    /* Ticker-Synonyme (Copy-Paste-Vorlagen ohne "/Label"-Zusatz) */
+    "tickerländercode":"tkflag", "tickerlandercode":"tkflag", "tickername":"tkname",
+    "tickeruhrzeit":"tktime", "tickeruhrzeitlabel":"tktime", "tickerwert":"tkvalue",
+    "tickerδ":"tkchange", "tickerδmitvorzeichen":"tkchange", "tickeränderung":"tkchange",
+    /* Slide-Überschriften/Unterzeilen im Karussell */
+    "slide1überschrift":"s1head","slide1unterzeile":"s1sub","slide2überschrift":"s2head","slide2unterzeile":"s2sub",
+    "slide3überschrift":"s3head","slide3unterzeile":"s3sub","podcastpromoslideanhängen":"podcast","welcheslides":"tpwhich","theme":smTpl.fields.find(f=>f.type==="seg")?smTpl.fields.find(f=>f.type==="seg").k:null };
+  Object.keys(syn).forEach(n=>{ const f=smTpl.fields.find(x=>x.k===syn[n]); if(f&&!map[n]) map[n]=f; });
+  const vals={}; let curKey=null;
+  /* Ein Zeilen-Präfix (vor : oder =) zu einem bekannten Feld auflösen. Wichtig: Labels können selbst
+     ':' enthalten (z.B. "Ticker: Name"), daher NICHT am ersten ':' splitten, sondern das längste
+     passende Label als Präfix suchen. */
+  function resolve(raw){
+    const idxColon=raw.indexOf(":"), idxEq=raw.indexOf("=");
+    /* Kandidaten-Trennstellen (alle : und =) von rechts nach links prüfen, damit "Ticker: Name: SAP"
+       korrekt am ZWEITEN ':' getrennt wird. */
+    const seps=[]; for(let i=0;i<raw.length;i++){ if(raw[i]===":"||raw[i]==="="){ seps.push(i); } }
+    for(let s=seps.length-1;s>=0;s--){
+      const label=raw.slice(0,seps[s]), val=raw.slice(seps[s]+1);
+      const f=map[smNorm(label)];
+      if(f) return {f:f, val:val.trim()};
+    }
+    return null;
+  }
+  lines.forEach(line=>{
+    const raw=line.replace(/\s+$/,"");
+    if(!raw.trim()){ if(curKey) vals[curKey]+="\n"; return; }
+    const r=(/[:=]/.test(raw)) ? resolve(raw) : null;
+    if(r){ curKey=r.f.k; vals[curKey]=r.val; return; }
+    /* keine bekannte Label-Zeile -> Fortsetzung des aktuellen (mehrzeiligen) Feldes */
+    if(curKey!=null){ vals[curKey]+=(vals[curKey]?"\n":"")+raw.trim(); }
+  });
+  const keys=Object.keys(vals); if(keys.length<2) return false;
+  let applied=0;
+  keys.forEach(k=>{
+    const f=smTpl.fields.find(x=>x.k===k); if(!f) return;
+    let v=(vals[k]||"").replace(/^\n+|\n+$/g,"").trim();
+    if(f.type==="seg"){
+      let opt=null;
+      (f.opts||[]).forEach((o,i)=>{ if(smNorm(o)===smNorm(v)||smNorm((f.optlabels||[])[i]||"")===smNorm(v)) opt=o; });
+      if(opt){ smData[k]=opt; const seg=$("smFields").querySelector('[data-smseg="'+k+'"]');
+        if(seg){ seg.querySelectorAll("[data-segval]").forEach(b=>b.classList.toggle("on", b.dataset.segval===opt)); }
+        applied++; }
+      return;
+    }
+    if(f.max && f.type!=="area") v=v.replace(/\n+/g," ");
+    smData[k]=v;
+    const inp=$("smFields").querySelector('[data-smk="'+k+'"]'); if(inp){ inp.value=v; smUpdateCnt(inp,f); }
+    applied++;
+  });
+  return applied>=2;
+}
+
 async function extractSM(txt,opts){
   opts=opts||{};
+  /* Schritt 0 (Christian 22.07.2026): "Key: Value"-Block direkt in die Felder mappen — ohne KI.
+     Für die feldbasierten Voll-Design-Formate (Market Update, Quick News, Topperformer, Karussell),
+     bei denen ein Copy-Paste von Label/Wert-Zeilen erwartet wird. Verhindert den JSON-Parse-Fehler. */
+  if(smTpl && smTpl.renderer && smExtractKeyValue(txt)){
+    const info0=$("smAutoInfo"); if(info0) info0.textContent="Felder aus Eingabe übernommen.";
+    smCheckTriggers&&smCheckTriggers(); smUpdateLegal&&smUpdateLegal(); smRender();
+    return;
+  }
   /* Schritt 1: Template + Format automatisch wählen (außer bei Neu-Befüllen nach manueller Wahl) */
-  const info=$("smAutoInfo"); 
+  const info=$("smAutoInfo");
   if(!opts.skipPick){
     if(info) info.textContent="Claude wählt das Template …";
     try{
@@ -5958,15 +6032,25 @@ QN_RENDER.market_update=function(x, W, H, slide){
   x.fillText("Market Update", M+ir*2+W*0.028, hy);
   x.textAlign="left"; x.textBaseline="alphabetic";
 
-  /* Index-Badge + Verb */
+  /* Index-Badge + Verb — Auto-Fit: verkleinert die Schrift, bis Badge + Verb zusammen
+     in die Bildbreite passen (bleibt EINE Zeile, läuft nie raus). Christian 22.07.2026. */
   let y=H*0.285;
-  const idxFS=W*0.115;
+  const idxTxt=(d.mkindex||"DAX"), verbTxt=" "+(d.mkverb||"eröffnet");
+  const bx=M, avail=W-2*M;
+  let idxFS=W*0.115;
+  for(let guard=0; guard<40; guard++){
+    x.font="800 "+idxFS+"px "+BRAND.font;
+    const iw=x.measureText(idxTxt).width, padX=idxFS*0.19;
+    const vw=x.measureText(verbTxt).width;
+    if(iw+2*padX+vw <= avail || idxFS<=W*0.045) break;
+    idxFS*=0.96;
+  }
   x.font="800 "+idxFS+"px "+BRAND.font;
-  const idxTxt=(d.mkindex||"DAX"), idxW=x.measureText(idxTxt).width;
-  const bx=M, padX=W*0.022, padY=idxFS*0.12, bh=idxFS*1.18;
+  const idxW=x.measureText(idxTxt).width;
+  const padX=idxFS*0.19, bh=idxFS*1.18;
   x.fillStyle=QN_PINK; smRound(x, bx, y-bh*0.80, idxW+2*padX, bh, W*0.012); x.fill();
   x.fillStyle="#fff"; x.textBaseline="alphabetic"; x.fillText(idxTxt, bx+padX, y);
-  x.fillStyle=ink; x.fillText(" "+(d.mkverb||"eröffnet"), bx+idxW+2*padX+W*0.012, y);
+  x.fillStyle=ink; x.fillText(verbTxt, bx+idxW+2*padX+W*0.006, y);
 
   /* Große Prozentzahl — klar abgesetzt vom Index-Badge (Christian 22.07.2026: mehr Abstand) */
   const pctFS=W*0.165;
