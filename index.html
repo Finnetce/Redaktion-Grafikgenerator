@@ -6149,9 +6149,10 @@ QN_RENDER.quicknews=function(x, W, H, slide){
   /* Hintergrund: Dark = einheitliches Bordeaux #4D0825 (Christian 24.07.2026), Light = weiß */
   if(dark){ x.fillStyle="#4D0825"; x.fillRect(0,0,W,H); }
   else { x.fillStyle="#ffffff"; x.fillRect(0,0,W,H); }
-  /* großer pinker Kreis (Hauptbühne) — unten/mitte, ragt rechts raus */
+  /* großer pinker Kreis (Hauptbühne) — kleiner + tiefer als vorher, Scheitel bei ~22% H
+     (Christian 24.07.2026, Angleichung an Referenz — vorher zu groß, ragte fast bis zum Header). */
   x.save();
-  x.beginPath(); x.arc(W*0.42, H*0.60, W*0.66, 0, 7); x.fillStyle=QN_PINK; x.fill();
+  x.beginPath(); x.arc(W*0.42, H*0.68, W*0.585, 0, 7); x.fillStyle=QN_PINK; x.fill();
   x.restore();
   /* kleiner Deko-Kreis oben rechts (dunkleres Pink) */
   x.beginPath(); x.arc(W*0.92, H*0.075, W*0.24, 0, 7); x.fillStyle=dark?"rgba(248,28,125,0.55)":"rgba(248,28,125,0.85)"; x.fill();
