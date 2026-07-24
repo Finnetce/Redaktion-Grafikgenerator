@@ -3391,72 +3391,82 @@ async function smPickTemplate(txt){
 
 /* Auto-Fill für den zero-Template-Katalog: baut das JSON-Schema dynamisch
    aus den Feld-Definitionen des gewählten Templates. */
-/* "Label: Wert"-Block direkt in die Template-Felder übernehmen (Christian 22.07.2026).
-   Versteht: einzeilige Felder, mehrzeilige Blöcke (Top-/Flop-Werte, Kontextsätze) und
-   Segment-Umschalter (Theme, Welche Slides?). Gibt true zurück, wenn >=2 Felder gematcht wurden. */
+/* "Label: Wert"-Block direkt in die Template-Felder übernehmen (Christian 22.07.2026,
+   überarbeitet 24.07.2026: wählt automatisch das am besten passende Format und schaltet darauf um).
+   Versteht einzeilige Felder, mehrzeilige Blöcke und Segment-Umschalter (Theme, Welche Slides?). */
 function smNorm(s){ return (s||"").toLowerCase().replace(/\(.*?\)/g,"").replace(/[^a-z0-9äöüß]/g,""); }
-function smExtractKeyValue(txt){
-  if(!smTpl||!smTpl.fields) return false;
-  const lines=(txt||"").split(/\r?\n/);
-  /* Label -> Feld (normalisiert). Zusätzlich ein paar Synonyme für bequemes Copy-Paste. */
-  const map={};
-  smTpl.fields.forEach(f=>{ map[smNorm(f.l)]=f; });
-  const syn={ "veränderung":"mkchange", "verb":"mkverb", "indexmarkt":"mkindex", "index":"mkindex",
-    "topwerte":"topdata", "flopwerte":"flopdata", "titelzeile":"headline", "coverkicker":"kicker",
-    "coverheadline":"headline", "kontextsatz":"deck", "bulletüberschrift":"bhead",
-    /* Ticker-Synonyme (Copy-Paste-Vorlagen ohne "/Label"-Zusatz) */
-    "tickerländercode":"tkflag", "tickerlandercode":"tkflag", "tickername":"tkname",
-    "tickeruhrzeit":"tktime", "tickeruhrzeitlabel":"tktime", "tickerwert":"tkvalue",
-    "tickerδ":"tkchange", "tickerδmitvorzeichen":"tkchange", "tickeränderung":"tkchange",
-    "zusatzzeileunterkurs":"tknote", "zusatzzeile":"tknote",
-    /* AZF-Karussell: Header-Label, Cover-Prompt, Slide-Überschriften + Punkte, Podcast */
-    "headerlabelobennebenicon":"eyebrow","coverbildmotivpromptkifoto":"covprompt",
-    "slide2überschrift":"s1head","slide2punkt1":"s1b1","slide2punkt2":"s1b2","slide2punkt3":"s1b3",
-    "slide3überschrift":"s2head","slide3punkt1":"s2b1","slide3punkt2":"s2b2","slide3punkt3":"s2b3",
-    "slide4überschrift":"s3head","slide4punkt1":"s3b1","slide4punkt2":"s3b2","slide4punkt3":"s3b3",
-    "podcastctaslideanhängen":"podcast","podcasturl":"podcasturl",
-    "welcheslides":"tpwhich","theme":smTpl.fields.find(f=>f.type==="seg")?smTpl.fields.find(f=>f.type==="seg").k:null };
-  Object.keys(syn).forEach(n=>{ const f=smTpl.fields.find(x=>x.k===syn[n]); if(f&&!map[n]) map[n]=f; });
-  const vals={}; let curKey=null;
-  /* Ein Zeilen-Präfix (vor : oder =) zu einem bekannten Feld auflösen. Wichtig: Labels können selbst
-     ':' enthalten (z.B. "Ticker: Name"), daher NICHT am ersten ':' splitten, sondern das längste
-     passende Label als Präfix suchen. */
-  function resolve(raw){
-    const idxColon=raw.indexOf(":"), idxEq=raw.indexOf("=");
-    /* Kandidaten-Trennstellen (alle : und =) von rechts nach links prüfen, damit "Ticker: Name: SAP"
-       korrekt am ZWEITEN ':' getrennt wird. */
-    const seps=[]; for(let i=0;i<raw.length;i++){ if(raw[i]===":"||raw[i]==="="){ seps.push(i); } }
-    for(let s=seps.length-1;s>=0;s--){
-      const label=raw.slice(0,seps[s]), val=raw.slice(seps[s]+1);
-      const f=map[smNorm(label)];
-      if(f) return {f:f, val:val.trim()};
-    }
+/* Template-übergreifende Synonyme (norm-Label -> Feldschlüssel). "theme" -> "__seg__" (erstes seg-Feld). */
+function smKVSyn(){ return {
+  "veränderung":"mkchange","verb":"mkverb","indexmarkt":"mkindex","index":"mkindex",
+  "topwerte":"topdata","flopwerte":"flopdata","titelzeile":"headline","coverkicker":"kicker",
+  "coverheadline":"headline","kontextsatz":"deck","bulletüberschrift":"bhead",
+  "tickerländercode":"tkflag","tickerlandercode":"tkflag","tickername":"tkname",
+  "tickeruhrzeit":"tktime","tickeruhrzeitlabel":"tktime","tickerwert":"tkvalue",
+  "tickerδ":"tkchange","tickerδmitvorzeichen":"tkchange","tickeränderung":"tkchange",
+  "zusatzzeileunterkurs":"tknote","zusatzzeile":"tknote",
+  "headerlabelobennebenicon":"eyebrow","coverbildmotivpromptkifoto":"covprompt",
+  "slide2überschrift":"s1head","slide2punkt1":"s1b1","slide2punkt2":"s1b2","slide2punkt3":"s1b3",
+  "slide3überschrift":"s2head","slide3punkt1":"s2b1","slide3punkt2":"s2b2","slide3punkt3":"s2b3",
+  "slide4überschrift":"s3head","slide4punkt1":"s3b1","slide4punkt2":"s3b2","slide4punkt3":"s3b3",
+  "podcastctaslideanhängen":"podcast","podcasturl":"podcasturl","welcheslides":"tpwhich","theme":"__seg__"
+}; }
+/* norm-Label -> Feld-Objekt für EIN Template (eigene Labels + passende Synonyme). */
+function smTplLabelMap(tpl){
+  const map={}; (tpl.fields||[]).forEach(f=>{ map[smNorm(f.l)]=f; });
+  const syn=smKVSyn();
+  Object.keys(syn).forEach(n=>{
+    const key=syn[n];
+    const f = key==="__seg__" ? (tpl.fields||[]).find(x=>x.type==="seg") : (tpl.fields||[]).find(x=>x.k===key);
+    if(f && !map[n]) map[n]=f;
+  });
+  return map;
+}
+/* Block parsen -> [{norm, val}] (mehrzeilige Fortsetzungen zusammengefügt). unionSet = alle bekannten Labels. */
+function smParseKV(txt, unionSet){
+  const lines=(txt||"").split(/\r?\n/), out=[]; let cur=null;
+  function labelOf(raw){
+    const seps=[]; for(let i=0;i<raw.length;i++){ if(raw[i]===":"||raw[i]==="=") seps.push(i); }
+    for(let s=seps.length-1;s>=0;s--){ const norm=smNorm(raw.slice(0,seps[s])); if(unionSet[norm]) return {norm, val:raw.slice(seps[s]+1).trim()}; }
     return null;
   }
   lines.forEach(line=>{
     const raw=line.replace(/\s+$/,"");
-    if(!raw.trim()){ if(curKey) vals[curKey]+="\n"; return; }
-    const r=(/[:=]/.test(raw)) ? resolve(raw) : null;
-    if(r){ curKey=r.f.k; vals[curKey]=r.val; return; }
-    /* keine bekannte Label-Zeile -> Fortsetzung des aktuellen (mehrzeiligen) Feldes */
-    if(curKey!=null){ vals[curKey]+=(vals[curKey]?"\n":"")+raw.trim(); }
+    if(!raw.trim()){ if(cur) cur.val+="\n"; return; }
+    const lab=(/[:=]/.test(raw)) ? labelOf(raw) : null;
+    if(lab){ cur={norm:lab.norm, val:lab.val}; out.push(cur); return; }
+    if(cur){ cur.val+=(cur.val?"\n":"")+raw.trim(); }
   });
-  const keys=Object.keys(vals); if(keys.length<2) return false;
+  return out;
+}
+function smExtractKeyValue(txt){
+  const cands=SM_TEMPLATES.filter(t=>t.renderer && t.fields);
+  if(!cands.length) return false;
+  /* Vereinigung aller Labels (damit "ist das ein Label?" formatübergreifend erkannt wird) */
+  const union={}; cands.forEach(t=>{ const m=smTplLabelMap(t); Object.keys(m).forEach(n=>union[n]=true); });
+  const parsed=smParseKV(txt, union);
+  if(parsed.length<2) return false;
+  /* bestes Template: höchste Trefferzahl. Bei Gleichstand bleibt das aktuelle Template. */
+  let best=smTpl, bestScore=-1;
+  cands.forEach(t=>{ const m=smTplLabelMap(t); let sc=0; parsed.forEach(p=>{ if(m[p.norm]) sc++; });
+    if(sc>bestScore || (sc===bestScore && t.id===smTpl.id)){ bestScore=sc; best=t; } });
+  if(bestScore<2) return false;
+  if(best.id!==smTpl.id) smSelectTpl(best.id);   /* baut Felder für das richtige Format neu */
+  const map=smTplLabelMap(best);
   let applied=0;
-  keys.forEach(k=>{
-    const f=smTpl.fields.find(x=>x.k===k); if(!f) return;
-    let v=(vals[k]||"").replace(/^\n+|\n+$/g,"").trim();
+  parsed.forEach(p=>{
+    const f=map[p.norm]; if(!f) return;
+    let v=(p.val||"").replace(/^\n+|\n+$/g,"").trim();
     if(f.type==="seg"){
       let opt=null;
       (f.opts||[]).forEach((o,i)=>{ if(smNorm(o)===smNorm(v)||smNorm((f.optlabels||[])[i]||"")===smNorm(v)) opt=o; });
-      if(opt){ smData[k]=opt; const seg=$("smFields").querySelector('[data-smseg="'+k+'"]');
+      if(opt){ smData[f.k]=opt; const seg=$("smFields").querySelector('[data-smseg="'+f.k+'"]');
         if(seg){ seg.querySelectorAll("[data-segval]").forEach(b=>b.classList.toggle("on", b.dataset.segval===opt)); }
         applied++; }
       return;
     }
     if(f.max && f.type!=="area") v=v.replace(/\n+/g," ");
-    smData[k]=v;
-    const inp=$("smFields").querySelector('[data-smk="'+k+'"]'); if(inp){ inp.value=v; smUpdateCnt(inp,f); }
+    smData[f.k]=v;
+    const inp=$("smFields").querySelector('[data-smk="'+f.k+'"]'); if(inp){ inp.value=v; smUpdateCnt(inp,f); }
     applied++;
   });
   return applied>=2;
@@ -6073,10 +6083,17 @@ QN_RENDER.market_update=function(x, W, H, slide){
   x.font="800 "+pctFS+"px "+BRAND.font; x.fillStyle=dirCol; x.textBaseline="alphabetic";
   x.fillText(change, M-W*0.006, y);
 
-  /* Deck — klarer Abstand zur Prozentzeile (Christian 22.07.2026: Überschneidung vermeiden) */
+  /* Deck — bricht auf max. 2 Zeilen um, läuft nie rechts raus (Christian 24.07.2026).
+     Freie Breite links neben der Pfeil-Deko (die bei ~0.62*W beginnt). */
   y+=W*0.085;
-  x.font="700 "+(W*0.050)+"px "+BRAND.font; x.fillStyle=ink;
-  x.fillText(d.deck||"", M, y);
+  { let dFS=W*0.050; const deckMaxW=W*0.60;
+    x.font="700 "+dFS+"px "+BRAND.font;
+    let dl=smWrap(x,d.deck||"",deckMaxW);
+    /* wenn mehr als 2 Zeilen: Schrift verkleinern bis es in 2 Zeilen passt */
+    for(let g=0; g<12 && dl.length>2; g++){ dFS*=0.94; x.font="700 "+dFS+"px "+BRAND.font; dl=smWrap(x,d.deck||"",deckMaxW); }
+    x.fillStyle=ink;
+    dl.slice(0,2).forEach(ln=>{ x.fillText(ln, M, y); y+=dFS*1.2; });
+  }
 
   /* Pfeil-Deko rechts, auf Höhe der Prozentzahl */
   qnArrowDeco(x, W, H, W*0.80, H*0.46, up!==false, dirCol);
