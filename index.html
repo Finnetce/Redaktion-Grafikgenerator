@@ -3379,19 +3379,90 @@ async function orChat(messages, extra){
     let d={}; try{ d=await r.json(); }catch(e){}
     if(d.error) throw new Error(d.error.message||"Fehler");
     if(!r.ok) throw new Error("Status "+r.status);
+    /* ABBRUCH-ERKENNUNG (Christian 28.07.2026, Live-Fehler bei Yuki):
+       Reicht das Token-Budget nicht, liefert die API eine MITTEN IM SATZ abgeschnittene
+       Antwort und finish_reason="length". parseJSON scheiterte dann mit dem nichtssagenden
+       "Unexpected end of JSON input". Hier wird der echte Grund erkannt und benannt. */
+    var _fin=(d.choices&&d.choices[0]&&d.choices[0].finish_reason)||"";
+    if(_fin==="length"){
+      var _e=new Error("Die Antwort des Modells wurde abgeschnitten (Token-Limit erreicht). "+
+        "Im Make-Szenario Route 33 muss max_tokens erhoeht werden (siehe MAKE_HINWEIS im Code).");
+      _e.code="TRUNCATED"; throw _e;
+    }
     return d.choices[0].message.content;
   }
   if(genMode()==="make"){
     const params=new URLSearchParams(); params.set("action","chat"); params.set("model",model); params.set("messages",JSON.stringify(messages));
     params.set("plugins", JSON.stringify(extra.plugins||[]));  // z.B. PDF-OCR (mistral-ocr)
     const r=await fetch(CONFIG.API_BASE,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:params.toString()});
-    const d=await r.json(); if(!d.ok) throw new Error(d.error||"Fehler"); return d.text;
+    const d=await r.json(); if(!d.ok) throw new Error(d.error||"Fehler");
+    /* Make reicht finish_reason nicht durch — daher hier pruefen, ob das gelieferte JSON
+       vollstaendig ist. Ein abgeschnittener Text hat unbalancierte Klammern. */
+    if(smLooksTruncated(d.text)){
+      var _e2=new Error("Die Antwort des Modells wurde abgeschnitten (Token-Limit in Make). "+
+        "Im Make-Szenario Route 33 muss max_tokens von 4000 auf 16000 erhoeht werden "+
+        "(siehe MAKE_HINWEIS im Code).");
+      _e2.code="TRUNCATED"; throw _e2;
+    }
+    return d.text;
   }
   throw new Error("kein Modell verbunden");
+}
+/* Erkennt eine mitten im JSON abgebrochene Modell-Antwort: zaehlt Klammern ausserhalb von
+   Strings. Ein vollstaendiges Objekt schliesst alle Klammern; ein gekappter Text nicht. */
+function smLooksTruncated(s){
+  s=(""+(s||"")).trim();
+  if(!s) return true;
+  s=s.replace(/^```(json)?/i,"").replace(/```\s*$/,"").trim();
+  var a=s.indexOf("{"); if(a<0) return false;      /* kein JSON -> andere Fehlerklasse */
+  var depth=0, inStr=false, esc=false, sawClose=false;
+  for(var i=a;i<s.length;i++){
+    var c=s[i];
+    if(esc){ esc=false; continue; }
+    if(c==="\\"){ esc=true; continue; }
+    if(c==='"'){ inStr=!inStr; continue; }
+    if(inStr) continue;
+    if(c==="{"||c==="[") depth++;
+    else if(c==="}"||c==="]"){ depth--; if(depth===0) sawClose=true; }
+  }
+  return inStr || depth>0 || !sawClose;
 }
 /* Bequemer Aufruf fuer die QA-Stufen: waehlt Modell + Reasoning anhand der Rolle. */
 async function orChatFor(role, messages, extra){
   return orChat(messages, Object.assign({ model:MODELS[role]||TEXT_MODEL, reasoning:MODEL_REASONING[role]||null }, extra||{}));
+}
+/* ============================================================================
+   MAKE_HINWEIS (Christian 28.07.2026) — WICHTIG bei "Antwort abgeschnitten"
+   ----------------------------------------------------------------------------
+   Das Make-Szenario "v018 finanzen Creative Studio — Image Gateway" begrenzt in
+   Route 33 (Filter action=chat, HTTP-Modul id 33) die Antwort auf
+       "max_tokens": 4000
+   Das reicht fuer die Feldbefuellung NICHT mehr aus. Gruende:
+     - das Schema verlangt rund 40 Felder inkl. langer Captions (~3.400 Token)
+     - Sonnet 5 nutzt einen neuen Tokenizer und braucht 1,0 bis 1,35x mehr Token
+     - Sonnet 5 hat Adaptive Thinking standardmaessig aktiv; Denk-Token gehen vom
+       SELBEN Budget ab wie die Antwort
+   Folge: Die Antwort bricht mitten im JSON ab -> "Unexpected end of JSON input".
+   FIX in Make: max_tokens auf 16000 setzen. Sonnet 5 erlaubt bis 128000, und
+   berechnet wird nur, was tatsaechlich erzeugt wird — ein hoeheres Limit kostet
+   also nichts zusaetzlich, es verhindert nur das Abschneiden.
+   ============================================================================ */
+/* Ruft die Feldbefuellung auf und wiederholt bei abgeschnittener Antwort EINMAL mit
+   reduziertem Umfang (opts.lean), damit ein einzelner Abbruch nicht die ganze
+   Befuellung verliert. Gibt {out, lean} zurueck. */
+async function smFillWithRetry(buildSys, userContent, onLean){
+  try{
+    return { out: parseJSON(await orChatFor("fill",[{role:"system",content:buildSys(false)},
+                                                    {role:"user",content:userContent}])), lean:false };
+  }catch(e){
+    if(e && e.code==="TRUNCATED"){
+      try{ if(typeof onLean==="function") onLean(); }catch(_){}
+      /* Zweiter Versuch mit knapperem Schema: nur noch die Pflichtfelder, kurze Bild-Prompts. */
+      return { out: parseJSON(await orChatFor("fill",[{role:"system",content:buildSys(true)},
+                                                      {role:"user",content:userContent}])), lean:true };
+    }
+    throw e;
+  }
 }
 /* Robust gegen leicht defektes Modell-JSON (Yuki 15.07.: Fehler "Expected ',' or '}'"):
    mehrere Reparaturstufen, bevor aufgegeben wird. Häufigste Ursache: ein nicht-escaptes
@@ -3431,6 +3502,16 @@ function parseJSON(s){
   let lastErr=null;
   for(const cand of attempts){
     try{ return JSON.parse(cand); }catch(e){ lastErr=e; }
+  }
+  /* Letzte Stufe (Christian 28.07.2026): Wurde die Antwort mitten im JSON ABGESCHNITTEN,
+     hilft kein Reparaturversuch — dann fehlt echter Inhalt. Statt des nichtssagenden
+     "Unexpected end of JSON input" die tatsaechliche Ursache benennen, damit der Redakteur
+     weiss, was zu tun ist. */
+  if(smLooksTruncated(s)){
+    var _te=new Error("Die Antwort des Modells ist unvollständig — sie wurde mitten im Text "+
+      "abgeschnitten (Token-Limit). Bitte erneut versuchen; wenn es wieder passiert, muss im "+
+      "Make-Szenario Route 33 max_tokens erhöht werden (siehe MAKE_HINWEIS im Code).");
+    _te.code="TRUNCATED"; throw _te;
   }
   throw lastErr||new Error("JSON konnte nicht geparst werden");
 }
@@ -3724,7 +3805,20 @@ async function extractSM(txt,opts){
   });
   schema["bg_prompt"]="AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze, 50-90 Wörter) für einen thematisch GENAU passenden Stimmungshintergrund ohne Text/Zahlen/Logos. Beschreibe konkret: Hauptmotiv/Szene zum Artikelthema, Umgebung/Setting, relevante Objekte/Requisiten, Bildkomposition und wo die ruhige Textzone liegt. STIL IMMER: natürliches, ruhiges Business-/Finanz-Stockfoto, weiches gleichmäßiges Tageslicht, neutrale realistische Farben — NICHT dramatisch/cinematisch, kein hartes Licht, kein CGI-Look. Motiv muss klar zum konkreten Thema des Artikels passen (nicht generisch).";
   schema["theme"]="einer von: clean | metaphor — passend zur Tonalität des Inhalts (immer ruhiger, natürlicher Stockfoto-Look)";
-  schema["motive"]={"empfohlen":"person|logo|szene|metapher — welches Cover-Motiv zu diesem Artikel am stärksten passt (nicht immer logo, für echte Varianz)","person":"AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze, 50-90 Wörter): Schlüsselperson thematisch passend inszeniert (Rolle, Umgebung, Tätigkeit, Requisiten), natürliches Stockfoto, weiches gleichmäßiges Licht, realistische Haut, NO text overlays","logo":"AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze): Markenwelt der Firma konkret beschrieben (Store/Fassade/Produkt im realen Kontext, Umgebung, Tageslicht), natürliches Stockfoto","szene":"AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze): die Story als konkrete thematische Szene ohne Logo-Fokus, mit Setting/Objekten/Komposition, natürliches ruhiges Stockfoto","metapher":"AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze): konkrete visuelle Metapher zur Kernaussage, klar und literal beschrieben, cleaner Stockfoto-Stil, neutrales Licht"};
+  /* Nur EIN Motiv-Prompt anfordern statt aller vier (Christian 28.07.2026, Token-Budget).
+     Bei manuell gewaehltem Motiv genau dieses, bei "auto" empfiehlt das Modell eines und
+     liefert nur dafuer den Prompt. Fehlt spaeter ein Prompt, laedt smMotifPrompt() ihn nach. */
+  /* SM_MOTIF_HINT/-STYLE stehen in einem spaeteren <script>-Block; extractSM laeuft erst
+     nach dem Laden, daher sind sie hier verfuegbar. Defensiv trotzdem mit Fallback. */
+  var _mz=(window._smMotifZ||"auto");
+  var _hint=(typeof SM_MOTIF_HINT!=="undefined")?SM_MOTIF_HINT:{};
+  var _mstyle=(typeof SM_MOTIF_STYLE!=="undefined")?SM_MOTIF_STYLE:
+    " Natuerliches ruhiges Business-/Finanz-Stockfoto, weiches Tageslicht, neutrale Farben.";
+  schema["motive"] = (_mz!=="auto" && _hint[_mz])
+    ? { "empfohlen": _mz,
+        "bild": "AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze, 50-90 Wörter): "+_hint[_mz]+"."+_mstyle }
+    : { "empfohlen": "person|logo|szene|metapher — welches Cover-Motiv zu diesem Artikel am stärksten passt (nicht immer logo, für echte Varianz)",
+        "bild": "AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze, 50-90 Wörter) GENAU für das unter empfohlen gewählte Motiv — nur EIN Prompt, nicht mehrere."+_mstyle };
   schema["caption_instagram"]="Instagram-Caption im zero-Ton (packende erste Zeile, kurze Absätze, gezielt einzelne Emojis, Engagement-Frage am Ende, KEINE Anlageberatung)";
   schema["caption_linkedin"]="LinkedIn-Caption: sachlich-analytisch, längerer Fließtext, keine Emojis. WICHTIG: jede Firma nur beim ERSTEN Vorkommen mit @ markieren (z.B. @Apple), bei allen weiteren Erwähnungen derselben Firma OHNE @";
   schema["x_text"]="X/Twitter-Post, max 260 Zeichen, prägnant";
@@ -3759,7 +3853,15 @@ async function extractSM(txt,opts){
      Ändert keine Fakten, steuert nur Schwerpunkt/Blickwinkel. */
   const _focus=(window.smMeta&&window.smMeta.focus||"").trim();
   const _userMsg=(_focus?("REDAKTIONS-FOKUS (vom Redakteur, hat Priorität bei der Schwerpunktsetzung — aber NUR Fakten aus dem Artikel verwenden): "+_focus+"\n\n---\n\n"):"")+txt.slice(0,SM_ARTICLE_WINDOW);
-  const out=parseJSON(await orChatFor("fill",[{role:"system",content:sys},{role:"user",content:_userMsg}]));
+  /* Wiederholversuch bei abgeschnittener Antwort (Christian 28.07.2026): beim zweiten
+     Versuch wird das Schema knapper angefordert, damit die Antwort ins Budget passt. */
+  const _leanHint=" KURZFASSUNG (Wiederholversuch, weil die vorige Antwort zu lang war): Halte "+
+    "alle Texte so knapp wie moeglich, aber vollstaendig. Captions deutlich kuerzer als sonst "+
+    "(Instagram max. 700 Zeichen, LinkedIn max. 900). Antworte kompakt, ohne Zeilenumbrueche im JSON.";
+  const _fillZ=await smFillWithRetry(function(lean){ return lean?(sys+_leanHint):sys; }, _userMsg,
+    function(){ try{ toast("Antwort war zu lang — zweiter Versuch mit kompakterem Umfang …",5000); }catch(e){} });
+  const out=_fillZ.out;
+  if(_fillZ.lean){ try{ toast("Mit kompakterem Umfang befüllt. Für volle Länge in Make Route 33 max_tokens erhöhen.",7000); }catch(e){} }
   smTpl.fields.forEach(f=>{
     if(out[f.k]===undefined||out[f.k]===null) return;
     let v=""+out[f.k];
@@ -3802,7 +3904,9 @@ async function extractSM(txt,opts){
   window._smMotivesZ=(out.motive&&typeof out.motive==="object")?out.motive:null;
   if(window._smMotivesZ){
     const mKey=(window._smMotifZ==="auto") ? (out.motive.empfohlen||"") : window._smMotifZ;
-    const mPrompt=out.motive[mKey]||"";
+    /* Neues Schema: EIN Prompt im Feld "bild". Alte Einzelfelder als Fallback lesen. */
+    const mPrompt=out.motive.bild||out.motive[mKey]||"";
+    window._smMotifPromptForZ = mKey || null;
     if($("smBgPrompt")) $("smBgPrompt").value = mPrompt || out.bg_prompt || ($("smBgPrompt")?$("smBgPrompt").value:"");
     if(window._smMotifZ==="auto" && mKey && typeof SM_MOTIFS!=="undefined" && SM_MOTIFS[mKey]){
       const mc=document.querySelector('#smMotifListZ [data-motifz="auto"] .g');
@@ -4755,9 +4859,25 @@ function smRebuildTextInfoSlides(){
     c.addEventListener("click",function(){
       document.querySelectorAll("#smMotifList .sm-sug-card").forEach(function(x){x.classList.remove("on");});
       c.classList.add("on"); window._smMotif=c.dataset.motif;
-      // Motiv-Prompt aus der letzten Extraktion direkt ins Prompt-Feld übernehmen
-      var t=window._smText;
-      if(t && t.motive && t.motive[c.dataset.motif] && curUseCase==="frei"){ $id("fPrompt").value=t.motive[c.dataset.motif]; toast("Bildmotiv: "+(SM_MOTIFS[c.dataset.motif]||{}).label); }
+      /* Motiv-Prompt uebernehmen. Die Engine fordert nur noch EINEN Prompt an
+         (Christian 28.07.2026), daher: passt der vorhandene Prompt zum gewaehlten Motiv,
+         direkt setzen — sonst gezielt nachladen statt stumm nichts zu tun. */
+      var t=window._smText, mk=c.dataset.motif;
+      if(curUseCase!=="frei" || mk==="auto") return;
+      var vorhanden=(t&&t.motive&&(t.motive[mk] || (window._smMotifPromptFor===mk && t.motive.bild)))||"";
+      if(vorhanden){ $id("fPrompt").value=vorhanden; window._smMotifPromptFor=mk;
+        toast("Bildmotiv: "+(SM_MOTIFS[mk]||{}).label); return; }
+      (async function(){
+        var src=$id("src-social"); var art=(src?src.value:"").trim();
+        if(!art || genMode()==="demo"){ toast("Bildmotiv gewählt — Prompt beim nächsten Generieren erzeugt"); return; }
+        toast("Bild-Prompt für "+(SM_MOTIFS[mk]||{}).label+" wird erstellt …");
+        var p=await smMotifPrompt(mk, art);
+        if(p){ $id("fPrompt").value=p; window._smMotifPromptFor=mk;
+               if(!window._smText) window._smText={}; if(!window._smText.motive) window._smText.motive={};
+               window._smText.motive[mk]=p;
+               toast("Bildmotiv: "+(SM_MOTIFS[mk]||{}).label); }
+        else toast("Bild-Prompt konnte nicht erstellt werden — bitte manuell anpassen",5000);
+      })();
     });
   });
   auto.insertAdjacentHTML("beforeend",
@@ -5800,6 +5920,56 @@ function smFewshotBlock(formatKey){
 
 /* ====================  ENDE TEXT-QA-PIPELINE  ==================== */
 
+/* ---------------------------------------------------------------------------
+   MOTIV-SCHEMA, dynamisch (Christian 28.07.2026)
+   Frueher forderte der Prompt ALLE VIER Motiv-Varianten (person, logo, szene,
+   metapher) als je 50-90 Woerter langen Bild-Prompt an — rund ein Viertel der
+   gesamten Antwortlaenge, obwohl immer nur EINER verwendet wird. Das trug dazu
+   bei, dass die Antwort am Token-Limit abbrach ("Unexpected end of JSON input").
+   Jetzt wird nur das benoetigte Motiv angefordert:
+     - manuell gewaehltes Motiv -> genau dieses
+     - "auto"                   -> das Modell empfiehlt eines und liefert NUR dafuer
+                                   den Prompt (Feld "bild")
+   Der Umschalt-Komfort im UI bleibt erhalten: fehlt fuer ein Motiv der Prompt,
+   laedt smMotifPrompt() ihn per gezieltem, kurzem Einzel-Call nach.
+   lean=true kuerzt zusaetzlich fuer den Wiederholversuch nach einem Abbruch.
+   --------------------------------------------------------------------------- */
+var SM_MOTIF_HINT={
+  person:"die Schluesselperson thematisch inszeniert (Rolle, Umgebung, Taetigkeit, Requisiten, Stimmung passend zur Nachricht), realistische Haut mit Textur, photorealistic, NO text overlays",
+  logo:"Markenwelt der Firma konkret: Logo an Fassade, Store oder Produkt im realen Alltagskontext, Umgebung, Tageslicht, authentisch",
+  szene:"die Story als konkrete thematische Szene ohne Logo-Fokus (Setting, handelnde Elemente, Objekte, Komposition)",
+  metapher:"konkrete, literal beschriebene visuelle Metapher zur Kernaussage, cleaner Stil, neutrales Licht"
+};
+var SM_MOTIF_STYLE=" STIL IMMER natuerliches ruhiges Business-/Finanz-Stockfoto, weiches gleichmaessiges Tageslicht, neutrale Farben, NICHT dramatisch oder cinematisch.";
+function _motivSchema(lean){
+  var sel=(window._smMotif||"auto");
+  var laenge=lean?"(2-3 Saetze, 30-50 Woerter)":"(3-5 Saetze, 50-90 Woerter)";
+  if(sel!=="auto" && SM_MOTIF_HINT[sel]){
+    return '"motive":{"empfohlen":"'+sel+'","bild":"AUSFUEHRLICHER englischer Bild-Prompt '
+      +laenge+': '+SM_MOTIF_HINT[sel]+'.'+SM_MOTIF_STYLE+'"},';
+  }
+  return '"motive":{"empfohlen":"person|logo|szene|metapher — welches Cover-Motiv zu diesem '
+    +'Artikel am staerksten ist. WICHTIG fuer Varianz: nicht immer logo! person wenn eine '
+    +'bekannte Person (CEO, Gruender) im Zentrum steht, szene bei Ereignissen und Prozessen, '
+    +'metapher bei abstrakten Themen wie Bewertung, Strategie oder Risiko",'
+    +'"bild":"AUSFUEHRLICHER englischer Bild-Prompt '+laenge+' GENAU fuer das unter empfohlen '
+    +'gewaehlte Motiv — nur EIN Prompt, nicht mehrere.'+SM_MOTIF_STYLE+'"},';
+}
+/* Laedt den Bild-Prompt fuer ein Motiv nach, falls er in der letzten Extraktion nicht
+   dabei war (weil nur das gewaehlte Motiv angefordert wurde). Kurzer Einzel-Call. */
+async function smMotifPrompt(motif, article){
+  if(!SM_MOTIF_HINT[motif]) return "";
+  var sys="Du bist Bild-Redakteur. Antworte NUR mit reinem JSON: {\"bild\":\"...\"}. "
+    +"Erstelle einen AUSFUEHRLICHEN englischen Bild-Prompt (3-5 Saetze, 50-90 Woerter) fuer ein "
+    +"Foto zu diesem Artikel. Motiv: "+SM_MOTIF_HINT[motif]+"."+SM_MOTIF_STYLE
+    +" Kein Text und keine Logos im Bild. Nur Motive, die zum Artikelinhalt passen.";
+  try{
+    var r=parseJSON(await orChatFor("fill",[{role:"system",content:sys},
+      {role:"user",content:(article||"").slice(0,4000)}]));
+    return (r&&r.bild)||"";
+  }catch(e){ return ""; }
+}
+
 /* ---------- Erweiterte Extraktion: Felder + Formatvorschlaege + Captions ---------- */
 var SM_FORMAT_LABELS={ news:"Klassisches News-Format", quartalszahlen:"Quartalszahlen-Format", vergleich:"Vergleichsformat", zitat:"Zitate-Format" };
 extractSocial = async function(txt, xopts){
@@ -5827,6 +5997,9 @@ extractSocial = async function(txt, xopts){
   var stylePart = window._smTextStyle==="auto"
     ? " W\u00e4hle selbst den passenden Textstil f\u00fcr diesen Artikel (hook=zugespitzt/neugierig, trader=maximale Zahlendichte, info=ruhig erkl\u00e4rend) und gib ihn im Feld textstyle zur\u00fcck."
     : " "+_st.prompt+" Gib im Feld textstyle den Wert '"+window._smTextStyle+"' zur\u00fcck.";
+  /* Der System-Prompt wird als FUNKTION von lean gebaut (Christian 28.07.2026), damit der
+     Wiederholversuch nach einer abgeschnittenen Antwort mit knapperem Schema laufen kann. */
+  var _buildSys=function(lean){
   var sys="Du bist Social-Media-Redakteur bei "+b.label+" und schreibst professionelles, korrektes Deutsch mit Umlauten. Tonalit\u00e4t: "+b.ton+stylePart+" Lies den Artikeltext und antworte NUR mit reinem JSON ohne Markdown. Schema: {"+
     "\" PRIORISIERUNG (Pflicht-Schritt VOR dem Schreiben, Redakteurs-Feedback Yuki 15.07.): Bevor du auch nur ein Feld formulierst, identifiziere gedanklich ALLE Einzelfakten des Artikels (Zahlen, Vergleiche, Entscheidungen, Zitate, Ereignisse, Kursbewegungen) und bewerte jeden nach drei Kriterien: (a) Groesse/strukturelles Gewicht (z.B. eine dauerhafte Kostensenkung, ein Vertragswert, eine Kapazitaetsverschiebung wiegt oft schwerer als eine kurzfristige Kursbewegung von 1-2 Tagen), (b) Ueberraschungswert (weicht der Fakt von der Erwartung ab, ist er neu oder kontraintuitiv?), (c) Relevanz fuer die Anlageentscheidung des Lesers. WICHTIG (Praezisierung Yuki 15.07., nach Rueckfrage): Das ist KEINE pauschale Regel gegen Kursbewegungen -- bei vielen Artikeln IST die Kursbewegung selbst der staerkste, meldungswuerdigste Fakt (z.B. ein Kurssprung von 15 Prozent nach Uebernahmegeruechten) und gehoert dann zu Recht in head/bullets[0]. Entscheide von Fall zu Fall anhand der drei Kriterien oben, nicht anhand der Reihenfolge im Artikel. Vermeide nur den Fehler, eine NEBENSAECHLICHE oder AUSTAUSCHBARE Randinfo (z.B. eine kurze, durch andere Fakten im Artikel klar uebertroffene Kursbewegung, oder eine vage Bewertung wie 'starkes Quartal' ohne Zahl) automatisch zu waehlen, nur weil sie im Text zuerst steht oder am leichtesten zu formulieren ist, wenn der Artikel einen staerkeren Fakt enthaelt. Negativ-Beispiele aus echtem Feedback: Bei einem Mercedes-Artikel wurde faelschlich der zweitaegige Kursanstieg als Hauptaussage gewaehlt, obwohl der Artikel auch 'rund 70 Prozent niedrigere Produktionskosten in Ungarn' nannte -- ein staerkerer, ueberraschenderer Fakt mit echtem strukturellem Gewicht, der stattdessen in head/bullets[0] gehoert haette. Bei einem Rio-Tinto-Artikel wurde 'starkes Q2 aus Pilbara' gewaehlt -- eine vage, austauschbare Bewertung ohne Zahl und ohne Neuigkeitswert, obwohl der Artikel konkretere, haertere Fakten enthielt. Gib deine Priorisierung explizit im Feld relevanz zurueck (Pflichtfeld zur Selbstkontrolle, erscheint NICHT auf der Grafik). Der staerkste Fakt aus relevanz MUSS wortgleich oder sinngleich in head ODER bullets[0] auftauchen -- harte Bedingung. GEWICHTUNGS-HINWEIS (Redakteurs-Feedback Yuki 20.07.2026): Konkrete NEUE Ereignisse — frische Auftraege/Abrufe, Programme, Deals, Produkt-/Vertragsmeldungen — sind fuer den Leser oft interessanter und meldungswuerdiger als eine reine Analysten-Kurszielanpassung (Kursziel rauf/runter). Wenn der Artikel BEIDES enthaelt, gewichte das konkrete Ereignis tendenziell hoeher — ES SEI DENN, die Kurszielanpassung ist ungewoehnlich gross/ueberraschend oder klar der Kern der Meldung. Bleibe fallweise, kein Automatismus. ROTER FADEN (Pflicht): Alle Felder zusammen muessen eine zusammenhaengende Story mit klarem Bogen ergeben (Ereignis -> Ursache/Hintergrund -> Konsequenz), nicht eine lose Ansammlung einzelner Fakten -- jedes Feld baut inhaltlich auf dem vorherigen auf.\""+
     "\"relevanz\":{\"staerkster_fakt\":\"der eine Fakt, den du als wichtigsten identifiziert hast, mit Zahl/Beleg\",\"warum\":\"1 kurzer Satz warum dieser Fakt die anderen Kandidaten schlaegt (Gewicht/Ueberraschung/Anlagerelevanz) -- falls es die Kursbewegung ist, begruende explizit warum sie hier der staerkste Fakt ist\",\"verworfen\":\"1 kurzes Beispiel eines schwaecheren Fakts, den du bewusst NICHT in head/bullets[0] verwendet hast\"},"+
@@ -5838,11 +6011,8 @@ extractSocial = async function(txt, xopts){
     "\"brand\":\"die zentrale Firma oder Marke, sonst leerer String\","+
     "\"companies\":[\"alle im Artikel genannten Firmennamen\"],"+
     "\"prompt\":\"AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze, 50-90 Wörter) für ein thematisch GENAU passendes Hintergrundfoto ohne Text: Hauptmotiv, Setting, Objekte, Komposition, ruhige Textzone. STIL IMMER natürliches ruhiges Business-/Finanz-Stockfoto, weiches gleichmäßiges Tageslicht, neutrale Farben, NICHT dramatisch/cinematisch\","+
-    "\"motive\":{\"empfohlen\":\"person|logo|szene|metapher — welches Cover-Motiv zu diesem Artikel am stärksten ist. WICHTIG für Varianz: nicht immer logo! person wenn eine bekannte Person (CEO, Gründer) im Zentrum steht, szene bei Ereignissen/Prozessen, metapher bei abstrakten Themen (Bewertung, Strategie, Risiko)\","+
-    "\"person\":\"AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze, 50-90 Wörter): die Schlüsselperson thematisch inszeniert (Rolle, Umgebung, Tätigkeit, Requisiten, Stimmung passend zur Nachricht — ernst bei schlechten, zuversichtlich bei guten News). Natürliches Stockfoto, weiches gleichmäßiges Licht, realistische Haut mit Textur, photorealistic, NO text overlays\","+
-    "\"logo\":\"AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze): Markenwelt der Firma konkret — Logo an Fassade/Store/Produkt im realen Alltagskontext, Umgebung, Tageslicht, authentisch, natürliches Stockfoto\","+
-    "\"szene\":\"AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze): die Story als konkrete thematische Szene ohne Logo-Fokus (Setting, handelnde Elemente, Objekte, Komposition), natürliches ruhiges Stockfoto\","+
-    "\"metapher\":\"AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze): konkrete, literal beschriebene visuelle Metapher zur Kernaussage, cleaner Stockfoto-Stil, neutrales Licht\"},"+
+    /* Nur das benoetigte Motiv anfordern (Christian 28.07.2026) — siehe _motivSchema. */
+    _motivSchema(lean)+
     "\"formats\":[maximal 3 Vorschlaege, jeweils {\"key\":\"news|quartalszahlen|vergleich|zitat\",\"grund\":\"1 Satz warum dieses Format passt\",\"bildprompt\":\"englischer Bild-Prompt passend zum Format, ohne Text im Bild\"}] sortiert nach Eignung,"+
     "\"captions\":{\"instagram\":\"fertige Instagram-Caption im Markenton mit Absätzen. STIL: wie ein erfahrener Redakteur, NICHT wie KI — Information direkt in vollständigen Sätzen, jeder Absatz beginnt anders (mal Zahl, mal Akteur, mal Folge). Der Abschluss ergibt sich aus dem Artikel (Einordnung, Ausblick oder kurze Frage an die Community) — KEIN generischer Standard-CTA\",\"linkedin\":\"fertige LinkedIn-Caption, sachlicher und länger, WICHTIG: jede Firma nur beim ERSTEN Vorkommen mit @ markieren (z.B. @Apple), bei allen weiteren Erwähnungen derselben Firma OHNE @, Frage oder Einordnung am Ende\"},"+
     "\"story\":{\"text\":\"kurzer knackiger Story-Text, max 200 Zeichen, für ein Text-Overlay auf der Instagram Story — KEIN Call-to-Action, KEIN Link-Hinweis\",\"umfrage\":\"optionale Idee für einen Umfrage-Sticker als Frage mit 2 Antwortoptionen, sonst leerer String\"},"+
@@ -5870,9 +6040,23 @@ extractSocial = async function(txt, xopts){
       close:FIELD_LIMITS.close,closeHead:FIELD_LIMITS.closeHead,infoHead:FIELD_LIMITS.infoHead,
       intro:FIELD_LIMITS.intro,infoBullet:FIELD_LIMITS.infoBullet,box:FIELD_LIMITS.box,
       x_text:FIELD_LIMITS.x_text})+".";
-  /* Abgenommene Referenzbeispiele, sofern fuer dieses Format hinterlegt (Feature 11). */
-  try{ sys+=smFewshotBlock(window._smFormat||"news"); }catch(e){}
-  var out=parseJSON(await orChatFor("fill",[{role:"system",content:sys},{role:"user",content:txt.slice(0,SM_ARTICLE_WINDOW)}]));
+  /* Abgenommene Referenzbeispiele, sofern fuer dieses Format hinterlegt (Feature 11).
+     Beim Wiederholversuch (lean) weggelassen, um Prompt und Antwort zu verkleinern. */
+  if(!lean){ try{ sys+=smFewshotBlock(window._smFormat||"news"); }catch(e){} }
+  if(lean){
+    sys+=" KURZFASSUNG (Wiederholversuch, weil die vorige Antwort zu lang war): Halte ALLE "+
+      "Texte so knapp wie moeglich, aber vollstaendig. Die Captions duerfen deutlich kuerzer "+
+      "sein als sonst (Instagram maximal 700 Zeichen, LinkedIn maximal 900). Das Feld relevanz "+
+      "auf je einen kurzen Halbsatz beschraenken. Antworte kompakt, ohne Zeilenumbrueche im JSON.";
+  }
+  return sys;
+  };   /* Ende _buildSys */
+  /* Befuellung mit automatischem Wiederholversuch bei abgeschnittener Antwort. */
+  var _fill=await smFillWithRetry(_buildSys, txt.slice(0,SM_ARTICLE_WINDOW), function(){
+    try{ toast("Antwort war zu lang — zweiter Versuch mit kompakterem Umfang …",5000); }catch(e){}
+  });
+  var out=_fill.out;
+  if(_fill.lean){ try{ toast("Mit kompakterem Umfang befüllt. Für volle Länge in Make Route 33 max_tokens erhöhen.",7000); }catch(e){} }
   if(out.head) $id("fHead").value=out.head;
   if(out.sub) $id("fSub").value=out.sub;
   // Zeichengrenze pro Bullet: nur bei extremer Ueberlaenge greifen und dann SAUBER am letzten
@@ -5888,8 +6072,13 @@ extractSocial = async function(txt, xopts){
   // bei manueller Wahl das gewählte; Fallback auf den generischen prompt.
   if(curUseCase==="frei"){
     var mKey=(window._smMotif==="auto") ? ((out.motive&&out.motive.empfohlen)||"") : window._smMotif;
-    var mPrompt=(out.motive&&out.motive[mKey])||"";
+    /* Neues Schema (28.07.2026): nur EIN Prompt im Feld "bild". Die alten Einzelfelder
+       (motive.person/logo/szene/metapher) werden als Fallback weiter gelesen, damit
+       aeltere gecachte Antworten nicht brechen. */
+    var mPrompt=(out.motive&&(out.motive.bild||out.motive[mKey]))||"";
     $id("fPrompt").value = mPrompt || out.prompt || $id("fPrompt").value;
+    /* Fuer den Motiv-Umschalter merken, welches Motiv der vorhandene Prompt abbildet. */
+    window._smMotifPromptFor = mKey || null;
     if(window._smMotif==="auto" && mKey && SM_MOTIFS[mKey]){
       var mc=document.querySelector('#smMotifList .sm-sug-card[data-motif="auto"] .g');
       if(mc) mc.textContent="Claude hat gew\u00e4hlt: "+SM_MOTIFS[mKey].label+". Anderes Motiv anklicken, um es zu \u00fcbernehmen.";
