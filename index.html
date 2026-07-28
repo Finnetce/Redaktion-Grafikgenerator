@@ -3843,6 +3843,18 @@ async function extractSM(txt,opts){
   _budgetZ.caption_instagram=FIELD_LIMITS.caption_instagram;
   _budgetZ.caption_linkedin=FIELD_LIMITS.caption_linkedin;
   _budgetZ.x_text=FIELD_LIMITS.x_text;
+  /* Management-Vorgabe 28.07.2026: keine gestapelten Bindestriche (beanstandet wurde die
+     Cover-Headline "Musks Boring Company vor 20-Mrd.-Bewertung"). */
+  sys+=" KEINE GESTAPELTEN BINDESTRICHE (Management-Vorgabe, gilt fuer ALLE Felder, besonders "+
+    "Headline und Subline): Koppele NIEMALS Zahl, Einheit und Substantiv mit Bindestrichen zu "+
+    "einem Wortungetuem. FALSCH: 'vor 20-Mrd.-Bewertung', '4-Mrd.-Finanzierungsrunde', "+
+    "'12-Prozent-Plus', '500-Millionen-Deal'. RICHTIG ausgeschrieben: 'vor einer Bewertung von "+
+    "20 Mrd. Dollar', 'Finanzierungsrunde ueber 4 Mrd. Dollar', 'ein Plus von 12 Prozent', "+
+    "'Deal ueber 500 Mio. Dollar'. Wird die Headline dadurch zu lang, formuliere die Aussage "+
+    "anders oder lass die Bindestriche einfach weg ('vor 20 Mrd. Dollar Bewertung'). "+
+    "AUSNAHME — normale zusammengesetzte Woerter mit EINEM Bindestrich bleiben erlaubt und "+
+    "erwuenscht: Cloud-Backlog, XETRA-Aktie, KI-Investitionen, Q2-Zahlen, E-Commerce, US-Dollar. "+
+    "Verboten ist ausschliesslich die Stapelung Zahl-Einheit-Substantiv.";
   sys+=" ZEICHENBUDGET (weiches Ziel, Pflicht zu beachten): Formuliere jedes Feld vollstaendig und "+
     "gut klingend, halte dabei aber das angegebene Zeichenlimit ein. Lieber eine kuerzere, "+
     "VOLLSTAENDIGE Aussage als ein abgeschnittener Satz. Ein Feld darf NIEMALS mitten im Wort oder "+
@@ -5417,6 +5429,28 @@ function ersetzeGedankenstriche(text){
        Stufe 3 wuerde ihn "schoener formulieren" — und das Chart waere danach LEER.
        Kursdaten dürfen ohnehin nie umformuliert werden (Grounding-Vertrag). */
 var SM_NO_QA_FIELDS=/^(source|stand|covprompt|podcasturl|topdata|flopdata|tkflag|tkname|tktime|tkvalue|tkchange|tknote|mkchange|mkindex|cprice|cchange|cperiod|cplace)$/;
+/* ---------------------------------------------------------------------------
+   BINDESTRICH-STAPEL aus Zahl + Einheit + Substantiv (Management-Feedback 28.07.2026)
+   Beanstandet wurde die Cover-Headline "Musks Boring Company vor 20-Mrd.-Bewertung".
+   Solche gestapelten Kopplungen sollen NICHT mehr entstehen; besser ausgeschrieben:
+   "vor Bewertung von 20 Mrd. Dollar".
+   WICHTIG — nur diese eine Konstruktion trifft die Regel. Echte Komposita bleiben
+   ausdruecklich unangetastet, sonst waeren Yukis abgenommene Texte betroffen:
+   Cloud-Backlog, XETRA-Aktie, KI-Investitionen, Q2-Zahlen, E-Commerce, US-Dollar.
+   Bedingung fuer einen Treffer: ZAHL, dann Bindestrich, dann eine Mengen-/Waehrungs-
+   einheit, dann Bindestrich, dann ein Wort. Der zweite Bindestrich ist entscheidend —
+   "20-Prozent-Plus" ist ein Stapel, "20-Zoll" oder "Q2-Zahlen" nicht.
+   Erkennen ist deterministisch, das UMFORMULIEREN macht Stufe 3 (besseres Deutsch als
+   eine mechanische Ersetzung).
+   --------------------------------------------------------------------------- */
+var SM_STAPEL_EINHEIT="Mrd|Mio|Bio|Bill|Tsd|Milliarden|Millionen|Billionen|Tausend|Prozent|Punkte|"+
+  "EUR|USD|CHF|GBP|Euro|Dollar|Franken|Pfund|Cent|Jahres|Monats|Wochen|Tage|Stunden|Kilometer|Meter|Tonnen";
+var SM_STAPEL_RE=new RegExp(
+  "\\d[\\d.,]*\\s*-\\s*(?:"+SM_STAPEL_EINHEIT+")\\.?\\s*-\\s*[A-Za-zÄÖÜäöüß]", "");
+function smHasBindestrichStapel(t){
+  SM_STAPEL_RE.lastIndex=0;
+  return SM_STAPEL_RE.test(smStripBold(""+(t==null?"":t)));
+}
 /* Alle Textfelder eines Beitrags in eine flache Liste bringen, damit Stufe 2/3/4
    markenunabhaengig darauf arbeiten koennen. Rueckgabe: [{key, path, text, limit}].
    "path" beschreibt, wo der Wert im Objekt steckt, damit wir ihn zurueckschreiben koennen. */
@@ -5500,6 +5534,8 @@ function smFieldFlags(f, mode){
   }
   /* Markup-Hygiene: unpaarige oder verschachtelte Sternchen wuerden im Bild landen. */
   if(/\*/.test(f.text) && (f.text.match(/\*\*/g)||[]).length%2!==0) flags.push("markup_defekt");
+  /* Gestapelte Bindestrich-Konstruktion (Management-Feedback 28.07.2026) -> Stufe 3. */
+  if(smHasBindestrichStapel(f.text)) flags.push("bindestrich_stapel");
   return flags;
 }
 
@@ -5569,6 +5605,13 @@ async function smRepairLength(obj, guardResult, opts){
     "'Einen Wermutstropfen gibt es:', 'Hinzu kommt:', 'Fazit:'). Die Bewertung gehoert IN den Satz.\n"+
     "- Keine Gedankenstriche als Satzzeichen. Binde-Striche in zusammengesetzten Woertern "+
     "(Cloud-Backlog, XETRA-Aktie) bleiben unveraendert.\n"+
+    "- KEINE gestapelten Bindestrich-Konstruktionen aus Zahl, Einheit und Substantiv "+
+    "(Management-Vorgabe). Ist das Problem als 'bindestrich_stapel' gemeldet, schreibe die "+
+    "Konstruktion natuerlich aus:\n"+
+    "    FALSCH 'vor 20-Mrd.-Bewertung'      RICHTIG 'vor einer Bewertung von 20 Mrd. Dollar'\n"+
+    "    FALSCH '4-Mrd.-Finanzierungsrunde'  RICHTIG 'Finanzierungsrunde ueber 4 Mrd. Dollar'\n"+
+    "    FALSCH '12-Prozent-Plus'            RICHTIG 'ein Plus von 12 Prozent'\n"+
+    "  Echte zusammengesetzte Woerter bleiben dabei erhalten (Cloud-Backlog, KI-Investitionen).\n"+
     "- Waehrung: Symbol VOR der Zahl oder Kuerzel NACH der Zahl, im Beitrag einheitlich.\n"+
     "- Korrektes Deutsch mit Umlauten. Keine Kauf- oder Verkaufsempfehlung.\n"+
     "- HERVORHEBUNG ERHALTEN: Steht im Text eine Markierung in **doppelten Sternchen**, muss sie\n"+
@@ -6032,6 +6075,18 @@ extractSocial = async function(txt, xopts){
      macht Stufe 2, das Kuerzen (durch Neuformulierung) Stufe 3. NIE abschneiden. */
   var _planBlock=smStoryPromptBlock();
   if(_planBlock) sys+=" "+_planBlock;
+  /* Management-Vorgabe 28.07.2026: keine gestapelten Bindestriche (beanstandet wurde die
+     Cover-Headline "Musks Boring Company vor 20-Mrd.-Bewertung"). */
+  sys+=" KEINE GESTAPELTEN BINDESTRICHE (Management-Vorgabe, gilt fuer ALLE Felder, besonders "+
+    "Headline und Subline): Koppele NIEMALS Zahl, Einheit und Substantiv mit Bindestrichen zu "+
+    "einem Wortungetuem. FALSCH: 'vor 20-Mrd.-Bewertung', '4-Mrd.-Finanzierungsrunde', "+
+    "'12-Prozent-Plus', '500-Millionen-Deal'. RICHTIG ausgeschrieben: 'vor einer Bewertung von "+
+    "20 Mrd. Dollar', 'Finanzierungsrunde ueber 4 Mrd. Dollar', 'ein Plus von 12 Prozent', "+
+    "'Deal ueber 500 Mio. Dollar'. Wird die Headline dadurch zu lang, formuliere die Aussage "+
+    "anders oder lass die Bindestriche einfach weg ('vor 20 Mrd. Dollar Bewertung'). "+
+    "AUSNAHME — normale zusammengesetzte Woerter mit EINEM Bindestrich bleiben erlaubt und "+
+    "erwuenscht: Cloud-Backlog, XETRA-Aktie, KI-Investitionen, Q2-Zahlen, E-Commerce, US-Dollar. "+
+    "Verboten ist ausschliesslich die Stapelung Zahl-Einheit-Substantiv.";
   sys+=" ZEICHENBUDGET (weiches Ziel, Pflicht zu beachten): Formuliere jedes Feld vollstaendig und "+
     "gut klingend, halte dabei aber das angegebene Zeichenlimit ein. Lieber eine kuerzere, "+
     "VOLLSTAENDIGE Aussage als ein abgeschnittener Satz. Ein Feld darf NIEMALS mitten im Wort oder "+
