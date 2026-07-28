@@ -843,6 +843,7 @@
             <label class="lab" style="margin-top:0">Grafik-Typ</label>
             <div class="selwrap"><select class="sel" id="smExtraType">
               <option value="chart">Datenchart aus Zahlen (Verlauf)</option>
+              <option value="bars">Balken-Vergleich (Spannen möglich, z.B. 195-205)</option>
               <option value="context">Kennzahl im historischen Kontext (z.B. CAPE / Buffett-Indikator)</option>
               <option value="illu">Freie Illustration / Icon-Grafik (KI)</option>
             </select><svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
@@ -854,7 +855,9 @@
               <label class="lab">Datenpunkte <span id="smExtraDataHint" style="color:var(--faint);font-weight:400"></span></label>
               <textarea class="ta" id="smExtraData" style="min-height:78px" placeholder="Ein Wertepaar pro Zeile: Label = Wert&#10;2021 = 38&#10;2022 = 30&#10;2023 = 31&#10;2024 = 34&#10;heute = 37"></textarea>
               <label class="lab">Einheit / Achsenbeschriftung (optional)</label>
-              <input class="inp" id="smExtraUnit" maxlength="24" placeholder="z.B. Punkte, %, Mrd. USD" />
+              <input class="inp" id="smExtraUnit" maxlength="24" placeholder="z.B. Punkte, %, Mrd. USD, $" />
+              <label class="lab">Kursiver Zwischentitel über der Grafik (optional)</label>
+              <input class="inp" id="smExtraCaption" maxlength="80" placeholder="z.B. Alphabets Investitionsausgaben für 2026:" />
               <label class="lab">Kurze Einordnung unter der Grafik (optional)</label>
               <input class="inp" id="smExtraNote" maxlength="120" placeholder="z.B. Deutlich über dem historischen Schnitt — Markt ist teuer bewertet." />
             </div>
@@ -1856,7 +1859,9 @@ function buildContent(content){
       const make=(size)=>{
         return (content.bullets||[]).map((bt,i)=>{
           const tb=new fabric.Textbox(noWrapUnits(bt),{left:175*sx,width:797*sx,fontFamily:spec.font,fontWeight:500,fontSize:size,fill:REF.text,lineHeight:1.3,name:"bullet"+(i+1)});
-          tb.initDimensions&&tb.initDimensions(); return tb;
+          tb.initDimensions&&tb.initDimensions();
+          smApplyBoldToTextbox(tb, bt, "800");   /* zentrale Zahl fett (Yuki-Vorbild) */
+          return tb;
         });
       };
       let boxes=make(fs);
@@ -1884,7 +1889,7 @@ function buildContent(content){
        nie in die untere Safe-Zone/Fußzeile laufen. */
     {
       const bl=(content.bullets||[]); let bfs=spec.bodyPx*sx; const top0=700*sy, botMax=H-330*sy, gap=40*sy;
-      const mk=(size)=>bl.map((bt,i)=>{ const tb=new fabric.Textbox(noWrapUnits(bt),{left:175*sx,width:797*sx,fontFamily:spec.font,fontWeight:500,fontSize:size,fill:REF.text,lineHeight:1.3,name:"bullet"+(i+1)}); tb.initDimensions&&tb.initDimensions(); return tb; });
+      const mk=(size)=>bl.map((bt,i)=>{ const tb=new fabric.Textbox(noWrapUnits(bt),{left:175*sx,width:797*sx,fontFamily:spec.font,fontWeight:500,fontSize:size,fill:REF.text,lineHeight:1.3,name:"bullet"+(i+1)}); tb.initDimensions&&tb.initDimensions(); smApplyBoldToTextbox(tb, bt, "800"); return tb; });
       const tot=(bs)=>bs.reduce((s,b)=>s+Math.max(b.height,72*sy),0)+gap*(bs.length-1);
       let boxes=mk(bfs); const minFs=Math.max(Math.round(spec.bodyPx*sx*0.6),18); let g=40;
       while(top0+tot(boxes)>botMax && bfs>minFs && g-->0){ bfs-=1; boxes=mk(bfs); }
@@ -1975,6 +1980,104 @@ function buildQuote(content){
 /* Währungs-Normalisierung (Regel Christian 13.07.): Symbol NACH der Zahl -> Kürzel nach der Zahl.
    "51,10 $" -> "51,10 USD" · "145,30 €" -> "145,30 EUR" · "145,30 US-Dollar" -> "145,30 USD".
    Symbol VOR der Zahl ("$ 51,10") bleibt erlaubt. */
+/* ============================================================================
+   FETT-MARKUP **text** (Christian 28.07.2026, aus Yukis Referenzbeitraegen)
+   Yuki hebt die zentrale Zahl im Bullet fett hervor ("stellt ASML bis zu
+   **900 Millionen Euro** bereit"). Das Modell liefert dafuer **doppelte Sternchen**.
+   EISERNE REGEL: Die Sternchen duerfen NIEMALS als Zeichen im Bild landen.
+   Jeder Renderpfad muss den Text vorher durch smStripBold() schicken oder die
+   Segmente aus smParseBold() zeichnen.
+   ============================================================================ */
+/* "a **b** c" -> [{t:"a ",b:false},{t:"b",b:true},{t:" c",b:false}] */
+function smParseBold(t){
+  var s=""+(t==null?"":t), out=[], re=/\*\*([^*]+)\*\*/g, last=0, m;
+  while((m=re.exec(s))){
+    if(m.index>last) out.push({t:s.slice(last,m.index), b:false});
+    out.push({t:m[1], b:true});
+    last=m.index+m[0].length;
+  }
+  if(last<s.length) out.push({t:s.slice(last), b:false});
+  return out.length?out:[{t:s,b:false}];
+}
+/* Sternchen entfernen, Inhalt behalten. Fuer alle Pfade, die kein Inline-Styling koennen. */
+function smStripBold(t){ return (""+(t==null?"":t)).replace(/\*\*([^*]+)\*\*/g,"$1"); }
+/* Enthaelt der Text eine Hervorhebung? */
+function smHasBold(t){ return /\*\*[^*]+\*\*/.test(""+(t==null?"":t)); }
+/* Sichtbare Laenge: OHNE die Markup-Sternchen. Jede Laengenpruefung muss diese Funktion
+   nutzen, sonst wuerden 4 unsichtbare Zeichen pro Hervorhebung gegen das Limit zaehlen. */
+function smVisLen(t){ return smStripBold(t).length; }
+/* Fabric: Textbox mit Inline-Fett ueber das styles-Objekt (Textbox kennt kein Markup).
+   Baut aus den Segmenten einen Klartext und setzt fontWeight je Zeichenposition.
+   Fabric adressiert styles pro ZEILE — daher erst nach initDimensions() verteilen,
+   wenn der Umbruch bekannt ist. */
+function smApplyBoldToTextbox(tb, raw, boldWeight){
+  try{
+    if(!smHasBold(raw)) return tb;
+    /* Fabric bricht mit dem Basis-Gewicht um; die gestylten Zeichen werden danach in 700/800
+       gerendert und sind breiter. Fabric misst die Zeilen nach dem Setzen der styles neu, wenn
+       initDimensions() erneut laeuft (siehe unten) — dadurch verschiebt sich der Umbruch
+       moeglicherweise. Deshalb werden die Styles nach der Neuberechnung ein zweites Mal
+       verteilt, damit sie zu den TATSAECHLICH gerenderten Zeilen passen. */
+    /* WICHTIG (Bug gefunden und verifiziert 28.07.2026): Der Textbox-Inhalt ist NICHT
+       smStripBold(raw), sondern noWrapUnits(smStripBold(raw)) — noWrapUnits ersetzt
+       Leerzeichen durch U+00A0 (Schutz von "12,5 %", "25 Mrd. USD", Klammerinhalten) und
+       normalisiert die Waehrung, was die LAENGE aendert ("51,10 $" -> "51,10 USD").
+       Ein Cursor ueber smStripBold(raw) driftet dadurch pro geschuetztem Leerzeichen um
+       eine Position: das Fett landete auf falschen Zeichen (verifiziert: aus
+       "**9,8 Prozent**" wurde "gen auf 9,8" fett gesetzt).
+       Loesung: die Flags SEGMENTWEISE durch dieselbe Normalisierung schicken und den
+       Cursor gegen genau den String laufen lassen, den die Textbox enthaelt. */
+    var segs=smParseBold(raw), pos=[], idx=0;
+    segs.forEach(function(s){
+      var vis=noWrapUnits(s.t);
+      for(var i=0;i<vis.length;i++){ pos[idx+i]=s.b; }
+      idx+=vis.length;
+    });
+    var plain=noWrapUnits(smStripBold(raw)), weight=boldWeight||"700";
+    /* Fabric adressiert styles bei Textbox nach LOGISCHEN Zeilen (per \n getrennt) und mappt
+       visuelle Umbruchzeilen intern per _styleMap darauf. Solange der Text KEIN \n enthaelt,
+       gibt es genau eine logische Zeile und die hier verwendete visuelle Indizierung stimmt
+       ueberein. Auf Bullets trifft das zu: _breakLongWords (die einzige Stelle, die \n einfuegt)
+       laeuft nur in tHeadline, nie auf Bullet-Feldern. Sollte dennoch je ein \n auftauchen,
+       waere die Zuordnung nicht mehr verlaesslich -> dann kein Fett setzen. */
+    if(plain.indexOf("\n")>=0) return tb;
+    /* Sicherheitsnetz: weicht die segmentweise Normalisierung in der Gesamtlaenge vom
+       normalisierten Gesamttext ab (moeglich, wenn eine Fett-Grenze ein Schutzmuster
+       zerschneidet, z.B. "**51,10** $"), ist die Zuordnung nicht vertrauenswuerdig —
+       dann lieber KEIN Fett setzen als Fett auf den falschen Zeichen. */
+    if(idx!==plain.length) return tb;
+    /* Verteilt die Fett-Styles auf die AKTUELLEN Zeilen von tb. Fabric zaehlt beim Umbruch
+       eingefuegte Leerzeichen nicht mit; deshalb laeuft ein Cursor ueber den Klartext und
+       ueberspringt Whitespace, das durch den Umbruch entfaellt. */
+    function verteile(){
+      tb.initDimensions&&tb.initDimensions();
+      var lines=tb.textLines||[];
+      var styles={}, cursor=0;
+      /* Umbruch-Whitespace inkl. U+00A0 ueberspringen (\s allein deckt nbsp nicht
+         zuverlaessig ab und war Teil des Drift-Bugs). */
+      var WS=/[\s ]/;
+      lines.forEach(function(ln, li){
+        styles[li]={};
+        for(var ci=0; ci<ln.length; ci++){
+          while(cursor<plain.length && plain[cursor]!==ln[ci] && WS.test(plain[cursor])) cursor++;
+          if(pos[cursor]) styles[li][ci]={fontWeight:weight};
+          cursor++;
+        }
+        while(cursor<plain.length && WS.test(plain[cursor])) cursor++;
+      });
+      tb.set("styles", styles);
+      return lines.length;
+    }
+    /* Zweimal verteilen: das Setzen der Styles macht die gestylten Zeichen breiter, wodurch
+       Fabric beim naechsten initDimensions() anders umbrechen kann. Der zweite Durchlauf
+       richtet die Styles an den dann tatsaechlich gerenderten Zeilen aus. Aendert sich die
+       Zeilenzahl nicht mehr, ist der Zustand stabil. */
+    var n1=verteile();
+    var n2=verteile();
+    if(n2!==n1){ verteile(); }   /* dritter Durchlauf nur, wenn der Umbruch noch wanderte */
+  }catch(e){ /* Styling darf nie den Renderpfad brechen */ }
+  return tb;
+}
 function fixCurrency(t){
   t=(t||"");
   t=t.replace(/(\d[\d.,]*)\s*\$(?!\w)/g,"$1 USD");
@@ -1983,13 +2086,24 @@ function fixCurrency(t){
   return t.replace(/  +/g," ");
 }
 function noWrapUnits(t){
+  /* Zentrale Schleuse: laeuft in ALLEN Fabric-Textpfaden. Fett-Markup hier entfernen,
+     damit garantiert nie ein Sternchen im Bild landet. Das eigentliche Fett setzt
+     smApplyBoldToTextbox aus dem ROH-Text (mit Sternchen) obendrauf. */
+  t=smStripBold(t);
   t=fixCurrency(t);
   t=t.replace(/ %/g,"\u00A0%").replace(/ Prozent/g,"\u00A0Prozent");
   t=t.replace(/ (USD|EUR|CHF|GBP)\b/g,"\u00A0$1");
   t=t.replace(/\(([^)]{1,40})\)/g,(m,inner)=>"("+inner.replace(/ /g,"\u00A0")+")");
   return t;
 }
-/* Satz-bewusstes Kürzen: schneidet am letzten vollständigen Satz, nie mitten im Wort */
+/* ============================================================================
+   NICHT MEHR VERWENDEN — smartShorten hat KEINE Aufrufstelle mehr (Stand 28.07.2026).
+   Die Funktion kuerzt Text mechanisch und hing im Notfall sogar ein "…" an. Das
+   widerspricht der Nie-abschneiden-Regel (Guardrail 1.2 der Spec): Zeichenlimits sind
+   ein VALIDIERUNGS-Gate, kein Abschneider. Ueberlaenge markiert Stufe 2, neu formuliert
+   Stufe 3. Wer hier wieder einen Aufruf einbaut, bricht die Abnahme durch die Redaktion.
+   Bleibt nur stehen, weil ein Entfernen aus der Datei mehr Risiko als Nutzen haette.
+   ============================================================================ */
 function smartShorten(t,maxChars){
   t=(t||"").trim(); if(t.length<=maxChars) return t;
   const cut=t.slice(0,maxChars);
@@ -2019,10 +2133,48 @@ function buildTextInfo(content){
   const srcTop=(curFmt==="9:16") ? H-(310/1920)*H-26*sx : H-136*sx;
   const maxBottom=srcTop-40*sx;   // Inhalt muss klar OBERHALB der Quelle enden
   // Layout bei gegebener Schriftgröße aufbauen und Gesamthöhe messen
+  /* HEADLINE-VARIANTE "PILLE" (Christian 28.07.2026, Yuki-Vorbild Alphabet-Beitrag Slide 3):
+     Headline in weiss auf einem abgerundeten dunkelblauen Band, das nur so breit ist wie der
+     Text (nicht die volle Slide-Breite). Optional per window._smHeadStyle="pill";
+     Standard bleibt die bestehende Variante (dunkelblauer Text auf weiss). */
+  const pill=(window._smHeadStyle==="pill");
   function layout(fs,boxText){
     const items=[]; let y=topY;
-    const head=new fabric.Textbox(headTxt,{left:108*sx,top:y,width:864*sx,fontFamily:spec.font,fontWeight:800,fontSize:spec.h2Px*sx,fill:REF.navy,lineHeight:1.12,name:"headline"});
-    head.initDimensions&&head.initDimensions(); items.push({kind:"obj",obj:head});
+    const head=new fabric.Textbox(headTxt,{left:108*sx,top:y,width:864*sx,fontFamily:spec.font,fontWeight:800,fontSize:spec.h2Px*sx,fill:pill?"#ffffff":REF.navy,lineHeight:1.12,name:"headline"});
+    head.initDimensions&&head.initDimensions();
+    let pillPadY=0;
+    if(pill){
+      /* Band hinter den Text legen. Breite = breiteste gerenderte Zeile plus Innenabstand.
+         Gemessen mit einem eigenen 2D-Kontext in derselben Schrift — verlaesslicher als
+         Fabric-Interna, die je nach Version anders heissen. Reihenfolge zaehlt:
+         das Rect muss VOR dem Text in die Objektliste, damit es dahinter liegt. */
+      const hfs=spec.h2Px*sx;
+      let tw=0;
+      try{
+        /* EIGENER Messkontext (_pillMeasCtx), absichtlich nicht der von _breakLongWords
+           geteilte _measCtx: der setzt seine Schrift selbst und wird an anderer Stelle
+           wiederverwendet — geteilter Zustand waere eine unnoetige Fehlerquelle.
+           Hinweis: im selben Script-Block ist _measCtx eine VARIABLE, in einem anderen Block
+           existiert eine gleichnamige FUNKTION; der eigene Name vermeidet jede Verwechslung. */
+        if(!window._pillMeasCtx) window._pillMeasCtx=document.createElement("canvas").getContext("2d");
+        var pmc=window._pillMeasCtx;
+        pmc.font="800 "+hfs+"px "+spec.font;
+        (head.textLines||[headTxt]).forEach(function(ln){ const w=pmc.measureText(ln).width; if(w>tw) tw=w; });
+      }catch(e){ tw=Math.min(head.width, 864*sx); }
+      if(!tw) tw=Math.min(head.width, 864*sx);
+      const padX=44*sx; pillPadY=28*sx;
+      /* Band nie breiter als die Slide-Innenbreite plus Rand. */
+      const bandW=Math.min(tw+2*padX, 924*sx);
+      const bandH=head.height+2*pillPadY;
+      const band=new fabric.Rect({left:108*sx-padX, top:y-pillPadY, width:bandW, height:bandH,
+        rx:Math.min(bandH*0.42, 48*sx), ry:Math.min(bandH*0.42, 48*sx),
+        fill:REF.navy, name:"headband", selectable:true, evented:true});
+      items.push({kind:"obj",obj:band});
+    }
+    items.push({kind:"obj",obj:head});
+    /* Bei der Pille kommt der untere Innenabstand des Bands zum Folgeabstand hinzu,
+       damit der Inhaltstext nicht auf dem Band klebt. */
+    y+=pillPadY;
     // Abstand Headline -> Inhaltstext (Yuki 16.07.2026): 24px war zu eng, Text klebte an der
     // (oft 2-zeiligen) Headline und musste manuell nach unten geschoben werden. Jetzt fester,
     // großzügiger Abstand von 64px; der Shrink-Fit unten schützt weiterhin vor Overflow.
@@ -2035,7 +2187,10 @@ function buildTextInfo(content){
     if(bulletTxt){
       items.push({kind:"obj",obj:makeChevron(81*sx,y,62*sx)});
       const bt=new fabric.Textbox(noWrapUnits(bulletTxt),{left:175*sx,top:y,width:797*sx,fontFamily:spec.font,fontWeight:500,fontSize:fs,fill:REF.text,lineHeight:1.3,name:"bullet1"});
-      bt.initDimensions&&bt.initDimensions(); items.push({kind:"obj",obj:bt});
+      /* Reihenfolge wie in den anderen Bullet-Pfaden: erst Dimensionen, dann Styles. */
+      bt.initDimensions&&bt.initDimensions();
+      smApplyBoldToTextbox(bt, bulletTxt, "800");   /* Info-Slide-Chevron: Kernzahl fett */
+      items.push({kind:"obj",obj:bt});
       y+=Math.max(bt.height,62*sx)+50*sx;
     }
     if(boxText){
@@ -3167,10 +3322,59 @@ $("brandHome").addEventListener("click",()=>showView("home"));
 /* ============================================================
    Auto-Befüllung: Text -> Felder (via verbundenes KI-Modell)
    ============================================================ */
-const TEXT_MODEL="anthropic/claude-sonnet-4.6";
+/* ============================================================================
+   MODELL-REGISTRY (Christian 28.07.2026, Social-Paket Yuki)
+   EINE Stelle fuer alle Text-Modelle, damit ein Wechsel trivial bleibt.
+
+   GEGENGEPRUEFT gegen die OpenRouter-API am 28.07.2026
+   (GET /api/v1/models/anthropic/claude-sonnet-5/endpoints):
+     - Slug "anthropic/claude-sonnet-5" existiert und ist aktiv (Release 20260630)
+     - Kontext 1.000.000 Token, max. 128.000 Output-Token
+     - Preis 2,00 USD/M Input und 10,00 USD/M Output (Google-Vertex-Europe und
+       Bedrock-us-east-1 liegen 10 Prozent hoeher: 2,20 / 11,00)
+     - Prompt-Caching: 0,20 lesen / 2,50 schreiben je M Token
+     - "reasoning" UND "reasoning_effort" werden von allen Endpunkten unterstuetzt
+     - ACHTUNG: "temperature" steht bei KEINEM Sonnet-5-Endpunkt in den
+       supported_parameters. Deshalb setzen wir keine Temperatur mehr — die
+       Determinismus-Vorgabe der Spec wird ueber reasoning_effort + klare
+       Prompt-Regeln erreicht.
+   Fallback fuer plan/qa, falls die Urteilsqualitaet nicht reicht: den unten
+   dokumentierten Opus-Slug eintragen — sonst nichts aendern.
+   ACHTUNG Schreibweise: der Opus-Slug lautet "anthropic/claude-opus-4.8" MIT PUNKT
+   (die Spec nannte faelschlich "claude-opus-4-8"; verifiziert 28.07.2026,
+   5,00 USD/M Input, 25,00 USD/M Output, 1M Kontext).
+   reasoning-Stufen wirken nur im Direct-Pfad (OpenRouter direkt); die Make-Route 33
+   reicht das Modell durch, aber kein reasoning-Feld. Make wird NICHT angefasst.
+   ============================================================================ */
+const MODELS={
+  fill:   "anthropic/claude-sonnet-5",   /* Feldbefuellung + Template-/Chart-/Sankey-Extraktion */
+  plan:   "anthropic/claude-sonnet-5",   /* Stufe 1: Story-Auswahl + Slide-Rollen */
+  repair: "anthropic/claude-sonnet-5",   /* Stufe 3: Laengen-/Formulierungs-Reparatur */
+  qa:     "anthropic/claude-sonnet-5"    /* Stufe 4: Qualitaets- und Sinn-Gate */
+};
+/* Reasoning-Aufwand pro Aufgabe: Urteilsstufen hoch, mechanische Reparatur niedrig (Kosten/Latenz). */
+const MODEL_REASONING={ plan:"high", qa:"high", repair:"low", fill:null };
+/* KOSTEN pro Beitrag (nachgerechnet 28.07.2026 mit den verifizierten Sonnet-5-Preisen,
+   Artikel ~9.000 Zeichen, alle vier Stufen): rund 0,05 USD wenn das Gate beim ersten
+   Versuch besteht, rund 0,08 USD im Worst Case mit zwei Repair-Runden.
+   Bei 20 Beitraegen pro Arbeitstag entspricht das etwa 22 bis 34 USD im Monat. */
+const TEXT_MODEL=MODELS.fill;
+/* orChat(messages, extra) — extra.model ueberschreibt das Modell, extra.reasoning die Stufe.
+   Beides wird vor dem Request aus dem Body entfernt bzw. korrekt gesetzt, damit OpenRouter
+   kein unbekanntes Feld sieht. */
 async function orChat(messages, extra){
+  extra=extra||{};
+  const model=extra.model||TEXT_MODEL;
   if(genMode()==="direct"){
-    const body=Object.assign({model:TEXT_MODEL,messages,response_format:{type:"json_object"}}, extra||{});
+    const body=Object.assign({model:model,messages,response_format:{type:"json_object"}}, extra);
+    delete body.reasoning_effort; delete body.plugins;
+    if(extra.plugins) body.plugins=extra.plugins;
+    /* Reasoning-Stufe im OpenRouter-Format; nur setzen, wenn angefordert. */
+    if(extra.reasoning) body.reasoning={effort:extra.reasoning}; else delete body.reasoning;
+    /* temperature entfernen: Claude-Sonnet-5/Opus-4.8 listen den Parameter bei OpenRouter
+       nicht als unterstuetzt (geprueft 28.07.2026). Ein Durchreichen kann zum Fehler fuehren
+       oder still ignoriert werden — beides unerwuenscht, daher hier zentral filtern. */
+    delete body.temperature; delete body.top_p; delete body.top_k;
     const r=await fetch("https://openrouter.ai/api/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+_orKey},body:JSON.stringify(body)});
     let d={}; try{ d=await r.json(); }catch(e){}
     if(d.error) throw new Error(d.error.message||"Fehler");
@@ -3178,12 +3382,16 @@ async function orChat(messages, extra){
     return d.choices[0].message.content;
   }
   if(genMode()==="make"){
-    const params=new URLSearchParams(); params.set("action","chat"); params.set("model",TEXT_MODEL); params.set("messages",JSON.stringify(messages));
-    params.set("plugins", JSON.stringify((extra&&extra.plugins)||[]));  // z.B. PDF-OCR (mistral-ocr)
+    const params=new URLSearchParams(); params.set("action","chat"); params.set("model",model); params.set("messages",JSON.stringify(messages));
+    params.set("plugins", JSON.stringify(extra.plugins||[]));  // z.B. PDF-OCR (mistral-ocr)
     const r=await fetch(CONFIG.API_BASE,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:params.toString()});
     const d=await r.json(); if(!d.ok) throw new Error(d.error||"Fehler"); return d.text;
   }
   throw new Error("kein Modell verbunden");
+}
+/* Bequemer Aufruf fuer die QA-Stufen: waehlt Modell + Reasoning anhand der Rolle. */
+async function orChatFor(role, messages, extra){
+  return orChat(messages, Object.assign({ model:MODELS[role]||TEXT_MODEL, reasoning:MODEL_REASONING[role]||null }, extra||{}));
 }
 /* Robust gegen leicht defektes Modell-JSON (Yuki 15.07.: Fehler "Expected ',' or '}'"):
    mehrere Reparaturstufen, bevor aufgegeben wird. Häufigste Ursache: ein nicht-escaptes
@@ -3489,6 +3697,22 @@ async function extractSM(txt,opts){
       }
     }catch(e){ /* Fallback: aktuelles Template behalten */ }
   }
+  /* ===== STUFE 1: Story-Auswahl + Slide-Rollen (Christian 28.07.2026) =====
+     Nach der Template-Wahl (die Slide-Anzahl haengt am Template), vor der Feldbefuellung.
+     Bei "Felder neu befuellen" (skipPlan) bleibt der Plan samt Auswahl erhalten. */
+  if(!opts.skipPlan){
+    if(info) info.textContent="Claude prüft, welche Story sich am besten eignet …";
+    try{
+      var _nSl=(typeof smSlides==="function")?(smSlides().length||1):1;
+      var _planZ=await smStoryPlan(txt,_nSl);
+      window._smStoryId=null;                /* neue Analyse -> Auswahl auf primary zuruecksetzen */
+      smRenderStoryPlan(_planZ);
+    }catch(e){
+      /* Nicht still scheitern (Spec 9): sichtbar melden, Befuellung laeuft trotzdem weiter. */
+      try{ console.warn("[Stufe 1 zero] Story-Plan fehlgeschlagen:", e&&e.message); }catch(_){}
+      try{ toast("Story-Auswahl nicht möglich ("+((e&&e.message)||"Fehler")+") — Felder werden ohne Story-Plan befüllt",6000); }catch(_){}
+    }
+  }
   if(info) info.textContent="Felder werden gefüllt …";
   if(!smTpl) throw new Error("Kein Template gewählt");
   const schema={};
@@ -3515,11 +3739,27 @@ async function extractSM(txt,opts){
     "GRAMMATIK & UMLAUTE (Pflicht, Redakteurs-Feedback 15.07.): Fehlerfreies Deutsch in JEDEM Feld. Umlaute ä/ö/ü/ß IMMER korrekt verwenden — niemals Transliterationen oder Fremdschreibweisen (FALSCH: 'Folgekvartal', 'Gewinnschaetzung', 'Boerse' — RICHTIG: 'Folgequartal', 'Gewinnschätzung', 'Börse'). SELBSTTEST: Lies jedes Feld auf Rechtschreibung und Grammatik, korrigiere vor der Antwort. "+
     "ZIELGRUPPE & KONTEXT-TIEFE (Pflicht, Redakteurs-Feedback Yuki 21.07.2026): Zielgruppe sind Privatanleger auf Instagram — interessiert, aber nicht zwingend Profis. Liefere dort, wo es das Thema hergibt, echte EINORDNUNG statt reiner Meldung: Warum ist die Zahl/das Ereignis relevant, was bedeutet es für Anleger, wie ist es einzuordnen (historisch, im Branchenvergleich, in der Größenordnung). Nutze dafür AUSSCHLIESSLICH Fakten aus dem Artikel — erfinde keinen Kontext. Fachbegriffe kurz erklären (siehe Regel unten). Lieber ein Aspekt richtig eingeordnet als fünf Fakten aneinandergereiht. "+
     "HOOK & KONTEXT (Pflicht, Redakteurs-Feedback Yuki 15.07.): Kein Feld darf so generisch sein, dass man es ohne Vorwissen nicht einordnen kann. Headline/Kicker müssen konkret benennen, WER was tut und WARUM es relevant ist — mit Firma und Zahl statt Schlagwort. Die erste Slide muss neugierig machen weiterzulesen/weiterzuswipen (stärkster Fakt + offene Konsequenz), keine austauschbaren Etiketten. "+"KACHEL- UND LABEL-FORMULIERUNG (Pflicht, Redakteurs-Feedback Yuki 16.07.2026): Kachel-LABELS sind KURZE SUBSTANTIV-ETIKETTEN (1-3 Woerter), KEINE Saetze und KEINE Halbsaetze. Das Label benennt NUR die Kennzahl, der zugehoerige WERT steht separat im Wert-Feld. VERBOTEN sind haengende Füll-/Funktionswoerter am Label-Ende (laut, von, mit, fuer, je, ca., mögliche, geschätzte) und Quellen-/Attributionszusaetze im Label (FALSCH: 'Aufwärtspotenzial laut', 'Kursziel laut Wells Fargo' als Label -> RICHTIG: Label 'Kursziel' bzw. 'Aufwärtspotenzial', die Quelle/das Haus kommt in den WERT oder entfaellt). Gute Labels: 'Kursziel', 'Aufwärtspotenzial', 'Dividendenrendite', 'KGV', 'Marktkapitalisierung', 'Lizenzeinnahmen', 'Performance 12 Monate'. WERTE muessen VOLLSTAENDIG und gaengig ausgeschrieben sein, nie abgehackt: Einheiten/Zeitbezuege ausschreiben ('USD/Jahr' statt 'USD/Ja', 'Mrd. USD pro Jahr', 'p.a.'). Erfinde keine Zeitraeume, wenn der Artikel keinen nennt (dann Label nur 'Performance'). Fasse dich so kurz wie moeglich, aber das Label MUSS fuer sich allein Sinn ergeben. KEINE Klammer-Zusaetze, Doppelpunkte oder Nebensaetze im Label (FALSCH: 'Lizenzeinnahmen (Szenario)', 'Umsatz: Q2' -> RICHTIG: 'Lizenzeinnahmen', 'Umsatz Q2'). Ein Label ist NIE ein angefangener Satz. FACHABKUERZUNGEN ERKLAEREN (Pflicht, Redakteurs-Feedback Yuki 16.07.2026): Erklaerungsbeduerftige Abkuerzungen/Fachbegriffe muessen bei ERSTNENNUNG verstaendlich sein — ein Social-Media-Follower ohne Fachwissen muss folgen koennen. Schreibe die Abkuerzung beim ersten Mal AUS oder ergaenze eine 2-4-Wort-Erklaerung in Klammern. NEGATIV-BEISPIEL (echtes Feedback): 'bis zu 2,50 USD CVR' — 'CVR' wird nirgends erklaert und ist KEINE allgemein bekannte Abkuerzung. RICHTIG: 'bedingte Zusatzzahlung (CVR)' oder 'Besserungsschein (CVR, an Meilensteine geknuepft)'. AUSNAHME — NICHT erklaeren muss man breit bekannte Boersen-/Finanzbegriffe: KGV, ETF, EPS, USD/EUR, DAX, IPO, CEO, FDA, KI, BIP. Im Zweifel (Nischen-/Branchenkuerzel wie CVR, DEA-Reclassification, 5-MeO-DMT) IMMER kurz einordnen. Die Erklaerung kurz halten, damit die Feld-Laenge passt.";
+  /* ===== Vorgaben aus Stufe 1 + Zeichenbudget (Christian 28.07.2026) =====
+     Redaktions-Plan gibt den roten Faden, das Budget verhindert Ueberlaenge von vornherein.
+     Weiches Ziel im Prompt; die harte Pruefung macht Stufe 2, das Kuerzen Stufe 3. NIE schneiden. */
+  const _planBlockZ=smStoryPromptBlock();
+  if(_planBlockZ) sys+=" "+_planBlockZ;
+  const _budgetZ={};
+  smTpl.fields.forEach(function(f){ if(f.max) _budgetZ[f.k]=f.max; });
+  _budgetZ.caption_instagram=FIELD_LIMITS.caption_instagram;
+  _budgetZ.caption_linkedin=FIELD_LIMITS.caption_linkedin;
+  _budgetZ.x_text=FIELD_LIMITS.x_text;
+  sys+=" ZEICHENBUDGET (weiches Ziel, Pflicht zu beachten): Formuliere jedes Feld vollstaendig und "+
+    "gut klingend, halte dabei aber das angegebene Zeichenlimit ein. Lieber eine kuerzere, "+
+    "VOLLSTAENDIGE Aussage als ein abgeschnittener Satz. Ein Feld darf NIEMALS mitten im Wort oder "+
+    "Satz enden. Budget pro Feld in Zeichen: "+JSON.stringify(_budgetZ)+".";
+  /* Abgenommene Referenzbeispiele fuer zero-Earnings/Karussell, sofern hinterlegt (Feature 11). */
+  try{ sys+=smFewshotBlock(smTpl.carousel?"azf_carousel":"zero_earnings"); }catch(e){}
   /* Eigener Fokus/Zusatzinfo (Christian 21.07.2026): fließt als Redaktions-Anweisung VOR den Artikel.
      Ändert keine Fakten, steuert nur Schwerpunkt/Blickwinkel. */
   const _focus=(window.smMeta&&window.smMeta.focus||"").trim();
-  const _userMsg=(_focus?("REDAKTIONS-FOKUS (vom Redakteur, hat Priorität bei der Schwerpunktsetzung — aber NUR Fakten aus dem Artikel verwenden): "+_focus+"\n\n---\n\n"):"")+txt.slice(0,8000);
-  const out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:_userMsg}]));
+  const _userMsg=(_focus?("REDAKTIONS-FOKUS (vom Redakteur, hat Priorität bei der Schwerpunktsetzung — aber NUR Fakten aus dem Artikel verwenden): "+_focus+"\n\n---\n\n"):"")+txt.slice(0,SM_ARTICLE_WINDOW);
+  const out=parseJSON(await orChatFor("fill",[{role:"system",content:sys},{role:"user",content:_userMsg}]));
   smTpl.fields.forEach(f=>{
     if(out[f.k]===undefined||out[f.k]===null) return;
     let v=""+out[f.k];
@@ -3532,12 +3772,12 @@ async function extractSM(txt,opts){
         if(seg){ seg.querySelectorAll("[data-segval]").forEach(b=>b.classList.toggle("on", b.dataset.segval===opt)); } }
       return;
     }
-    /* Max-Char-Logik (Christian 16.07.2026): KI-Text sauber auf das Feldlimit bringen —
-       am letzten Satz-/Wortende enden, NIE ein "…" (harte Nie-Abschneiden-Regel gilt fürs Bild;
-       die Engine verkleinert zusätzlich per Shrink-to-fit). smCapClean hängt kein Ellipsis an. */
-    /* Kachel-Label-Felder zusaetzlich saeubern (Etikett, kein Satz/Klammer) — Yuki 16.07. */
+    /* Kachel-Label-Felder saeubern (Etikett, kein Satz/Klammer) — Yuki 16.07.
+       Das ist KEIN Laengen-Trim, sondern Label-Hygiene, und bleibt daher erhalten. */
     if(/^(k\d+l|f\d+l|r\d+l|m\d+l)$/.test(f.k)) v=smTidyLabel(v);
-    if(f.max) v=smCapClean(v,f.max);
+    /* KEIN smCapClean mehr (Guardrail 1.2, Christian 28.07.2026): das Feldlimit ist ein
+       VALIDIERUNGS-GATE, kein String-Abschneider. Ueberlange Felder werden von Stufe 2
+       markiert und in Stufe 3 KUERZER NEU FORMULIERT — nicht gekappt. */
     const inp=$("smFields").querySelector('[data-smk="'+f.k+'"]'); if(!inp) return;
     if(f.type==="sel"){ if([...inp.options].some(o=>o.value===v||o.text===v)) inp.value=v; }
     else inp.value=v;
@@ -3550,8 +3790,9 @@ async function extractSM(txt,opts){
       var _z={head:out.headline||smData.headline||"", sub:out.deck||smData.deck||""};
       var _zr=await ensureHeadSub(_z, txt);
       if(_zr.changed){
-        if(_z.head){ smData.headline=smCapClean(_z.head,64); var hi=$("smFields").querySelector('[data-smk="headline"]'); if(hi) hi.value=smData.headline; }
-        if(_z.sub){ var dmax=(smTpl.fields.find(f=>f.k==="deck")||{}).max||110; smData.deck=smCapClean(_z.sub,dmax); var di=$("smFields").querySelector('[data-smk="deck"]'); if(di) di.value=smData.deck; }
+        /* Kein Trim (Guardrail 1.2): Ueberlaenge geht in Stufe 3, nicht in den Schnitt. */
+        if(_z.head){ smData.headline=_z.head; var hi=$("smFields").querySelector('[data-smk="headline"]'); if(hi) hi.value=smData.headline; }
+        if(_z.sub){ smData.deck=_z.sub; var di=$("smFields").querySelector('[data-smk="deck"]'); if(di) di.value=smData.deck; }
       }
     }
   }catch(e){ /* darf nie blockieren */ }
@@ -3588,6 +3829,35 @@ async function extractSM(txt,opts){
       story:{}
     };
   }
+  /* ===== STUFE 2 + 3 + 4 + REPAIR-LOOP fuer zero (Christian 28.07.2026) =====
+     Die Template-Felder liegen in smData, die Captions in out. Beides wird in EIN
+     Arbeitsobjekt gelegt, damit die Pipeline markenunabhaengig darauf arbeitet, und
+     danach zurueckgeschrieben (smData + Eingabefelder + window._smText). */
+  try{
+    if(info) info.textContent="Textprüfung läuft (Floskeln, Länge, Qualitäts-Gate) …";
+    var _work={};
+    smTpl.fields.forEach(function(f){ if(typeof smData[f.k]==="string") _work[f.k]=smData[f.k]; });
+    _work.caption_instagram=out.caption_instagram||"";
+    _work.caption_linkedin=out.caption_linkedin||"";
+    _work.x_text=out.x_text||"";
+    var _qaZ=await smRunQaPipeline(_work, txt, { mode:"zero" });
+    /* Zurueckschreiben: Template-Felder in smData UND in die sichtbaren Inputs. */
+    smTpl.fields.forEach(function(f){
+      if(typeof _work[f.k]!=="string" || _work[f.k]===smData[f.k]) return;
+      smData[f.k]=_work[f.k];
+      var inp=$("smFields").querySelector('[data-smk="'+f.k+'"]');
+      if(inp){ inp.value=_work[f.k]; smUpdateCnt(inp,f); }
+    });
+    out.caption_instagram=_work.caption_instagram;
+    out.caption_linkedin=_work.caption_linkedin;
+    out.x_text=_work.x_text;
+    if(window._smText){
+      window._smText.captions={instagram:out.caption_instagram||"",linkedin:out.caption_linkedin||""};
+      if(window._smText.x) window._smText.x.text=out.x_text||"";
+    }
+    smQaReport(_qaZ,"auto-sm");
+    if(info) info.textContent="";
+  }catch(e){ try{ console.warn("[QA-Pipeline zero]", e&&e.message); }catch(_){} }
   if(smTpl.carousel) smBuildTplGrid();
   smCheckTriggers(); smUpdateLegal(); smRender();
   /* Schritt 3 (Yuki-Feedback 15.07. abends): bei zero KEIN automatischer KI-Hintergrund mehr —
@@ -4292,6 +4562,123 @@ function smSetSeries(key,why){
   var h=$id("smSeriesHint");
   if(h) h.textContent="Vorauswahl aus dem Artikel: "+SM_SERIES_DEF[key].label+(why?(" — "+why):"")+" Du kannst oben jederzeit eine andere Serie wählen.";
 }
+
+/* ============================================================================
+   STORY-AUSWAHL-UI (Stufe 1, Christian 28.07.2026)
+   Erscheint nach dem Artikel-Import, VOR der Feldbefuellung. Bis zu drei Karten,
+   Hauptstory vorausgewaehlt. Ein Klick aendert nur die AUSWAHL — erst
+   "Felder neu befuellen" startet die Befuellung fuer die gewaehlte Story neu.
+   ============================================================================ */
+window._smStoryPlan=null; window._smStoryId=null;
+/* Welcher Bereich ist aktiv? finanzen.net nutzt die Autobox "auto-social" und das
+   Textfeld "src-social", der zero-Template-Editor "auto-sm" und "src-sm". */
+/* Nach dem SICHTBAREN Container routen, nicht nach der Marke (Bug gefunden 28.07.2026):
+   extractSocial laeuft auch mit _smBrand==="zero" (zero im Slide-Editor). Nach der Marke
+   zu routen haette die QA-Box in den versteckten zero-Container gehaengt — der Redakteur
+   haette das Gate-Ergebnis nie gesehen. */
+function smQaHostId(){
+  var z=document.getElementById("auto-sm");
+  var s=document.getElementById("auto-social");
+  var zVisible=!!(z && !z.hidden && z.offsetParent!==null);
+  var sVisible=!!(s && !s.hidden && s.offsetParent!==null);
+  if(zVisible && !sVisible) return "auto-sm";
+  if(sVisible) return "auto-social";
+  return (z && !z.hidden) ? "auto-sm" : "auto-social";
+}
+function smArticleText(){
+  var a=document.getElementById(smQaHostId()==="auto-sm"?"src-sm":"src-social");
+  var t=(a&&a.value||"").trim();
+  if(t) return t;
+  /* Fallback: das jeweils andere Feld, falls der Artikel dort steht. */
+  var b=document.getElementById(smQaHostId()==="auto-sm"?"src-social":"src-sm");
+  return (b&&b.value||"").trim();
+}
+/* Container wird lazy erzeugt und direkt unter die passende Autobox gehaengt, damit die
+   Reihenfolge stimmt: Artikel-Input -> Story-Auswahl -> Felder. Wechselt der Bereich,
+   wandert die Karte mit. */
+function smStoryHost(){
+  var anchor=document.getElementById(smQaHostId()); if(!anchor) return null;
+  var host=document.getElementById("smStoryCard");
+  if(!host){
+    host=document.createElement("div");
+    host.id="smStoryCard";
+    host.style.cssText="margin-top:12px;display:none";
+  }
+  if(host.parentNode!==anchor) anchor.appendChild(host);
+  return host;
+}
+function smRelevanzBadge(r){
+  var map={ hoch:["#e8f7f0","#bfe6d4","#00794d"], mittel:["#fdf9e7","#f0e2a8","#7a6410"], niedrig:["#f1f3f6","#dfe3ea","#6b7280"] };
+  var c=map[(r||"").toLowerCase()]||map.mittel;
+  return '<span style="display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;'+
+    'padding:2px 7px;border-radius:999px;background:'+c[0]+';border:1px solid '+c[1]+';color:'+c[2]+'">Relevanz '+
+    (r||"mittel")+'</span>';
+}
+/* Zeichnet den Auswahl-Block. plan = Rueckgabe von smStoryPlan(). */
+function smRenderStoryPlan(plan){
+  var host=smStoryHost(); if(!host) return;
+  window._smStoryPlan=plan||null;
+  if(!plan || !(plan.stories||[]).length){ host.style.display="none"; host.innerHTML=""; return; }
+  var prim=(plan.stories.find(function(s){ return s.primary; })||plan.stories[0]);
+  if(!window._smStoryId || !plan.stories.some(function(s){ return s.id===window._smStoryId; })) window._smStoryId=prim.id;
+  var h='<div class="sm-card"><div class="card-h"><span class="n">1</span><h3>Story-Auswahl</h3></div>'+
+    '<label class="lab">Welche Story soll dieser Beitrag transportieren?</label>'+
+    '<div class="sm-sug" id="smStoryList" style="grid-template-columns:1fr">';
+  plan.stories.forEach(function(s){
+    h+='<div class="sm-sug-card'+(s.id===window._smStoryId?" on":"")+'" data-story="'+s.id+'">'+
+       '<div class="t">'+smEsc(s.titel)+(s.primary?' <span style="font-weight:600;opacity:.7">· Hauptstory</span>':'')+'</div>'+
+       '<div class="g">'+smEsc(s.begruendung||"")+'</div>'+
+       '<div style="margin-top:7px">'+smRelevanzBadge(s.relevanz)+'</div></div>';
+  });
+  h+='</div>';
+  var dropped=(plan.dropped_topics||[]).filter(function(d){ return d&&d.thema; });
+  if(dropped.length){
+    h+='<div style="margin-top:11px;border-radius:11px;padding:10px 12px;font-size:12.5px;line-height:1.5;'+
+       'background:#fdf9e7;border:1px solid #f0e2a8;color:#7a6410">Dieser Artikel enthält noch '+
+       (dropped.length>1?('weitere Themen'):('ein weiteres Thema'))+': <b>'+dropped.map(function(d){ return smEsc(d.thema); }).join(", ")+
+       '</b>. Empfehlung: eigener Beitrag.</div>';
+  }
+  h+='<div class="row" style="margin-top:11px"><button class="btn btn-primary" id="smStoryRefill" data-nolock>'+
+     '<svg class="ic" viewBox="0 0 24 24" style="color:#fff"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>'+
+     ' Felder neu befüllen</button>'+
+     '<span class="hint" data-nolock>Befüllt alle Felder für die gewählte Story neu und prüft sie anschließend.</span></div></div>';
+  host.innerHTML=h;
+  host.style.display="block";
+  /* Klick = nur Auswahl aendern (bewusst KEIN automatisches Neu-Befuellen). */
+  host.querySelectorAll("#smStoryList .sm-sug-card").forEach(function(c){
+    c.addEventListener("click",function(){
+      host.querySelectorAll("#smStoryList .sm-sug-card").forEach(function(x){ x.classList.remove("on"); });
+      c.classList.add("on"); window._smStoryId=c.dataset.story;
+      try{ window.smMeta=window.smMeta||{}; window.smMeta.storyId=window._smStoryId; }catch(e){}
+    });
+  });
+  var rb=host.querySelector("#smStoryRefill");
+  if(rb) rb.addEventListener("click", smStoryRefill);
+  try{ window.smMeta=window.smMeta||{}; window.smMeta.storyId=window._smStoryId; }catch(e){}
+}
+/* Minimales HTML-Escaping fuer Modell-Text in der UI (Titel/Begruendung). */
+function smEsc(s){ return (""+(s==null?"":s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+/* "Felder neu befuellen": Befuellung fuer die GEWAEHLTE Story komplett neu starten.
+   Der Artikel wird erneut durchforstet, damit Fakten und Hook-Logik zur Story passen.
+   Danach laufen Stufe 2, 3, 4 und der Repair-Loop automatisch (steckt in extractSocial/extractSM). */
+async function smStoryRefill(){
+  var btn=document.getElementById("smStoryRefill");
+  var txt=smArticleText();
+  if(!txt){ try{ toast("Kein Artikeltext vorhanden — bitte oben einfügen"); }catch(e){} return; }
+  var old=btn?btn.innerHTML:"";
+  if(btn){ btn.disabled=true; btn.textContent="Felder werden neu befüllt …"; }
+  try{
+    /* skipPlan: der Plan bleibt bestehen, nur die Auswahl hat sich geaendert.
+       Routing nach dem AKTIVEN Bereich, nicht nach der Marke — zero laeuft auch im
+       Slide-Editor ueber extractSocial. */
+    if(smQaHostId()==="auto-sm" && typeof extractSM==="function") await extractSM(txt,{skipPick:true,skipPlan:true});
+    else await extractSocial(txt,{skipPlan:true});
+    try{ toast("Felder für die gewählte Story neu befüllt"); }catch(e){}
+  }catch(e){
+    try{ toast("Neu-Befüllen fehlgeschlagen: "+((e&&e.message)||"unbekannter Fehler"),6000); }catch(_){}
+  }
+  if(btn){ btn.disabled=false; btn.innerHTML=old; }
+}
 var fmtCard=$id("fmtGrid")?$id("fmtGrid").closest(".card"):null;
 if(fmtCard){
   var platHtml='<div class="sm-card"><div class="card-h"><span class="n">P</span><h3>Plattformen</h3></div>'+
@@ -4326,6 +4713,10 @@ if(auto){
   Object.entries(SM_MOTIFS).forEach(function(e){
     stHtml+='<div class="sm-sug-card'+(e[0]==="auto"?" on":"")+'" data-motif="'+e[0]+'"><div class="t">'+e[1].label+'</div><div class="g">'+e[1].desc+'</div></div>';
   });
+  /* Headline-Stil der Info-Slide (Christian 28.07.2026, Yuki-Vorbild Alphabet Slide 3) */
+  stHtml+='</div><label class="lab" style="margin-top:14px">Headline-Stil (Info-Slide)</label><div class="sm-sug" id="smHeadStyleList" style="grid-template-columns:1fr 1fr">'+
+    '<div class="sm-sug-card on" data-headstyle="plain"><div class="t">Standard</div><div class="g">Dunkelblaue Headline auf weißem Grund — der bisherige Look.</div></div>'+
+    '<div class="sm-sug-card" data-headstyle="pill"><div class="t">Abgerundete Pille</div><div class="g">Weiße Headline auf dunkelblauem, abgerundetem Band — wie im abgenommenen Alphabet-Beitrag.</div></div>';
   stHtml+='</div><div class="row" style="margin-top:10px;display:none" id="smRegenRow"><button class="btn btn-primary" id="smRegen" data-nolock><svg class="ic" viewBox="0 0 24 24" style="color:#fff"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg> Texte mit diesem Stil neu generieren</button><span class="hint" data-nolock>Felder werden mit dem gew\u00e4hlten Stil neu bef\u00fcllt.</span></div></div>';
   auto.insertAdjacentHTML("beforeend", stHtml);
   document.querySelectorAll("#smStyleList .sm-sug-card").forEach(function(c){
@@ -4334,6 +4725,30 @@ if(auto){
       c.classList.add("on"); window._smTextStyle=c.dataset.style;
       // Nach der ersten Generierung: Umwahl zeigt den Neu-Generieren-Button
       var rr=$id("smRegenRow"); if(rr && window._smText) rr.style.display="flex";
+    });
+  });
+/* Baut die betroffenen Slides nach einem reinen LAYOUT-Wechsel neu auf (kein KI-Aufruf).
+   Vorgehen: den gecachten JSON der Info-/Text-Slides verwerfen — showSlide rendert dann
+   ueber renderTemplate frisch. Manuelle Bearbeitungen auf diesen Slides gehen dabei
+   verloren, das ist bei einem Layout-Wechsel gewollt und erwartbar. */
+function smRebuildTextInfoSlides(){
+  try{
+    if(typeof slides==="undefined" || !slides || !slides.length) return;
+    var cur=(typeof current==="number"&&current>=0)?current:0;
+    var touched=false;
+    slides.forEach(function(s){ if(s && s.type==="textinfo"){ s.json=null; s.thumb=null; touched=true; } });
+    if(!touched) return;
+    /* current zuruecksetzen, damit showSlide nicht per Early-Return abbricht. */
+    current=-1;
+    showSlide(cur);
+  }catch(e){ try{ console.warn("[Headline-Stil] Rebuild fehlgeschlagen:", e&&e.message); }catch(_){} }
+}
+  /* Headline-Stil umschalten: nur optisch, sofortiges Neu-Rendern ohne KI-Aufruf. */
+  document.querySelectorAll("#smHeadStyleList .sm-sug-card").forEach(function(c){
+    c.addEventListener("click",function(){
+      document.querySelectorAll("#smHeadStyleList .sm-sug-card").forEach(function(x){x.classList.remove("on");});
+      c.classList.add("on"); window._smHeadStyle=c.dataset.headstyle;
+      smRebuildTextInfoSlides();
     });
   });
   document.querySelectorAll("#smMotifList .sm-sug-card").forEach(function(c){
@@ -4525,7 +4940,20 @@ async function ensureHeadSub(out, article){
    Mechanischer Schnitt nur als allerletzte Notbremse — und dann faellt der ganze unvollstaendige
    letzte Satz weg (nie mitten im Satz mit gefaktem Punkt).
    ============================================================================ */
-var FINNET_LIMITS={head:55,sub:40,bullets:90,close:120,closeHead:40,infoHead:40,intro:140,infoBullet:85,box:130};
+/* Limits an Yukis ABGENOMMENE Praxis angeglichen (Christian 28.07.2026, aus den Referenz-
+   beitraegen ASML und Alphabet vom 23.07. ausgelesen). Yukis laengster Bullet hat 127 Zeichen
+   ("Auch Samsung, SK Hynix und TSMC haben ihre Verguetung zuletzt deutlich erhoeht, um
+   Techniker und Ingenieure langfristig zu binden") — mit dem alten Limit 90 haette Stufe 3
+   diese abgenommenen Texte KUERZER formuliert, also weg vom Ziel.
+   Box-Kapazitaet gegengerechnet (finnetFits): bullets/infoBullet fassen bei min-Schrift 24px
+   auf 797px Breite ~63 Zeichen je Zeile, also ~189 in 3 Zeilen. 130 ist damit sicher;
+   der Renderer verkleinert zusaetzlich per Shrink-to-fit. */
+/* closeHead/infoHead von 40 auf 55 (Christian 28.07.2026): Yukis abgenommene Slide-Headlines
+   sind 42 bis 43 Zeichen lang ("Die hohen Investitionen werden hinterfragt",
+   "Alphabet erhoeht erneut die KI-Investitionen") und waeren mit 40 grundlos zur
+   Neuformulierung geschickt worden. Box-Kapazitaet gegengerechnet: bei min-Schrift 50px auf
+   864px Breite passen ~33 Zeichen je Zeile, also ~66 in 2 Zeilen — 55 laesst Sicherheitsabstand. */
+var FINNET_LIMITS={head:55,sub:40,bullets:130,close:120,closeHead:55,infoHead:55,intro:140,infoBullet:130,box:130};
 /* FIT-SPEZIFIKATION (Yuki 17.07.2026): pro Feld die ECHTE Box, in die der Text passen muss —
    Breite (Master-Pixel @1080), Zielschriftgroesse, min. Schriftgroesse (Shrink-Untergrenze),
    max. Zeilen. Das ist die EINE Wahrheitsquelle statt geratener Zeichenzahlen. Werte spiegeln die
@@ -4601,7 +5029,7 @@ function finnetIsFragment(t){
   if(!/[.!?…]$/.test(t) && core.split(/\s+/).length>=8) return true;
   return false;
 }
-/* Ein Feld ist "sauber"/* Ein Feld ist "sauber", wenn es in seine Box passt (finnetFits) UND kein Fragment ist. */
+/* Ein Feld ist "sauber", wenn es in seine Box passt (finnetFits) UND kein Fragment ist. */
 function finnetFieldOk(k,t){
   if(!(""+(t||"")).trim()) return true;
   return finnetFits(k,t).fits && !finnetIsFragment(t);
@@ -4684,11 +5112,717 @@ function groundingReport(issues, verify){
   }
 }
 
+/* ============================================================================
+   ============  TEXT-QA-PIPELINE (Social-Paket Yuki, 28.07.2026)  ============
+   Vierstufige Qualitaetskette, komplett client-side. Bewusst in Stufen gekapselt,
+   damit die Logik spaeter 1:1 nach Make wandern kann, ohne sie neu zu schreiben.
+
+     Stufe 1  smStoryPlan()      Story-Auswahl + Slide-Rollen   (KI, MODELS.plan)
+     Feldbef. extractSocial/SM   bestehende Logik + Rollen/Budget-Vorgabe
+     Stufe 2  smGuards()         deterministische Guards        (Code, kein LLM)
+     Stufe 3  smRepairLength()   Laengen-/Formulierungsreparatur (KI, MODELS.repair)
+     Stufe 4  smQaGate()         Qualitaets- und Sinn-Urteil    (KI, MODELS.qa)
+     Loop     smRunQaPipeline()  hoch-Issues fixen -> 2 -> 4, max 2 Runden
+
+   EISERNE REGEL (Guardrail 1.2): Ein Zeichenlimit ist ein VALIDIERUNGS-GATE,
+   niemals ein String-Abschneider. Kein substring/slice/Trim im Textpfad. Ueberlaenge
+   wird markiert und in Stufe 3 NEU FORMULIERT. Ein frueherer Bug hat Texte mitten
+   im Wort gekappt — das darf nie wieder passieren.
+   GROUNDING: strikt artikel-only. Keine Websuche, kein Modellwissen in gerenderten Text.
+   ============================================================================ */
+
+/* ---------------------------------------------------------------------------
+   FIELD_LIMITS — die EINE Quelle der Wahrheit fuer Zeichenlimits.
+   finanzen.net: gespiegelt aus FINNET_LIMITS (die echten, bestehenden Werte; die
+   Box-Wahrheit bleibt zusaetzlich FINNET_FIT, das pixelgenau misst).
+   zero: template-abhaengig, wird zur Laufzeit aus den Feld-Definitionen (f.max)
+   gelesen — deshalb Funktion statt statischem Objekt.
+   Captions/Hashtags: Plattform-Limits, damit auch die Textbausteine ein Budget haben.
+   --------------------------------------------------------------------------- */
+/* Artikel-Fenster: ALLE Stufen muessen denselben Textausschnitt sehen (Bug gefunden 28.07.2026).
+   Sonst waehlt Stufe 1 eine Story aus dem Textende, das die Feldbefuellung nie sieht, und
+   Stufe 4 bewertet Grounding gegen Text, den der Filler nicht hatte. Die Feldbefuellung ist
+   der Engpass (historisch 8000/9000) — an ihr richten sich Plan und QA aus. */
+var SM_ARTICLE_WINDOW=9000;
+var FIELD_LIMITS={
+  /* --- finanzen.net Slide-Felder (identisch zu FINNET_LIMITS, hier konsolidiert) --- */
+  head:       55,
+  sub:        40,    /* Subline immer einzeilig (Yuki-Feedback) */
+  bullets:    90,    /* pro Bullet */
+  close:      120,
+  closeHead:  40,
+  infoHead:   40,
+  intro:      140,
+  infoBullet: 85,
+  box:        130,
+  /* --- Caption-/Hashtag-Felder pro Plattform --- */
+  caption_instagram: 2200,   /* Instagram-Hardlimit */
+  caption_linkedin:  3000,   /* LinkedIn-Hardlimit */
+  x_text:            240,    /* 280 minus Puffer fuer Cashtags */
+  story_text:        200
+};
+/* Sicherheitsnetz gegen Auseinanderlaufen: FIELD_LIMITS wird mit FINNET_LIMITS synchronisiert.
+   ACHTUNG Richtung: FINNET_LIMITS ist hier die Quelle, weil der bestehende, abgenommene
+   Altcode (ensureLength/finnetFieldOk) daraus liest. Wer ein finanzen.net-Limit aendern will,
+   muss es in FINNET_LIMITS aendern — eine Aenderung nur oben in FIELD_LIMITS waere wirkungslos.
+   Die Werte sind aktuell identisch; diese Zeile haelt sie identisch. */
+try{ Object.keys(FINNET_LIMITS).forEach(function(k){ FIELD_LIMITS[k]=FINNET_LIMITS[k]; }); }catch(e){}
+
+/* Limit fuer ein Feld. Bei zero kommt es aus dem aktiven Template, sonst aus FIELD_LIMITS. */
+function smFieldLimit(k){
+  if(FIELD_LIMITS[k]!=null) return FIELD_LIMITS[k];
+  try{
+    if(typeof smTpl!=="undefined" && smTpl && smTpl.fields){
+      var f=smTpl.fields.find(function(x){ return x.k===k; });
+      if(f && f.max) return f.max;
+    }
+  }catch(e){}
+  return null;   /* kein Limit bekannt -> Feld wird nicht auf Laenge geprueft */
+}
+
+/* ---------------------------------------------------------------------------
+   STUFE 2 — Deterministische Guards. Laufen in Millisekunden, koennen nicht
+   halluzinieren. Reihenfolge ist verbindlich:
+   (1) Gedankenstriche  (2) Floskeln  (3) Waehrung  (4) Laenge/Fragment pruefen
+   --------------------------------------------------------------------------- */
+
+/* Verbotene KI-Anmoderationen (Management- und Yuki-Feedback). Beweis aus dem
+   SAP-zero-Bundle vom 24.07.: die Caption enthielt trotz Prompt-Verbot
+   "Einen Wermutstropfen gibt es:" und "Das Besondere:". Prompt-Regeln allein
+   reichen also nicht — deshalb hier deterministisch erzwungen.
+   Liste bewusst erweiterbar: neue Floskel = eine Zeile mehr. */
+/* WICHTIG: Der Doppelpunkt ist bei allen Anmoderations-Floskeln PFLICHT (`\s*:` statt `\s*:?`).
+   Genau die Doppelpunkt-Anmoderation ist das Problem ("Das Besondere: X"). Ohne diese Bedingung
+   feuerten die Patterns mitten im Satz und zerstoerten legitime Prosa (verifiziert 28.07.2026:
+   "Hinzu kommt eine Sonderdividende" -> "Eine Sonderdividende" — das Verb war weg;
+   "Das Besondere daran ist die Marge" -> "daran ist die Marge"). Floskeln OHNE Doppelpunkt
+   beurteilt Stufe 4, die kann den Satzbau verstehen. */
+var FLOSKEL_PATTERNS=[
+  /\bbesonders\s+ue?berraschend\s*:/gi,
+  /\bbesonders\s+überraschend\s*:/gi,
+  /\bein(?:en)?\s+wermutstropfen\s+(?:gibt\s+es|bleibt)\s*:/gi,
+  /\bdas\s+besondere\s*:/gi,
+  /\bbesonders\s+bemerkenswert\s*:/gi,
+  /\binteressant\s+dabei\s*:/gi,
+  /\bwichtig\s+zu\s+wissen\s*:/gi,
+  /\bhinzu\s+kommt\s*:/gi,
+  /\bnicht\s+zu\s+vergessen\s*:/gi,
+  /\bbemerkenswert\s+ist\s*:/gi,
+  /\bder\s+grund\s*:/gi,
+  /\bdie\s+folge\s*:/gi,
+  /\bfazit\s*:/gi,
+  /\bkurz\s+gesagt\s*:/gi,
+  /\bunterm\s+strich\s*:/gi
+];
+/* Gaengige Abkuerzungen, deren Punkt KEIN Satzende ist — sonst wird das Wort danach
+   falsch gross geschrieben ("bei z.B. Drei Mrd. Euro"). */
+var _SM_ABBR=/(?:z\.\s?B|u\.\s?a|d\.\s?h|bzw|ca|vgl|inkl|exkl|evtl|ggf|Mrd|Mio|Nr|Abs|Art|S|Sp|usw|etc|bspw|max|min|p\.\s?a)\.$/i;
+/* Entfernt die Anmoderation und laesst den Rest als eigenstaendigen Satz stehen.
+   Danach Grosschreibung am Satzanfang wiederherstellen, damit kein "selbst Jefferies…"
+   mit klein beginnendem Satz uebrig bleibt. Kein Inhalt wird gekappt. */
+function killFloskeln(text){
+  if(!text) return text;
+  var out=""+text, hit=false;
+  for(var i=0;i<FLOSKEL_PATTERNS.length;i++){
+    FLOSKEL_PATTERNS[i].lastIndex=0;
+    if(FLOSKEL_PATTERNS[i].test(out)){ hit=true; FLOSKEL_PATTERNS[i].lastIndex=0; out=out.replace(FLOSKEL_PATTERNS[i],""); }
+  }
+  if(!hit) return out;
+  /* Aufraeumen: doppelte Leerzeichen, verwaiste Satzzeichen am Absatz-/Textanfang */
+  out=out.replace(/[ \t]{2,}/g," ")
+         .replace(/^[ \t]*[:.,;]\s*/gm,"")
+         .replace(/([.!?])\s*[:,;]\s*/g,"$1 ")
+         .replace(/^[ \t]+/gm,"");
+  /* Satzanfaenge nach dem Entfernen wieder gross schreiben (Zeilen- und Satzanfang).
+     Abkuerzungen ausnehmen: deren Punkt ist kein Satzende (verifiziert 28.07.2026:
+     "bei z.B. drei Mrd. euro" wurde zu "bei z.B. Drei Mrd. Euro"). */
+  out=out.replace(/(^|[.!?]\s+|\n[ \t]*(?:[•\-–][ \t]*)?)([a-zäöüß])/g, function(m,pre,ch,off,whole){
+    if(/[.!?]\s+$/.test(pre) && _SM_ABBR.test(whole.slice(0,off+pre.length).trimEnd())) return m;
+    return pre+ch.toUpperCase();
+  });
+  return out.replace(/\s+$/,"");
+}
+
+/* Gedankenstrich-Ersatz (Management-Feedback: alle langen Gedankenstriche raus).
+   NUR als Satzzeichen genutzte Striche, erkannt an den umgebenden Leerzeichen.
+   Echte Binde-Striche in Komposita (Cloud-Backlog, XETRA-Aktie, 13-17 %) haben KEINE
+   umgebenden Leerzeichen und bleiben garantiert unangetastet.
+   Faustregel konservativ: Komma. Steht auf der linken Seite ein vollstaendiger Satz und
+   beginnt rechts ein neuer mit Grossbuchstabe, wird daraus ein Punkt — sonst Komma. */
+function ersetzeGedankenstriche(text){
+  if(!text) return text;
+  var out=""+text;
+  /* Bindestrich-Zahlenbereiche mit Spaces ("13 - 17 %") zuerst schuetzen: das ist ein
+     Bis-Strich, kein Satzzeichen -> zu "13-17" zusammenziehen statt Komma einzusetzen. */
+  out=out.replace(/(\d)[ \t]+[–—-][ \t]+(\d)/g,"$1-$2");
+  /* Als Satzzeichen genutzte Striche: en/em dash, doppelter Bindestrich, einfacher Bindestrich.
+     WICHTIG (Bug gefunden 28.07.2026): NUR horizontale Whitespaces ([ \t]), niemals \s —
+     \s matcht auch \n, wodurch Listen-Striche am Zeilenanfang als Satzzeichen gedeutet wurden
+     und jede Caption mit Bullet-Liste plattgemacht wurde ("Die Zahlen:\n– Umsatz 25 Mrd."
+     wurde zu "Die Zahlen:, Umsatz 25 Mrd."). Zusaetzlich muss links UND rechts ein
+     Nicht-Whitespace stehen, damit Zeilenanfaenge gar nicht in Frage kommen. */
+  out=out.replace(/([^\s])[ \t]+(?:[–—]|--|-)[ \t]+(?=\S)/g, function(m, leftCh, off, whole){
+    var rest=whole.slice(off+m.length);
+    var firstCh=(rest.match(/\S/)||[""])[0];
+    /* Vorzeichen-Minus nicht antasten ("fiel um - 3,5 Prozent"). */
+    if(/^[\d,.]/.test(firstCh)) return m;
+    /* Nur das Segment SEIT dem letzten Satzende betrachten, nicht den ganzen Prefix —
+       sonst kippt die Entscheidung bei mehreren Strichen willkuerlich. Striche selbst
+       zaehlen NICHT als Woerter. */
+    var segLeft=whole.slice(0,off+1).split(/[.!?][ \t\n]/).pop();
+    var segRight=(rest.split(/[.!?][ \t\n]/)[0]||"");
+    var leftWords=segLeft.replace(/[ \t]+(?:[–—]|--|-)[ \t]+/g," ").trim().split(/\s+/).filter(Boolean).length;
+    /* Mehrere Striche im selben Satz = Appositions-Einschub ODER Aufzaehlung
+       ("Der Konzern — Marktfuehrer bei X — hebt die Prognose", "Coca-Cola - PepsiCo - Nestlé").
+       In beiden Faellen IMMER Komma: ein Punkt mitten drin wuerde den Satz zerreissen. */
+    /* segLeft/segRight enthalten den AKTUELLEN Strich nicht — jeder weitere Treffer hier
+       bedeutet also Einschub oder Aufzaehlung. Nur bei genau EINEM Strich im Satz (also
+       null weiteren) darf daraus ein Punkt werden. */
+    var weitereStriche=((segLeft+" | "+segRight).match(/[^\s][ \t]+(?:[–—]|--|-)[ \t]+\S/g)||[]).length;
+    if(weitereStriche===0 && leftWords>=4 && firstCh && /[A-ZÄÖÜ]/.test(firstCh)) return leftCh+". ";
+    return leftCh+", ";
+  });
+  /* Doppelte Satzzeichen bereinigen, die dabei entstehen koennen */
+  out=out.replace(/,\s*,/g,",").replace(/\.\s*,/g,".").replace(/,\s*\./g,".").replace(/[ \t]+([,.])/g,"$1");
+  /* Doppelpunkt darf nie zu ":." oder ":," werden (Listen-Anmoderation bleibt intakt). */
+  out=out.replace(/:[ \t]*[.,]/g,":");
+  return out;
+}
+
+/* Felder, die von der QA-Pipeline NICHT angefasst werden dürfen (Bug gefunden 28.07.2026):
+   (a) technische Felder (Quelle, Stand, Bild-Prompt, Podcast-URL) — kein Redaktionstext.
+   (b) STRUKTURIERTE DATENFELDER wie topdata/flopdata ("SAP = 5,8" pro Zeile) und die
+       Ticker-/Kursfelder. Diese werden vom Renderer mit einer strikten Regex geparst
+       (Label = Wert). finnetIsFragment haelt so einen Block faelschlich fuer ein Fragment,
+       Stufe 3 wuerde ihn "schoener formulieren" — und das Chart waere danach LEER.
+       Kursdaten dürfen ohnehin nie umformuliert werden (Grounding-Vertrag). */
+var SM_NO_QA_FIELDS=/^(source|stand|covprompt|podcasturl|topdata|flopdata|tkflag|tkname|tktime|tkvalue|tkchange|tknote|mkchange|mkindex|cprice|cchange|cperiod|cplace)$/;
+/* Alle Textfelder eines Beitrags in eine flache Liste bringen, damit Stufe 2/3/4
+   markenunabhaengig darauf arbeiten koennen. Rueckgabe: [{key, path, text, limit}].
+   "path" beschreibt, wo der Wert im Objekt steckt, damit wir ihn zurueckschreiben koennen. */
+function smCollectFields(obj, opts){
+  opts=opts||{};
+  var list=[];
+  /* opts.limits ueberschreibt einzelne Budgets fuer DIESEN Lauf, ohne FIELD_LIMITS global zu
+     mutieren (z.B. x_text = 280 minus Cashtag-Laenge, die pro Beitrag variiert). */
+  function push(key, text, limit, setter){
+    if(typeof text!=="string" || !text.trim()) return;
+    var lim=(opts.limits&&opts.limits[key]!=null) ? opts.limits[key] : (limit!=null?limit:smFieldLimit(key));
+    list.push({ key:key, text:text, limit:lim, set:setter });
+  }
+  if(opts.mode==="zero"){
+    /* zero: Template-Felder aus smData + Captions aus dem _smText-Objekt */
+    (((typeof smTpl!=="undefined"&&smTpl)?smTpl.fields:[])||[]).forEach(function(f){
+      if(f.type==="seg"||f.type==="sel"||f.type==="num") return;      /* Umschalter/Zahlen: kein Freitext */
+      if(SM_NO_QA_FIELDS.test(f.k)) return;                            /* technische + strukturierte Datenfelder */
+      push(f.k, obj[f.k]||"", f.max||null, function(v){ obj[f.k]=v; });
+    });
+  } else {
+    ["head","sub","close","closeHead","infoHead","intro","infoBullet","box"].forEach(function(k){
+      push(k, obj[k]||"", null, function(v){ obj[k]=v; });
+    });
+    if(Array.isArray(obj.bullets)) obj.bullets.forEach(function(b,i){
+      push("bullets["+i+"]", b||"", FIELD_LIMITS.bullets, function(v){ obj.bullets[i]=v; });
+    });
+    if(obj.quote&&obj.quote.text) push("quote_text", obj.quote.text, 160, function(v){ obj.quote.text=v; });
+    if(obj.story&&obj.story.text) push("story_text", obj.story.text, FIELD_LIMITS.story_text, function(v){ obj.story.text=v; });
+  }
+  /* Captions: bei beiden Marken gleich behandeln, nur andere Ablage im Objekt. */
+  if(opts.mode==="zero"){
+    if(obj.caption_instagram!=null) push("caption_instagram", obj.caption_instagram, FIELD_LIMITS.caption_instagram, function(v){ obj.caption_instagram=v; });
+    if(obj.caption_linkedin!=null)  push("caption_linkedin",  obj.caption_linkedin,  FIELD_LIMITS.caption_linkedin,  function(v){ obj.caption_linkedin=v; });
+    if(obj.x_text!=null)            push("x_text",            obj.x_text,            FIELD_LIMITS.x_text,            function(v){ obj.x_text=v; });
+  } else {
+    if(obj.captions){
+      if(obj.captions.instagram) push("caption_instagram", obj.captions.instagram, FIELD_LIMITS.caption_instagram, function(v){ obj.captions.instagram=v; });
+      if(obj.captions.linkedin)  push("caption_linkedin",  obj.captions.linkedin,  FIELD_LIMITS.caption_linkedin,  function(v){ obj.captions.linkedin=v; });
+    }
+    if(obj.x&&obj.x.text) push("x_text", obj.x.text, FIELD_LIMITS.x_text, function(v){ obj.x.text=v; });
+  }
+  return list;
+}
+
+/* Prueft ein Feld auf Ueberlaenge/Fragment. NUR pruefen, NIE schneiden.
+   finanzen.net-Slidefelder nutzen zusaetzlich die pixelgenaue Box-Pruefung (FINNET_FIT).
+   Captions sind Fliesstext -> dort keine Fragment-Pruefung (Absaetze enden legitim ohne Punkt). */
+/* Headline-/Etikett-Felder: KEINE Fragment-Pruefung. Begruendung (Bug gefunden 28.07.2026 im
+   Test-Harness): finnetIsFragment behandelt "an", "zu", "auf" als Funktionswoerter am Satzende.
+   Bei Headlines sind das aber trennbare VERBPARTIKEL und voellig korrekt — "Alphabet hebt
+   KI-Budget auf 205 Mrd. USD an" oder "Rheinmetall-Aktie legt 2 Prozent zu" wuerden sonst
+   endlos als Fragment markiert und immer wieder neu formuliert. Headlines und Kachel-Labels
+   sind ohnehin keine vollstaendigen Saetze; ihre Qualitaet sichern ensureHeadSub (Head+Sub
+   selbsterklaerend), smTidyLabel (Label-Hygiene) und Stufe 4 (ohne_vorwissen_verstaendlich).
+   Erkennung: explizite Headline-Keys plus alle Kurzfelder unter 60 Zeichen Budget — genau die
+   Grenze, die Headlines/Etiketten (<=55) von echten Satzfeldern (>=85) trennt. */
+var SM_HEADLINE_KEYS={ head:1, sub:1, closeHead:1, infoHead:1, headline:1, kicker:1, eyebrow:1,
+  bhead:1, mkindex:1, mkverb:1, mkchange:1, tkname:1, tktime:1, tkvalue:1, tkchange:1, tknote:1,
+  s1head:1, s2head:1, s3head:1 };
+function smIsHeadlineField(key, limit){
+  var base=key.replace(/\[\d+\]$/,"");
+  if(SM_HEADLINE_KEYS[base]) return true;
+  if(/^(k\d+l|f\d+l|r\d+l|m\d+l|b\d+|s\d+b\d+)$/.test(base)) return true;   /* Kachel-Labels, Kurz-Bullets */
+  return !!(limit && limit<60);
+}
+function smFieldFlags(f, mode){
+  var flags=[], base=f.key.replace(/\[\d+\]$/,"");
+  var isCaption=/^(caption_|x_text|story_text)/.test(f.key);
+  /* Laenge und Umbruch immer OHNE Markup-Sternchen bewerten — die sind unsichtbar und
+     duerfen nicht gegen das Limit zaehlen (Christian 28.07.2026). */
+  var vis=smStripBold(f.text);
+  if(f.limit && vis.length>f.limit) flags.push("zu_lang");
+  /* Pixelgenaue Box-Pruefung nur fuer die finanzen.net-Slidefelder mit FIT-Spec */
+  if(mode!=="zero" && !isCaption){
+    try{ if(typeof FINNET_FIT!=="undefined" && FINNET_FIT[base] && !finnetFits(base,vis).fits) flags.push("passt_nicht_in_box"); }catch(e){}
+  }
+  /* Fragment-Pruefung nur fuer echte Satzfelder (nicht Captions, nicht Headlines/Etiketten). */
+  if(!isCaption && !smIsHeadlineField(f.key, f.limit)){
+    try{ if(finnetIsFragment(vis)) flags.push("fragment"); }catch(e){}
+  }
+  /* Markup-Hygiene: unpaarige oder verschachtelte Sternchen wuerden im Bild landen. */
+  if(/\*/.test(f.text) && (f.text.match(/\*\*/g)||[]).length%2!==0) flags.push("markup_defekt");
+  return flags;
+}
+
+/* STUFE 2 — Hauptfunktion. Wendet die deterministischen Korrekturen auf ALLE Textfelder
+   an (Slides UND Captions) und gibt zurueck, welche Felder Stufe 3 braucht.
+   Rueckgabe: {changed, marked:[{key,text,limit,flags}], log:{floskeln:[],striche:[]}} */
+function smGuards(obj, opts){
+  opts=opts||{};
+  var mode=opts.mode||"finnet";
+  var fields=smCollectFields(obj, opts);
+  var log={floskeln:[], striche:[], waehrung:[]}, changed=false;
+  fields.forEach(function(f){
+    var before=f.text, t=f.text;
+    /* (1) Gedankenstriche als Satzzeichen -> Komma/Punkt (Komposita bleiben) */
+    var t1=ersetzeGedankenstriche(t);
+    if(t1!==t){ log.striche.push(f.key); t=t1; }
+    /* (2) KI-Floskeln/Anmoderationen entfernen */
+    var t2=killFloskeln(t);
+    if(t2!==t){ log.floskeln.push(f.key); t=t2; }
+    /* (3) Waehrungs-/Prozent-Normalisierung (bestehende Logik weiterverwenden) */
+    try{ var t3=fixCurrency(t); if(t3!==t){ log.waehrung.push(f.key); t=t3; } }catch(e){}
+    t=t.replace(/[ \t]{2,}/g," ").trim();
+    if(t!==before){ f.set(t); f.text=t; changed=true; }
+  });
+  /* (4) Laenge + Fragment pruefen — markieren, NICHT abschneiden */
+  var marked=[];
+  fields.forEach(function(f){
+    var flags=smFieldFlags(f, mode);
+    if(flags.length) marked.push({ key:f.key, text:f.text, limit:f.limit, flags:flags });
+  });
+  try{ window._smGuardLog={ changed:changed, log:log, marked:marked.map(function(m){ return m.key+" ("+m.flags.join("/")+")"; }) };
+       if(changed||marked.length) console.log("[Stufe 2 Guards]", JSON.stringify(window._smGuardLog,null,2)); }catch(e){}
+  return { changed:changed, marked:marked, log:log, fields:fields };
+}
+
+/* ---------------------------------------------------------------------------
+   STUFE 3 — Laengen- und Formulierungs-Reparatur. Laeuft IMMER (Vorgabe Christian).
+   Markierte Felder werden ins Budget NEU FORMULIERT (vollstaendiger Satz), nie geschnitten.
+   Sind keine Felder markiert, laeuft nur ein leichter Kontroll-Pass auf Felder nahe am
+   Limit (>90 Prozent) — so bleiben Kosten und Latenz im Rahmen (Feature 19).
+   --------------------------------------------------------------------------- */
+async function smRepairLength(obj, guardResult, opts){
+  opts=opts||{};
+  var marked=(guardResult&&guardResult.marked)||[];
+  var fields=(guardResult&&guardResult.fields)||smCollectFields(obj,opts);
+  var byKey={}; fields.forEach(function(f){ byKey[f.key]=f; });
+  var todo=marked.slice();
+  var kontrolle=false;
+  if(!todo.length){
+    /* Kontroll-Pass: nur Felder nah am Limit, nicht alle anfassen. */
+    fields.forEach(function(f){
+      if(f.limit && smStripBold(f.text).length>=f.limit*0.9) todo.push({ key:f.key, text:f.text, limit:f.limit, flags:["nah_am_limit"] });
+    });
+    kontrolle=true;
+  }
+  if(!todo.length) return { changed:false, repaired:[], failed:[] };
+  var payload=todo.map(function(m){ return { field:m.key, limit:m.limit||null, problem:m.flags.join("/"), text:m.text }; });
+  var sys="Formuliere die folgenden Felder eines Social-Media-Beitrags so um, dass sie ihr Zeichenlimit "+
+    "exakt einhalten und dabei vollstaendige, gut klingende deutsche Saetze bleiben.\n\n"+
+    "Harte Regeln:\n"+
+    "- Halte das Zeichenlimit pro Feld strikt ein.\n"+
+    "- Niemals mitten im Wort oder Satz abbrechen. Niemals mit einem Binde-/Funktionswort "+
+    "(zu, und, oder, der, mit, nicht, laut ...) oder einem Komma enden. Lieber Inhalt straffen "+
+    "oder eine weniger wichtige Nebeninfo ganz weglassen.\n"+
+    "- Kein Fakt hinzufuegen, der nicht schon im Feldtext steht. Kein Grounding-Bruch, keine Zahl aendern.\n"+
+    "- Keine KI-Floskeln als Anmoderation (verboten: 'Das Besondere:', 'Besonders ueberraschend:', "+
+    "'Einen Wermutstropfen gibt es:', 'Hinzu kommt:', 'Fazit:'). Die Bewertung gehoert IN den Satz.\n"+
+    "- Keine Gedankenstriche als Satzzeichen. Binde-Striche in zusammengesetzten Woertern "+
+    "(Cloud-Backlog, XETRA-Aktie) bleiben unveraendert.\n"+
+    "- Waehrung: Symbol VOR der Zahl oder Kuerzel NACH der Zahl, im Beitrag einheitlich.\n"+
+    "- Korrektes Deutsch mit Umlauten. Keine Kauf- oder Verkaufsempfehlung.\n"+
+    "- HERVORHEBUNG ERHALTEN: Steht im Text eine Markierung in **doppelten Sternchen**, muss sie\n"+
+    "  im neuen Text ERHALTEN bleiben (dieselbe Kernzahl, wieder in **Sternchen**). Sternchen nie\n"+
+    "  entfernen, nie neu hinzufuegen, nie verschachteln, immer paarweise schliessen. Das Zeichen-\n"+
+    "  limit gilt fuer den SICHTBAREN Text ohne die Sternchen.\n"+
+    (kontrolle?"- Diese Felder liegen nur NAH am Limit. Aendere sie NUR, wenn du sie dadurch klarer oder "+
+      "sicherer im Limit machst; sonst gib den Text unveraendert zurueck.\n":"")+
+    "\nAntworte AUSSCHLIESSLICH mit reinem JSON, ohne Vorwort, ohne Markdown:\n"+
+    '{ "fields": [ { "field": "...", "text": "neuer Text im Limit" } ] }';
+  var repaired=[], changed=false;
+  try{
+    var res=parseJSON(await orChatFor("repair",[{role:"system",content:sys},{role:"user",content:JSON.stringify(payload)}]));
+    if(res && Array.isArray(res.fields)){
+      res.fields.forEach(function(it){
+        if(!it || typeof it.text!=="string") return;
+        var f=byKey[it.field]; if(!f) return;
+        var nt=it.text.trim(); if(!nt || nt===f.text) return;
+        /* Sicherheitsnetz: die Reparatur selbst durch Stufe-2-Hygiene schicken,
+           damit sie keine Floskel/keinen Gedankenstrich neu einschleppt. */
+        nt=killFloskeln(ersetzeGedankenstriche(nt));
+        try{ nt=fixCurrency(nt); }catch(e){}
+        nt=nt.replace(/[ \t]{2,}/g," ").trim();
+        f.set(nt); f.text=nt; repaired.push(it.field); changed=true;
+      });
+    }
+  }catch(e){
+    /* Nicht still scheitern (Spec 9): Fehler sichtbar machen, aber die Generierung nicht blockieren. */
+    try{ console.warn("[Stufe 3] Reparatur fehlgeschlagen:", e && e.message); }catch(_){}
+    try{ window._smStageError="Stufe 3 (Längen-Reparatur): "+((e&&e.message)||"unbekannter Fehler"); }catch(_){}
+  }
+  /* Nachpruefen: was ist trotz Reparatur noch nicht sauber? (KEIN Trim als Fallback) */
+  var failed=[];
+  smCollectFields(obj,opts).forEach(function(f){
+    var flags=smFieldFlags(f, opts.mode||"finnet");
+    if(flags.length) failed.push(f.key+" ("+flags.join("/")+")");
+  });
+  try{ window._smRepairLog={ kontrolle:kontrolle, angefragt:payload.map(function(p){return p.field;}), repariert:repaired, offen:failed };
+       console.log("[Stufe 3 Repair]", JSON.stringify(window._smRepairLog,null,2)); }catch(e){}
+  return { changed:changed, repaired:repaired, failed:failed };
+}
+
+/* ---------------------------------------------------------------------------
+   STUFE 1 — Story-Auswahl und Redaktions-Plan. Fix fuer Yukis Kernkritik
+   ("kein roter Faden", "EU-Strafe waere ein eigener Beitrag").
+   KEINE Websuche: die Rangfolge ergibt sich allein aus dem Artikel. Grounding bleibt
+   artikel-only, damit im BaFin-Kontext keine ungeprueften Fakten hereinkommen.
+   --------------------------------------------------------------------------- */
+async function smStoryPlan(txt, slideCount){
+  var n=slideCount||3;
+  var sys="Du bist Redaktionsleiter fuer Social-Media-Beitraege eines Finanzportals.\n"+
+    "Aufgabe: Analysiere den folgenden Artikel und bestimme, welche EINE Story sich am\n"+
+    "besten fuer einen einzelnen Social-Beitrag eignet.\n\n"+
+    "Regeln:\n"+
+    "- Ein Beitrag transportiert genau EINE Kernstory. Zwei eigenstaendige Storys\n"+
+    "  (z.B. Quartalszahlen UND eine Kartellstrafe) gehoeren NICHT in denselben Beitrag.\n"+
+    "- Identifiziere bis zu drei Story-Kandidaten aus dem Artikel.\n"+
+    "- Ranke sie nach Relevanz fuer Privatanleger: Groesse und Ueberraschung der Zahlen\n"+
+    "  (Konsens geschlagen oder verfehlt), Marktreaktion, Neuigkeitswert.\n"+
+    "- Waehle genau eine als primary. Begruende jede Story in EINEM Satz.\n"+
+    "- Der Aufhaenger der primary-Story muss der WICHTIGSTE oder INTERESSANTESTE Fakt sein,\n"+
+    "  nicht der naheliegendste oder der, der im Text zuerst steht.\n"+
+    "- Nutze ausschliesslich Fakten aus dem Artikel. Erfinde nichts. Keine externe Recherche.\n"+
+    "- Gib fuer die primary-Story einen Slide-Rollen-Plan zurueck: jede Slide bekommt\n"+
+    "  eine klare Aufgabe. Standard-Dramaturgie: Slide 1 Hook plus Kernaussage,\n"+
+    "  Slide 2 Mechanismus (warum passiert das), Slide 3 Konsequenz oder Ausblick.\n"+
+    "  Dieser Beitrag hat "+n+" Slide(s) — passe die Rollen genau an diese Anzahl an.\n"+
+    "- Enthaelt der Artikel weitere eigenstaendige Themen, liste sie unter dropped_topics.\n\n"+
+    "Antworte AUSSCHLIESSLICH mit diesem JSON, ohne Vorwort, ohne Markdown:\n"+
+    '{\n'+
+    '  "stories": [\n'+
+    '    { "id": "s1", "titel": "kurzer Story-Titel", "begruendung": "ein Satz, warum diese Story oder was daran anders ist", "relevanz": "hoch | mittel | niedrig", "primary": true }\n'+
+    '  ],\n'+
+    '  "slide_rollen": [\n'+
+    '    { "slide": 1, "rolle": "Hook plus Kernaussage", "inhalt_kurz": "was hier hin soll" }\n'+
+    '  ],\n'+
+    '  "dropped_topics": [\n'+
+    '    { "thema": "z.B. EU-Kartellstrafe", "empfehlung": "eigener Beitrag empfohlen" }\n'+
+    '  ]\n'+
+    '}';
+  /* KEIN temperature-Parameter: Sonnet 5 listet ihn bei keinem OpenRouter-Endpunkt als
+     unterstuetzt (geprueft 28.07.2026). Determinismus kommt aus reasoning_effort + Prompt. */
+  var out=parseJSON(await orChatFor("plan",[{role:"system",content:sys},{role:"user",content:"ARTIKEL:\n"+txt.slice(0,SM_ARTICLE_WINDOW)}]));
+  var stories=(out&&Array.isArray(out.stories))?out.stories.filter(function(s){ return s&&s.titel; }).slice(0,3):[];
+  if(!stories.length) return null;
+  /* Genau EINE primary garantieren (Modell liefert gelegentlich keine oder mehrere). */
+  var iPrim=stories.findIndex(function(s){ return s.primary===true; });
+  if(iPrim<0) iPrim=0;
+  stories.forEach(function(s,i){ s.primary=(i===iPrim); if(!s.id) s.id="s"+(i+1); });
+  return {
+    stories: stories,
+    slide_rollen: (out&&Array.isArray(out.slide_rollen))?out.slide_rollen:[],
+    dropped_topics: (out&&Array.isArray(out.dropped_topics))?out.dropped_topics:[]
+  };
+}
+
+/* Slide-Rollen-Plan als Prompt-Baustein fuer die Feldbefuellung (Stufe 1 -> Feldbefuellung). */
+function smStoryPromptBlock(){
+  var p=window._smStoryPlan; if(!p) return "";
+  var sel=(p.stories||[]).find(function(s){ return s.id===window._smStoryId; }) ||
+          (p.stories||[]).find(function(s){ return s.primary; });
+  if(!sel) return "";
+  var s="REDAKTIONS-PLAN (verbindlich, Stufe 1 hat ihn aus dem Artikel abgeleitet): "+
+    "Dieser Beitrag behandelt AUSSCHLIESSLICH die Story \""+sel.titel+"\" ("+(sel.begruendung||"")+"). "+
+    "Alle Felder zahlen auf DIESE eine Kernstory ein. ";
+  var roll=(p.slide_rollen||[]);
+  if(roll.length){
+    s+="Befuelle die Felder gemaess diesen Slide-Rollen, damit ein roter Faden entsteht: "+
+      roll.map(function(r){ return "Slide "+r.slide+" = "+r.rolle+(r.inhalt_kurz?(" ("+r.inhalt_kurz+")"):""); }).join("; ")+". ";
+  }
+  var dropped=(p.dropped_topics||[]).map(function(d){ return d.thema; }).filter(Boolean);
+  if(dropped.length){
+    s+="AUSGESCHLOSSEN sind diese eigenstaendigen Nebenthemen des Artikels — sie gehoeren in einen "+
+      "EIGENEN Beitrag und duerfen in KEINEM Feld auftauchen: "+dropped.join(", ")+". ";
+  }
+  return s;
+}
+
+/* ---------------------------------------------------------------------------
+   STUFE 4 — Qualitaets- und Sinn-Gate. Die fuer Yuki wichtigste Stufe.
+   Sonnet schreibt KEINEN neuen Beitrag, sondern urteilt anhand der Rubrik und liefert
+   pro Problem einen konkreten Fix, der ins Zeichenbudget passt. EIN Call fuer alle Issues.
+   Prueft ausdruecklich NICHT, was Stufe 2 deterministisch erledigt hat.
+   --------------------------------------------------------------------------- */
+async function smQaGate(obj, article, opts){
+  opts=opts||{};
+  var isZero=(opts.mode==="zero");
+  var fields=smCollectFields(obj,opts).map(function(f){ return { field:f.key, limit:f.limit||null, text:f.text }; });
+  if(!fields.length) return { verdict:"pass", issues:[] };
+  var sys="Du bist strenger Schlussredakteur fuer Social-Media-Finanzbeitraege.\n"+
+    "Pruefe die vorliegenden Feldtexte gegen den Originalartikel und die Checkliste.\n"+
+    "Schreibe KEINEN neuen Beitrag. Gib nur ein Urteil zurueck.\n\n"+
+    "Checkliste (nur diese Kriterien pruefen):\n"+
+    "- ein_kernnarrativ: Alle Slides zahlen auf EINE Kernstory ein, nichts wirkt zusammengewuerfelt.\n"+
+    "- nur_ein_thema: Keine zweite eigenstaendige Story hineingequetscht.\n"+
+    "- richtiger_aufhaenger: Der Aufhaenger ist der wichtigste oder interessanteste Fakt,\n"+
+    "  nicht der naheliegendste und nicht der, der im Artikel zuerst steht.\n"+
+    "- ohne_vorwissen_verstaendlich: Jede Slide ist auch ohne Vorwissen einordbar (wer, was, warum).\n"+
+    "- bullets_konkret: Bullets sind konkret, nicht nichtssagend.\n"+
+    "- abkuerzung_erklaert: Erklaerungsbeduerftige Abkuerzungen sind bei Erstnennung erklaert\n"+
+    "  (Ausnahme breit bekannte: KGV, ETF, EPS, DAX, IPO, CEO, KI, BIP, FDA).\n"+
+    "- keine_offene_frage: Keine rhetorische Frage, die der Beitrag nicht beantwortet.\n"+
+    "- kursbewegung_relevant: Kursbewegung nur genannt, wenn sie relevant ist.\n"+
+    (isZero?"- zero_compliance: Marke ist finanzen.net zero. KEINE persoenliche Kauf- oder Verkaufssicht,\n"+
+      "  keine Formulierungen wie 'jetzt kaufen', 'lohnt sich', 'Top-Pick'. Erlaubt: neutrale Fakten,\n"+
+      "  Analysten-Bezug mit Quelle, oder Frage-Framing.\n":"")+
+    "- grounding: Jeder Fakt, jede Zahl, jeder Name kommt im Artikel vor.\n\n"+
+    "Pruefe NICHT: Floskeln, Gedankenstriche, Zeichenlimit, Waehrungsformat.\n"+
+    "Das ist bereits deterministisch geprueft.\n"+
+    "Pruefe ebenfalls NICHT als Fehler: eine WIEDERHOLTE HEADLINE auf der Folge-Slide. Das ist\n"+
+    "abgenommene Redaktionspraxis (Wiedererkennung im Karussell). Auch die Markierung einer\n"+
+    "Kernzahl mit **doppelten Sternchen** ist gewollte Hervorhebung und KEIN Fehler.\n"+
+    "Wiederholte FAKTEN (dieselbe Zahl, dasselbe Ereignis in mehreren Feldern) sind dagegen\n"+
+    "sehr wohl ein Problem und gehoeren unter ein_kernnarrativ.\n\n"+
+    "severity: 'hoch' nur bei echten inhaltlichen Fehlern (falscher Aufhaenger, zweites Thema,\n"+
+    "gebrochenes Grounding, ohne Vorwissen unverstaendlich, Compliance-Verstoss).\n"+
+    "'mittel' fuer Stil- und Schaerfungshinweise.\n"+
+    "Fuer jeden Fix gilt: der Ersatztext muss ins angegebene Zeichenbudget des Feldes passen,\n"+
+    "ein vollstaendiger Satz sein und darf keinen Fakt enthalten, der nicht im Artikel steht.\n"+
+    "Nur Felder verwenden, die in FELDER vorkommen — erfinde keine Feldnamen.\n\n"+
+    "Antworte AUSSCHLIESSLICH mit diesem JSON, ohne Vorwort, ohne Markdown:\n"+
+    '{ "verdict": "pass | fail", "issues": [ { "field": "...", "criterion": "ein_kernnarrativ | nur_ein_thema | richtiger_aufhaenger | ohne_vorwissen_verstaendlich | bullets_konkret | abkuerzung_erklaert | keine_offene_frage | kursbewegung_relevant | zero_compliance | grounding", "severity": "hoch | mittel", "problem": "Begruendung in einem Satz", "suggested_fix": "vollstaendiger Ersatztext im Zeichenbudget" } ] }';
+  var user="ARTIKEL:\n"+(article||"").slice(0,SM_ARTICLE_WINDOW)+"\n\nFELDER:\n"+JSON.stringify(fields);
+  /* Kein temperature-Parameter (siehe Kommentar in smStoryPlan). */
+  var out=parseJSON(await orChatFor("qa",[{role:"system",content:sys},{role:"user",content:user}]));
+  var known={}; fields.forEach(function(f){ known[f.field]=f.limit; });
+  var issues=((out&&Array.isArray(out.issues))?out.issues:[]).filter(function(i){ return i && i.field && known[i.field]!==undefined; });
+  /* Fixes, die selbst das Budget sprengen, nicht automatisch anwenden — sie wuerden
+     nur die naechste Ueberlaenge produzieren. Als Hinweis behalten, aber entschaerfen. */
+  issues.forEach(function(i){
+    var lim=known[i.field];
+    if(i.suggested_fix && lim && i.suggested_fix.length>lim){ i.fix_zu_lang=true; }
+  });
+  var verdict=(out&&out.verdict==="fail")?"fail":(issues.some(function(i){ return i.severity==="hoch"; })?"fail":"pass");
+  try{ window._smQaLog={ verdict:verdict, issues:issues }; console.log("[Stufe 4 QA]", JSON.stringify(window._smQaLog,null,2)); }catch(e){}
+  return { verdict:verdict, issues:issues };
+}
+
+/* ---------------------------------------------------------------------------
+   REPAIR-LOOP — orchestriert Stufe 2 -> 3 -> 4 und wendet hoch-Issues an.
+   Max 2 Runden; danach bleiben offene hoch-Issues als rote Warnung stehen und der
+   Beitrag wird NICHT automatisch als fertig markiert. mittel-Issues werden nie
+   automatisch angewendet, sondern nur als Hinweis gezeigt (Yuki entscheidet).
+   --------------------------------------------------------------------------- */
+var SM_QA_MAX_ROUNDS=2;
+async function smRunQaPipeline(obj, article, opts){
+  opts=opts||{};
+  var state={ rounds:0, verdict:"pass", openHigh:[], hints:[], lenFailed:[], applied:[], guardLog:null };
+  try{ window._smStageError=null; }catch(e){}
+  try{
+    /* --- Stufe 2 --- */
+    var g=smGuards(obj,opts);
+    state.guardLog=g.log;
+    /* --- Stufe 3 (immer) --- */
+    var r=await smRepairLength(obj,g,opts);
+    state.lenFailed=r.failed||[];
+    /* --- Stufe 4 + Loop --- */
+    for(var round=1; round<=SM_QA_MAX_ROUNDS; round++){
+      state.rounds=round;
+      var qa=await smQaGate(obj,article,opts);
+      state.verdict=qa.verdict;
+      state.hints=(qa.issues||[]).filter(function(i){ return i.severity!=="hoch"; });
+      var high=(qa.issues||[]).filter(function(i){ return i.severity==="hoch"; });
+      if(!high.length) break;
+      /* hoch-Issues anwenden — nur Fixes, die es auch ins Budget schaffen. */
+      var byKey={}; smCollectFields(obj,opts).forEach(function(f){ byKey[f.key]=f; });
+      var appliedThis=0;
+      high.forEach(function(i){
+        var f=byKey[i.field];
+        if(!f || !i.suggested_fix || i.fix_zu_lang) return;
+        f.set(i.suggested_fix.trim());
+        state.applied.push(i.field+" ("+i.criterion+")");
+        appliedThis++;
+      });
+      if(!appliedThis){ state.openHigh=high; break; }   /* nichts anwendbar -> Loop bricht ab */
+      /* Ein Fix kann Floskel/Strich/Ueberlaenge neu einbringen -> Stufe 2 und 3 erneut. */
+      var g2=smGuards(obj,opts);
+      var r2=await smRepairLength(obj,g2,opts);
+      state.lenFailed=r2.failed||[];
+      if(round===SM_QA_MAX_ROUNDS){
+        /* Letzte Runde: noch einmal urteilen, damit die Warnung den echten Endstand zeigt. */
+        var qaFinal=await smQaGate(obj,article,opts);
+        state.verdict=qaFinal.verdict;
+        state.hints=(qaFinal.issues||[]).filter(function(i){ return i.severity!=="hoch"; });
+        state.openHigh=(qaFinal.issues||[]).filter(function(i){ return i.severity==="hoch"; });
+      }
+    }
+  }catch(e){
+    /* Die Pipeline darf die Generierung NIE blockieren — Fehler klar melden, nicht still schlucken. */
+    state.error=(e&&e.message)||"unbekannter Fehler";
+    try{ console.warn("[QA-Pipeline] abgebrochen:", state.error); }catch(_){}
+  }
+  /* Teil-Fehler einer Stufe (z.B. Stufe 3) sichtbar machen, auch wenn der Rest lief. */
+  try{ if(!state.error && window._smStageError) state.stageWarning=window._smStageError; }catch(e){}
+  window._smQaState=state;
+  return state;
+}
+
+/* ---------------------------------------------------------------------------
+   QA-Anzeige im Editor: hoch = rote Warnung, mittel = gelbe Hinweise.
+   Nutzt das bestehende Warnmuster (gleiche Optik wie smLenWarn).
+   --------------------------------------------------------------------------- */
+function smQaReport(state, hostId){
+  var host=document.getElementById(hostId||"auto-social");
+  if(!host||!state) return;
+  var box=document.getElementById("smQaBox");
+  if(!box){ box=document.createElement("div"); box.id="smQaBox"; }
+  /* Re-Parenting wie bei smStoryHost: nach einem Bereichswechsel muss die Box mitwandern,
+     sonst rendert der Report in einen versteckten Container. */
+  if(box.parentNode!==host) host.appendChild(box);
+  var high=(state.openHigh||[]), hints=(state.hints||[]), lenF=(state.lenFailed||[]);
+  var parts=[];
+  if(state.error){
+    box.style.cssText="margin-top:10px;border-radius:11px;padding:11px 13px;font-size:12.5px;line-height:1.5;background:#fdf3e7;border:1px solid #f2d9b0;color:#8a5a19";
+    box.innerHTML="<b>Textprüfung unvollständig:</b> "+state.error+". Die Felder sind befüllt, aber nicht vollständig geprüft — bitte manuell durchlesen oder neu generieren.";
+    box.style.display="block"; return;
+  }
+  if(high.length||lenF.length){
+    box.style.cssText="margin-top:10px;border-radius:11px;padding:11px 13px;font-size:12.5px;line-height:1.5;background:#fdecec;border:1px solid #f5b5b5;color:#a11";
+    if(high.length) parts.push("<b>Qualitäts-Gate: "+high.length+" schwerwiegende(r) Punkt(e) nach "+state.rounds+" Reparatur-Runde(n) offen:</b><ul style=\"margin:6px 0 0 18px;padding:0\">"+
+      high.map(function(i){ return "<li><b>"+i.field+"</b> ("+i.criterion+"): "+(i.problem||"")+"</li>"; }).join("")+"</ul>");
+    if(lenF.length) parts.push("<b>Länge/Vollständigkeit:</b> "+lenF.join(", ")+" — bitte prüfen.");
+    parts.push("<div style=\"margin-top:6px\">Bitte vor dem Export prüfen oder neu generieren.</div>");
+    box.innerHTML=parts.join("");
+    box.style.display="block";
+    try{ toast("Qualitäts-Gate: "+(high.length+lenF.length)+" Punkt(e) offen — bitte prüfen",6500); }catch(e){}
+  } else if(hints.length){
+    box.style.cssText="margin-top:10px;border-radius:11px;padding:11px 13px;font-size:12.5px;line-height:1.5;background:#fdf9e7;border:1px solid #f0e2a8;color:#7a6410";
+    box.innerHTML="<b>Qualitäts-Gate bestanden</b> — "+hints.length+" Hinweis(e) zur Feinschliff-Entscheidung:"+
+      "<ul style=\"margin:6px 0 0 18px;padding:0\">"+hints.map(function(i){ return "<li><b>"+i.field+"</b> ("+i.criterion+"): "+(i.problem||"")+
+        (i.suggested_fix&&!i.fix_zu_lang?("<br><span style=\"opacity:.85\">Vorschlag: "+i.suggested_fix+"</span>"):"")+"</li>"; }).join("")+"</ul>"+
+      "<div style=\"margin-top:6px;opacity:.8\">Hinweise sind bewusst NICHT automatisch angewendet.</div>";
+    box.style.display="block";
+  } else {
+    box.style.cssText="margin-top:10px;border-radius:11px;padding:11px 13px;font-size:12.5px;line-height:1.5;background:#e8f7f0;border:1px solid #bfe6d4;color:#00794d";
+    box.innerHTML="<b>Qualitäts-Gate bestanden:</b> ein Kernnarrativ, Aufhänger passt, Grounding geprüft, alle Felder im Limit."+
+      (state.applied&&state.applied.length?(" "+state.applied.length+" Feld(er) wurden automatisch korrigiert."):"")+
+      (state.stageWarning?("<div style=\"margin-top:6px;opacity:.85\">Hinweis: "+smEsc(state.stageWarning)+"</div>"):"");
+    box.style.display="block";
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   FEW-SHOT (Feature 11) — Yukis abgenommene Beispielposts pro Format.
+   Struktur steht; die konkreten Beispiele liefert Christian bzw. Yuki nach.
+   Leere Formate werden NICHT in den Prompt gehaengt, damit er nicht aufblaeht.
+   Eintragen: FEWSHOT.news.push({ input_kurz:"...", output_felder:{ head:"...", sub:"...", bullets:["..."] } })
+   --------------------------------------------------------------------------- */
+var FEWSHOT={
+  /* ABGENOMMENE REFERENZBEITRAEGE (aus Yukis eigenen Posts vom 23.07.2026 ausgelesen,
+     eingetragen 28.07.2026). Diese Beitraege sind der Qualitaetsmassstab.
+     Was sie zeigen — bitte beim Erweitern beibehalten:
+       - 1 bis 2 Chevron-Punkte pro Slide, NICHT drei; dafuer inhaltlich vollstaendig
+       - Bullets sind ruhige, vollstaendige Saetze mit Zahl UND Einordnung (bis ~130 Zeichen)
+       - die zentrale Zahl ist per **Sternchen** hervorgehoben
+       - die Cover-Headline wird auf Slide 2 wiederholt (Wiedererkennung, gewollt)
+       - der Aufhaenger ist die konkrete Zahl, nicht die Kursbewegung
+     ZWEI FEHLER aus den Originalen sind hier bewusst KORRIGIERT und duerfen nicht
+     zurueckwandern: (a) "Alphabet hat die Spanne ... angehoben worden" (Grammatik),
+     (b) Mischgebrauch von "$195B" neben "96,54 Milliarden USD" (Waehrungsformat). */
+  news: [
+    {
+      input_kurz:"ASML gewaehrt allen berechtigten Mitarbeitern Aktien im Wert von 20.000 Euro bei Verbleib bis 2030. Weltweit rund 44.500 Beschaeftigte, Gesamtvolumen bis 900 Mio. Euro. Mehr als die Haelfte arbeitet in den Niederlanden, rund 8.500 in den USA. Laut Deloitte braucht die Chipindustrie bis 2030 mehr als eine Million zusaetzliche Arbeitskraefte; Samsung, SK Hynix und TSMC haben ihre Verguetung ebenfalls erhoeht.",
+      output_felder:{
+        head:"ASML: 20.000 EUR Bonus für Mitarbeiter",
+        sub:"ASML will Mitarbeiter bis 2030 binden",
+        intro:"ASML gewährt allen berechtigten Mitarbeitern Aktien im Wert von 20.000 Euro, wenn sie bis 2030 im Unternehmen bleiben.",
+        infoBullet:"Für die weltweit rund 44.500 Beschäftigten stellt ASML bis zu **900 Millionen Euro** bereit.",
+        box:"Mehr als die Hälfte der Beschäftigten arbeitet in den Niederlanden, rund 8.500 weitere in den USA.",
+        closeHead:"Fachkräftemangel im Halbleitersektor",
+        close:"Laut Deloitte benötigt die weltweite Chipindustrie bis 2030 mehr als eine Million zusätzliche Arbeitskräfte.",
+        bullets:[
+          "Laut Deloitte benötigt die weltweite Chipindustrie bis 2030 mehr als **eine Million** zusätzliche Arbeitskräfte.",
+          "Auch Samsung, SK Hynix und TSMC haben ihre Vergütung zuletzt deutlich erhöht, um Techniker und Ingenieure langfristig zu binden."
+        ]
+      }
+    },
+    {
+      input_kurz:"Alphabet erhoeht die Investitionsprognose fuer 2026 erneut, nun 195 bis 205 Mrd. USD. Dritte Erhoehung in Folge: im Fruehjahr von 175-185 auf 180-190 Mrd. USD. Umsatz stieg von 96,54 Mrd. USD im Vorjahresquartal auf 119,8 Mrd. USD, Gewinn je Aktie 5,11 USD nach 2,31 USD. Trotz Wachstum faellt die Aktie, weil Anleger die hohen Investitionen hinterfragen.",
+      output_felder:{
+        head:"Alphabet erhöht erneut die KI-Investitionen",
+        sub:"Warum die Aktie trotzdem fällt",
+        intro:"Die Google-Mutter rechnet nun für 2026 mit Investitionsausgaben von 195 bis 205 Milliarden Dollar.",
+        infoBullet:"Das ist bereits die **dritte Erhöhung** in Folge.",
+        box:"Alphabet hatte die Spanne erst im Frühjahr von 175 bis 185 auf 180 bis 190 Milliarden Dollar angehoben.",
+        closeHead:"Die hohen Investitionen werden hinterfragt",
+        close:"Mit dem Wachstum überzeugte der Internetkonzern, doch abermals hohe Investitionen werden von Anlegern immer stärker hinterfragt.",
+        bullets:[
+          "Alphabet steigerte die Umsätze von 96,54 Milliarden USD im Vorjahreszeitraum auf **119,8 Milliarden USD**.",
+          "Der Gewinn pro Aktie betrug **5,11 USD**, nach einem EPS von 2,31 USD im Vorjahresquartal."
+        ]
+      }
+    }
+  ],
+  quartalszahlen:  [],
+  vergleich:       [],
+  zitat:           [],
+  zero_earnings:   [],
+  azf_carousel:    []
+};
+function smFewshotBlock(formatKey){
+  var ex=(FEWSHOT[formatKey]||[]);
+  if(!ex.length) return "";
+  return " ABGENOMMENE REFERENZBEISPIELE (von der Redaktion final freigegeben): Orientiere dich an "+
+    "diesen Beispielen fuer Struktur, Tonalitaet und Informationsdichte — NICHT fuer Inhalt oder Zahlen. "+
+    "Die Fakten kommen ausschliesslich aus dem aktuellen Artikel. Beispiele: "+
+    JSON.stringify(ex.slice(0,3))+" ";
+}
+
+/* ====================  ENDE TEXT-QA-PIPELINE  ==================== */
+
 /* ---------- Erweiterte Extraktion: Felder + Formatvorschlaege + Captions ---------- */
 var SM_FORMAT_LABELS={ news:"Klassisches News-Format", quartalszahlen:"Quartalszahlen-Format", vergleich:"Vergleichsformat", zitat:"Zitate-Format" };
-extractSocial = async function(txt){
+extractSocial = async function(txt, xopts){
   txt=smSanitize(txt);
+  xopts=xopts||{};
   var b=SOCIAL_BRANDS[window._smBrand]||SOCIAL_BRANDS.finnet;
+  /* ===== STUFE 1: Story-Auswahl + Slide-Rollen (Christian 28.07.2026) =====
+     Laeuft VOR der Feldbefuellung. Bei "Felder neu befuellen" (skipPlan) bleibt der
+     bestehende Plan samt Auswahl erhalten, es wird nur neu befuellt. */
+  if(!xopts.skipPlan){
+    var _inf=$id("smAutoInfo");
+    if(_inf) _inf.textContent="Claude prüft, welche Story sich am besten eignet …";
+    try{
+      var _n=((window.SM_SERIES_DEF||{})[window._smSeries||"k3"]||{}).n||3;
+      var _plan=await smStoryPlan(txt,_n);
+      window._smStoryId=null;                 /* neue Analyse -> Auswahl auf primary zuruecksetzen */
+      smRenderStoryPlan(_plan);
+    }catch(e){
+      /* Nicht still scheitern (Spec 9): sichtbar melden, Befuellung laeuft trotzdem weiter. */
+      try{ console.warn("[Stufe 1] Story-Plan fehlgeschlagen:", e&&e.message); }catch(_){}
+      try{ toast("Story-Auswahl nicht möglich ("+((e&&e.message)||"Fehler")+") — Felder werden ohne Story-Plan befüllt",6000); }catch(_){}
+    }
+  }
   var _st=SM_TEXTSTYLES[window._smTextStyle]||SM_TEXTSTYLES.auto;
   var stylePart = window._smTextStyle==="auto"
     ? " W\u00e4hle selbst den passenden Textstil f\u00fcr diesen Artikel (hook=zugespitzt/neugierig, trader=maximale Zahlendichte, info=ruhig erkl\u00e4rend) und gib ihn im Feld textstyle zur\u00fcck."
@@ -4698,9 +5832,9 @@ extractSocial = async function(txt){
     "\"relevanz\":{\"staerkster_fakt\":\"der eine Fakt, den du als wichtigsten identifiziert hast, mit Zahl/Beleg\",\"warum\":\"1 kurzer Satz warum dieser Fakt die anderen Kandidaten schlaegt (Gewicht/Ueberraschung/Anlagerelevanz) -- falls es die Kursbewegung ist, begruende explizit warum sie hier der staerkste Fakt ist\",\"verworfen\":\"1 kurzes Beispiel eines schwaecheren Fakts, den du bewusst NICHT in head/bullets[0] verwendet hast\"},"+
     "\"head\":\"prägnante Schlagzeile, max 55 Zeichen -- MUSS den staerksten Fakt aus relevanz enthalten, falls er dort noch nicht steht\","+
     "\"sub\":\"Unterzeile, STRIKT max 40 Zeichen (muss bei gro\u00dfer Schrift auf EINE Zeile passen). MUSS zusammen mit head OHNE Artikel/Bild verstaendlich sein: nenne Akteur/Thema oder Kernaussage konkret. NIEMALS ein kontextloses Fragment (verboten: 'Wochen, nicht Monate' ohne zu sagen WAS in Wochen; bei Vergleich/Gegensatz das Bezugswort mitnennen). Kein reiner Teaser, der erst durch den Artikel Sinn ergibt.\","+
-    "\"bullets\":[\"drei Kernaussagen, je STRIKT max 90 Zeichen — kurz und konkret, EIN Fakt pro Bullet (harte Grenze, sonst Layout-Bruch). QUALITÄTS-REGELN (alle Pflicht): (1) Jeder Punkt muss OHNE Vorwissen verständlich sein — ein Follower, der nur diese Slide sieht, versteht sofort, worum es geht und was passiert ist. (2) Jeder Punkt enthält mindestens EINEN konkreten Fakt aus dem Artikel: eine Zahl, einen Prozentwert, einen Betrag, ein Datum oder eine klar benannte Entscheidung — keine vagen Aussagen wie 'Experten sind optimistisch' oder 'Das Umfeld bleibt schwierig'. (3) Die drei Punkte bauen als Story aufeinander auf: Punkt 1 = WAS ist konkret passiert (das Ereignis mit der wichtigsten Zahl), Punkt 2 = WARUM / der Auslöser oder Kontext, Punkt 3 = die KONSEQUENZ: was es für Anleger, das Unternehmen oder den Markt konkret bedeutet. (4) Der wichtigste Fakt des Artikels MUSS in den Bullets vorkommen — frage dich: Was ist die eine Sache, die ein Leser mitnehmen soll? Diese zuerst. (5) Aktive, konkrete Sprache: Subjekt + Verb + Fakt ('Intel hebt die Xeon-Preise um 12 Prozent an'), keine Substantivierungen, keine Füllwörter, kein Behörden-Deutsch. SELBSTTEST vor der Antwort: Lies deine drei Bullets isoliert — versteht ein Laie ohne den Artikel, was passiert ist und warum es wichtig ist? Falls nein, umschreiben\"],"+
+    "\"bullets\":[\"zwei bis drei Kernaussagen, je max 130 Zeichen — konkret, EIN Fakt pro Bullet. LIEBER ZWEI STARKE PUNKTE ALS DREI SCHWACHE (Redakteurs-Praxis Yuki, abgenommene Referenzbeitraege 23.07.2026: dort stehen 1-2 Punkte pro Slide, dafuer inhaltlich vollstaendig ausformuliert mit Zahl UND Einordnung im selben Satz — z.B. 'Auch Samsung, SK Hynix und TSMC haben ihre Verguetung zuletzt deutlich erhoeht, um Techniker und Ingenieure langfristig zu binden'). Ein Bullet darf ein vollstaendiger, ruhig formulierter Satz sein; er muss NICHT stichwortartig kurz sein. HERVORHEBUNG: Die EINE zentrale Zahl oder Kennzahl im Bullet in **doppelte Sternchen** setzen (z.B. 'stellt ASML bis zu **900 Millionen Euro** bereit') — hoechstens EINE Hervorhebung pro Bullet, nie ganze Saetze, nie wenn der Bullet keine Kernzahl hat. QUALITÄTS-REGELN (alle Pflicht): (1) Jeder Punkt muss OHNE Vorwissen verständlich sein — ein Follower, der nur diese Slide sieht, versteht sofort, worum es geht und was passiert ist. (2) Jeder Punkt enthält mindestens EINEN konkreten Fakt aus dem Artikel: eine Zahl, einen Prozentwert, einen Betrag, ein Datum oder eine klar benannte Entscheidung — keine vagen Aussagen wie 'Experten sind optimistisch' oder 'Das Umfeld bleibt schwierig'. (3) Die drei Punkte bauen als Story aufeinander auf: Punkt 1 = WAS ist konkret passiert (das Ereignis mit der wichtigsten Zahl), Punkt 2 = WARUM / der Auslöser oder Kontext, Punkt 3 = die KONSEQUENZ: was es für Anleger, das Unternehmen oder den Markt konkret bedeutet. (4) Der wichtigste Fakt des Artikels MUSS in den Bullets vorkommen — frage dich: Was ist die eine Sache, die ein Leser mitnehmen soll? Diese zuerst. (5) Aktive, konkrete Sprache: Subjekt + Verb + Fakt ('Intel hebt die Xeon-Preise um 12 Prozent an'), keine Substantivierungen, keine Füllwörter, kein Behörden-Deutsch. SELBSTTEST vor der Antwort: Lies deine drei Bullets isoliert — versteht ein Laie ohne den Artikel, was passiert ist und warum es wichtig ist? Falls nein, umschreiben\"],"+
     "\"close\":\"Schluss-Statement, max 120 Zeichen: die konkrete Kernerkenntnis oder der Ausblick mit Substanz (was sollte man im Blick behalten und WARUM) — kein generisches 'Es bleibt spannend'\","+
-    "\"closeHead\":\"kurze Headline für die Schluss-Slide, max 40 Zeichen, inhaltlich zum Artikel passend, NICHT generisch\","+
+    "\"closeHead\":\"kurze Headline für die Schluss-Slide, max 55 Zeichen, inhaltlich zum Artikel passend, NICHT generisch\","+
     "\"brand\":\"die zentrale Firma oder Marke, sonst leerer String\","+
     "\"companies\":[\"alle im Artikel genannten Firmennamen\"],"+
     "\"prompt\":\"AUSFÜHRLICHER englischer Bild-Prompt (3-5 Sätze, 50-90 Wörter) für ein thematisch GENAU passendes Hintergrundfoto ohne Text: Hauptmotiv, Setting, Objekte, Komposition, ruhige Textzone. STIL IMMER natürliches ruhiges Business-/Finanz-Stockfoto, weiches gleichmäßiges Tageslicht, neutrale Farben, NICHT dramatisch/cinematisch\","+
@@ -4715,14 +5849,30 @@ extractSocial = async function(txt){
     "\"textstyle\":\"hook|trader|info \u2014 der verwendete Textstil\","+
     "\"series\":{\"key\":\"k3|k2|z3|d4 — welche Slide-Serie am besten passt: k3=Karussell klassisch 3 Slides (Standard-News), k2=Kompakt 2 Slides (kurze Meldung, wenig Substanz), z3=Zitat-Story 3 Slides (NUR wenn ein starkes wörtliches Zitat einer Person im Artikel steht), d4=Deep Dive 4 Slides (komplexes Thema mit viel Substanz)\",\"grund\":\"1 kurzer Satz warum\"},"+
     "\"quote\":{\"text\":\"das stärkste wörtliche Zitat aus dem Artikel OHNE Anführungszeichen, max 160 Zeichen, sonst leerer String\",\"name\":\"Person des Zitats\",\"role\":\"Rolle, z.B. CEO von Apple\"},"+
-    "\"infoHead\":\"EIGENE Headline für die Info-Slide, max 40 Zeichen — behandelt einen ANDEREN Aspekt als Schlagzeile und Schluss-Headline\","+
+    "\"infoHead\":\"EIGENE Headline für die Info-Slide, max 55 Zeichen — behandelt einen ANDEREN Aspekt als Schlagzeile und Schluss-Headline (darf aber die Cover-Headline wiederholen, wenn das inhaltlich passt)\","+
     "\"intro\":\"Einordnungs-Absatz für die Info-Slide, max 140 Zeichen (kurz, 1-2 knappe Sätze): ein NEUER Aspekt oder Hintergrund, der in den bullets NICHT vorkommt, mit mindestens einem konkreten Fakt\","+
-    "\"infoBullet\":\"Chevron-Punkt der Info-Slide, max 85 Zeichen: ein weiterer NEUER Fakt, der weder in bullets noch in intro steht\","+
+    "\"infoBullet\":\"Chevron-Punkt der Info-Slide, max 130 Zeichen: ein weiterer NEUER Fakt, der weder in bullets noch in intro steht. Darf ein vollstaendiger Satz mit Einordnung sein (Yuki-Praxis). Die zentrale Zahl in **doppelte Sternchen** setzen, hoechstens eine pro Punkt\","+
     "\"box\":\"Kontext/Ausblick für die abgerundete Info-Box, max 130 Zeichen und EIN vollständiger, in sich abgeschlossener Satz: die konkrete Konsequenz oder der nächste relevante Termin — darf KEINEN Fakt aus bullets, intro oder infoBullet wiederholen\","+
     "\"x\":{\"text\":\"Post für X (Twitter), STRIKT max 240 Zeichen (Puffer für Cashtags): macht neugierig auf die Slides und regt zum Durchklicken an (z.B. Kernaussage anteasern, die stärkste Zahl nennen, aber nicht alles verraten). Redakteurs-Ton, keine KI-Floskeln, maximal 1 Emoji\",\"cashtags\":[\"0 bis MAXIMAL 2 Börsenticker der zentralen Aktien im Format $AMD, $NVDA. STRENG: nur das KORREKTE, dir sicher bekannte Kürzel verwenden (z.B. SpaceX wäre $SPACEX bzw. ist NICHT börsennotiert -> dann KEIN Ticker; $SPCE ist Virgin Galactic, nicht SpaceX!). Rate NIE. KEINE Dubletten. Ist die Firma nicht börsennotiert oder das Kürzel unsicher: leere Liste []\"]},"+
     "\"hashtags\":{\"instagram\":[\"MAXIMAL 5 deutsche Hashtags (nie mehr als 5!), klein geschrieben. AUSWAHL-REGEL: 1x Firmenname + sonst breite, reichweitenstarke Finanz-/Wirtschafts-Hashtags wie #börse, #aktien, #finanzen, #wirtschaft, #investieren, #geldanlage. KEINE Nischen-Hashtags zum Spezialthema (FALSCH: #containerschifffahrt, #prognose, #hamburg, #nutzfahrzeuge — RICHTIG: #hapaglloyd #aktien #börse #wirtschaft #finanzen)\"],\"linkedin\":[\"MAXIMAL 5 Hashtags (nie mehr als 5!): 1x Firmenname + breite Wirtschafts-/Finanz-Tags (#Wirtschaft, #Börse, #Finanzen, #Investieren), keine Nischen-Tags\"]}}. HASHTAG-OBERGRENZE (Pflicht, Redakteurs-Feedback Yuki 15.07., gilt für ALLE Plattformen ausnahmslos): Egal welches Feld oder welche Plattform Hashtags enthält — NIE mehr als 5 Hashtags insgesamt. "+
-    "ANTI-REDUNDANZ (kritisch): Jedes Feld wird auf einer EIGENEN Slide angezeigt. Über ALLE Felder hinweg (head, sub, bullets, infoHead, intro, infoBullet, box, close, closeHead) darf derselbe Fakt NIE zweimal vorkommen — auch nicht umformuliert. Verteile die Fakten des Artikels bewusst: bullets = die 3 wichtigsten Kernfakten; intro/infoBullet/box = weitere Aspekte, Hintergründe, Zahlen oder Termine, die in den bullets NICHT stehen; close = eine echte Schlussfolgerung, kein Fakten-Recap. closeHead und infoHead müssen sich klar von head und voneinander unterscheiden. SELBSTTEST: Lies alle Felder nacheinander wie ein Karussell — wiederholt sich inhaltlich etwas, ersetze es durch einen noch nicht genutzten Fakt aus dem Artikel. KEIN KI-KLANG (Pflicht für alle Texte): VERBOTEN sind formelhafte Absatz-Einstiege mit Doppelpunkt-Anmoderation wie 'Besonders überraschend:', 'Ein Wermutstropfen bleibt:', 'Besonders bemerkenswert:', 'Interessant dabei:', 'Wichtig zu wissen:', 'Hinzu kommt:', 'Nicht zu vergessen:' und ähnliche Zweiwort-Floskeln. Statt 'Besonders überraschend: International Motors erzielte 115 Mio.' schreibe 'International Motors erzielte 115 Mio. EUR — der Konsens hatte einen Verlust erwartet.' Die Überraschung/Bewertung gehört IN den Satz, nicht davor. Variiere Satzanfänge über alle Absätze. LESBARKEIT (Pflicht): Schreibe einfache, klare Sätze wie ein guter Nachrichtenredakteur. Maximal EIN Nebensatz pro Satz, KEINE Schachtelsätze, KEINE Einschübe mit Gedankenstrich am Satzende, keine Relativsatz-Ketten. Lieber zwei kurze Sätze als ein verschachtelter. Negativ-Beispiel (so NICHT): 'Louisiana befreite Ende 2024 Rechenzentren, die vor 2029 gebaut werden, für 20 Jahre von der Umsatzsteuer — gezielt, um Meta ins Land zu holen.' Besser: 'Louisiana befreit neue Rechenzentren für 20 Jahre von der Umsatzsteuer. Das Gesetz von Ende 2024 sollte gezielt Meta ins Land holen.' SELBSTTEST LESBARKEIT: Lies jeden Satz laut — stolpert man oder braucht man zwei Anläufe, in zwei Sätze aufteilen. WÄHRUNGS-SCHREIBWEISE (Pflicht in allen Feldern): Entweder Symbol VOR der Zahl ('$ 4.062,60') ODER Kürzel NACH der Zahl ('4.062,60 USD', '145,30 EUR'). NIEMALS das Symbol nach der Zahl ('4.062,60 $' ist FALSCH), kein ausgeschriebenes 'US-Dollar' hinter Zahlen. Innerhalb des Beitrags einheitlich eine Variante verwenden. GROUNDING (absolut kritisch, Verstoß = unbrauchbar): Verwende AUSSCHLIESSLICH Fakten, Zahlen, Namen, Firmen und Vergleiche, die WÖRTLICH im Artikeltext stehen. Erfinde NIEMALS Vergleiche oder Einordnungen mit Firmen/Werten, die der Artikel nicht nennt (z.B. NICHT 'mehr als Apple wert' schreiben, wenn Apple im Text nicht vorkommt). Kein Weltwissen ergänzen, keine Kontexte aus deinem Training, keine gerundeten oder umgerechneten Zahlen — nur was im Text steht, in der Form, in der es dort steht. SELBSTTEST GROUNDING: Prüfe jedes Feld — kommt jede Zahl, jeder Firmenname und jeder Vergleich darin im Artikeltext vor? Falls nein, ersatzlos streichen oder durch einen belegten Fakt ersetzen. KEINE META-REFERENZ AUF DEN ARTIKEL (Pflicht, Redakteurs-Feedback Yuki 15.07.): Schreibe niemals Formulierungen wie 'wird im Artikel als X bezeichnet', 'laut Artikel', 'weitere Details nennt die Firma nicht', 'der Artikel erwähnt nicht' oder ähnliche Verweise auf den Quelltext selbst — das ist ein Stilbruch, der Leser aus der Grafik reißt. Formuliere den Fakt stattdessen direkt und eigenständig, so als hättest du selbst recherchiert: STATT 'Kontron ist im SDAX notiert und wird im Artikel als Technologiekonzern bezeichnet' schreibe 'Kontron ist ein im SDAX notierter Technologiekonzern'. STATT 'Der Auftragsgeber ist ein europäischer Bahnbetreiber — weitere Details nennt Kontron nicht' schreibe 'Der Auftragsgeber ist ein europäischer Bahnbetreiber' (den Nicht-Fakt 'keine weiteren Details' einfach weglassen, statt ihn explizit zu erwähnen). Wenn eine Information im Artikel fehlt, lasse sie ersatzlos weg — erwähne NIE, dass sie fehlt oder woher die vorhandene Information stammt. GRAMMATIK & UMLAUTE (Pflicht, Redakteurs-Feedback 15.07.): Fehlerfreies Deutsch in JEDEM Feld. Umlaute ä/ö/ü/ß IMMER korrekt schreiben — niemals Transliterationen oder Fremdschreibweisen (FALSCH: 'Folgekvartal', 'Gewinnschaetzung', 'Boerse' — RICHTIG: 'Folgequartal', 'Gewinnschätzung', 'Börse'). SELBSTTEST GRAMMATIK: Lies jedes Feld auf Rechtschreibung, Grammatik und korrekte Umlaute, korrigiere vor der Antwort. KEIN GENERISCHES ETIKETT / HOOK-PFLICHT (Redakteurs-Feedback Yuki 15.07.): Kein Feld darf so generisch sein, dass ein Leser es ohne Vorwissen nicht einordnen kann (Negativ-Beispiel: eine Cover-Zeile wie 'Trader-Zahlenfokus' oder 'Klassisches News-Format' sagt NICHTS über den Inhalt). Jede Headline/Zeile benennt konkret WER was tut, mit Firma und möglichst einer Zahl. Das Cover muss zum Weiterswipen anregen: stärkster Fakt plus offene Konsequenz oder Spannungsbogen — die Auflösung kommt auf den Folge-Slides. Sachlich, deskriptiv, keine Kaufempfehlung, keine Kursziele als Empfehlung. Alle Zahlen exakt aus dem Text, nichts erfinden. FACHABKUERZUNGEN ERKLAEREN (Pflicht, Redakteurs-Feedback Yuki 16.07.2026): Erklaerungsbeduerftige Abkuerzungen/Fachbegriffe muessen bei ERSTNENNUNG verstaendlich sein — ein Social-Media-Follower ohne Fachwissen muss folgen koennen. Schreibe die Abkuerzung beim ersten Mal AUS oder ergaenze eine 2-4-Wort-Erklaerung in Klammern. NEGATIV-BEISPIEL (echtes Feedback): 'bis zu 2,50 USD CVR' — 'CVR' wird nirgends erklaert und ist KEINE allgemein bekannte Abkuerzung. RICHTIG: 'bedingte Zusatzzahlung (CVR)' oder 'Besserungsschein (CVR, an Meilensteine geknuepft)'. AUSNAHME — NICHT erklaeren muss man breit bekannte Boersen-/Finanzbegriffe: KGV, ETF, EPS, USD/EUR, DAX, IPO, CEO, FDA, KI, BIP. Im Zweifel (Nischen-/Branchenkuerzel wie CVR, DEA-Reclassification, 5-MeO-DMT) IMMER kurz einordnen. Die Erklaerung kurz halten, damit die Feld-Laenge passt.";
-  var out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,9000)}]));
+    "ANTI-REDUNDANZ (kritisch, betrifft FAKTEN — nicht die Headline): Jedes Feld wird auf einer EIGENEN Slide angezeigt. Über ALLE Felder hinweg (head, sub, bullets, infoHead, intro, infoBullet, box, close, closeHead) darf derselbe FAKT NIE zweimal vorkommen — auch nicht umformuliert. AUSNAHME HEADLINE (Redakteurs-Praxis Yuki, abgenommene Referenzbeitraege 23.07.2026): Die Cover-Headline DARF auf der direkt folgenden Slide wortgleich wiederholt werden — das ist gewollte Wiedererkennung im Karussell, kein Fehler. Diese Wiederholung zaehlt NICHT als Redundanz. Verboten bleibt ausschliesslich die Wiederholung von FAKTEN (Zahlen, Ereignisse, Vergleiche) in mehreren Feldern. Verteile die Fakten des Artikels bewusst: bullets = die wichtigsten Kernfakten; intro/infoBullet/box = weitere Aspekte, Hintergründe, Zahlen oder Termine, die in den bullets NICHT stehen; close = eine echte Schlussfolgerung, kein Fakten-Recap. closeHead und infoHead müssen sich klar von head und voneinander unterscheiden. SELBSTTEST: Lies alle Felder nacheinander wie ein Karussell — wiederholt sich inhaltlich etwas, ersetze es durch einen noch nicht genutzten Fakt aus dem Artikel. KEIN KI-KLANG (Pflicht für alle Texte): VERBOTEN sind formelhafte Absatz-Einstiege mit Doppelpunkt-Anmoderation wie 'Besonders überraschend:', 'Ein Wermutstropfen bleibt:', 'Besonders bemerkenswert:', 'Interessant dabei:', 'Wichtig zu wissen:', 'Hinzu kommt:', 'Nicht zu vergessen:' und ähnliche Zweiwort-Floskeln. Statt 'Besonders überraschend: International Motors erzielte 115 Mio.' schreibe 'International Motors erzielte 115 Mio. EUR — der Konsens hatte einen Verlust erwartet.' Die Überraschung/Bewertung gehört IN den Satz, nicht davor. Variiere Satzanfänge über alle Absätze. LESBARKEIT (Pflicht): Schreibe einfache, klare Sätze wie ein guter Nachrichtenredakteur. Maximal EIN Nebensatz pro Satz, KEINE Schachtelsätze, KEINE Einschübe mit Gedankenstrich am Satzende, keine Relativsatz-Ketten. Lieber zwei kurze Sätze als ein verschachtelter. Negativ-Beispiel (so NICHT): 'Louisiana befreite Ende 2024 Rechenzentren, die vor 2029 gebaut werden, für 20 Jahre von der Umsatzsteuer — gezielt, um Meta ins Land zu holen.' Besser: 'Louisiana befreit neue Rechenzentren für 20 Jahre von der Umsatzsteuer. Das Gesetz von Ende 2024 sollte gezielt Meta ins Land holen.' SELBSTTEST LESBARKEIT: Lies jeden Satz laut — stolpert man oder braucht man zwei Anläufe, in zwei Sätze aufteilen. WÄHRUNGS-SCHREIBWEISE (Pflicht in allen Feldern): Entweder Symbol VOR der Zahl ('$ 4.062,60') ODER Kürzel NACH der Zahl ('4.062,60 USD', '145,30 EUR'). NIEMALS das Symbol nach der Zahl ('4.062,60 $' ist FALSCH), kein ausgeschriebenes 'US-Dollar' hinter Zahlen. Innerhalb des Beitrags einheitlich eine Variante verwenden. GROUNDING (absolut kritisch, Verstoß = unbrauchbar): Verwende AUSSCHLIESSLICH Fakten, Zahlen, Namen, Firmen und Vergleiche, die WÖRTLICH im Artikeltext stehen. Erfinde NIEMALS Vergleiche oder Einordnungen mit Firmen/Werten, die der Artikel nicht nennt (z.B. NICHT 'mehr als Apple wert' schreiben, wenn Apple im Text nicht vorkommt). Kein Weltwissen ergänzen, keine Kontexte aus deinem Training, keine gerundeten oder umgerechneten Zahlen — nur was im Text steht, in der Form, in der es dort steht. SELBSTTEST GROUNDING: Prüfe jedes Feld — kommt jede Zahl, jeder Firmenname und jeder Vergleich darin im Artikeltext vor? Falls nein, ersatzlos streichen oder durch einen belegten Fakt ersetzen. KEINE META-REFERENZ AUF DEN ARTIKEL (Pflicht, Redakteurs-Feedback Yuki 15.07.): Schreibe niemals Formulierungen wie 'wird im Artikel als X bezeichnet', 'laut Artikel', 'weitere Details nennt die Firma nicht', 'der Artikel erwähnt nicht' oder ähnliche Verweise auf den Quelltext selbst — das ist ein Stilbruch, der Leser aus der Grafik reißt. Formuliere den Fakt stattdessen direkt und eigenständig, so als hättest du selbst recherchiert: STATT 'Kontron ist im SDAX notiert und wird im Artikel als Technologiekonzern bezeichnet' schreibe 'Kontron ist ein im SDAX notierter Technologiekonzern'. STATT 'Der Auftragsgeber ist ein europäischer Bahnbetreiber — weitere Details nennt Kontron nicht' schreibe 'Der Auftragsgeber ist ein europäischer Bahnbetreiber' (den Nicht-Fakt 'keine weiteren Details' einfach weglassen, statt ihn explizit zu erwähnen). Wenn eine Information im Artikel fehlt, lasse sie ersatzlos weg — erwähne NIE, dass sie fehlt oder woher die vorhandene Information stammt. GRAMMATIK & UMLAUTE (Pflicht, Redakteurs-Feedback 15.07.): Fehlerfreies Deutsch in JEDEM Feld. Umlaute ä/ö/ü/ß IMMER korrekt schreiben — niemals Transliterationen oder Fremdschreibweisen (FALSCH: 'Folgekvartal', 'Gewinnschaetzung', 'Boerse' — RICHTIG: 'Folgequartal', 'Gewinnschätzung', 'Börse'). SELBSTTEST GRAMMATIK: Lies jedes Feld auf Rechtschreibung, Grammatik und korrekte Umlaute, korrigiere vor der Antwort. KEIN GENERISCHES ETIKETT / HOOK-PFLICHT (Redakteurs-Feedback Yuki 15.07.): Kein Feld darf so generisch sein, dass ein Leser es ohne Vorwissen nicht einordnen kann (Negativ-Beispiel: eine Cover-Zeile wie 'Trader-Zahlenfokus' oder 'Klassisches News-Format' sagt NICHTS über den Inhalt). Jede Headline/Zeile benennt konkret WER was tut, mit Firma und möglichst einer Zahl. Das Cover muss zum Weiterswipen anregen: stärkster Fakt plus offene Konsequenz oder Spannungsbogen — die Auflösung kommt auf den Folge-Slides. Sachlich, deskriptiv, keine Kaufempfehlung, keine Kursziele als Empfehlung. Alle Zahlen exakt aus dem Text, nichts erfinden. FACHABKUERZUNGEN ERKLAEREN (Pflicht, Redakteurs-Feedback Yuki 16.07.2026): Erklaerungsbeduerftige Abkuerzungen/Fachbegriffe muessen bei ERSTNENNUNG verstaendlich sein — ein Social-Media-Follower ohne Fachwissen muss folgen koennen. Schreibe die Abkuerzung beim ersten Mal AUS oder ergaenze eine 2-4-Wort-Erklaerung in Klammern. NEGATIV-BEISPIEL (echtes Feedback): 'bis zu 2,50 USD CVR' — 'CVR' wird nirgends erklaert und ist KEINE allgemein bekannte Abkuerzung. RICHTIG: 'bedingte Zusatzzahlung (CVR)' oder 'Besserungsschein (CVR, an Meilensteine geknuepft)'. AUSNAHME — NICHT erklaeren muss man breit bekannte Boersen-/Finanzbegriffe: KGV, ETF, EPS, USD/EUR, DAX, IPO, CEO, FDA, KI, BIP. Im Zweifel (Nischen-/Branchenkuerzel wie CVR, DEA-Reclassification, 5-MeO-DMT) IMMER kurz einordnen. Die Erklaerung kurz halten, damit die Feld-Laenge passt.";
+  /* ===== Feldbefuellung mit Vorgaben aus Stufe 1 + Zeichenbudget (Christian 28.07.2026) =====
+     Der Redaktions-Plan gibt den roten Faden vor, das Budget verhindert, dass Ueberlaenge
+     ueberhaupt entsteht. Das Budget ist ein WEICHES Ziel im Prompt — die harte Pruefung
+     macht Stufe 2, das Kuerzen (durch Neuformulierung) Stufe 3. NIE abschneiden. */
+  var _planBlock=smStoryPromptBlock();
+  if(_planBlock) sys+=" "+_planBlock;
+  sys+=" ZEICHENBUDGET (weiches Ziel, Pflicht zu beachten): Formuliere jedes Feld vollstaendig und "+
+    "gut klingend, halte dabei aber das angegebene Zeichenlimit ein. Lieber eine kuerzere, "+
+    "VOLLSTAENDIGE Aussage als ein abgeschnittener Satz. Ein Feld darf NIEMALS mitten im Wort oder "+
+    "Satz enden. Budget pro Feld in Zeichen: "+
+    JSON.stringify({head:FIELD_LIMITS.head,sub:FIELD_LIMITS.sub,bullets:FIELD_LIMITS.bullets,
+      close:FIELD_LIMITS.close,closeHead:FIELD_LIMITS.closeHead,infoHead:FIELD_LIMITS.infoHead,
+      intro:FIELD_LIMITS.intro,infoBullet:FIELD_LIMITS.infoBullet,box:FIELD_LIMITS.box,
+      x_text:FIELD_LIMITS.x_text})+".";
+  /* Abgenommene Referenzbeispiele, sofern fuer dieses Format hinterlegt (Feature 11). */
+  try{ sys+=smFewshotBlock(window._smFormat||"news"); }catch(e){}
+  var out=parseJSON(await orChatFor("fill",[{role:"system",content:sys},{role:"user",content:txt.slice(0,SM_ARTICLE_WINDOW)}]));
   if(out.head) $id("fHead").value=out.head;
   if(out.sub) $id("fSub").value=out.sub;
   // Zeichengrenze pro Bullet: nur bei extremer Ueberlaenge greifen und dann SAUBER am letzten
@@ -4813,12 +5963,17 @@ extractSocial = async function(txt){
     });
   }
   if(out.captions && out.captions.linkedin) out.captions.linkedin=dedupeMentions(out.captions.linkedin);
-  // X (Twitter): Cashtags normalisieren ($-Präfix, max 2) + Gesamtlänge hart auf 280 begrenzen
+  // X (Twitter): Cashtags normalisieren ($-Präfix, max 2).
   if(out.x){
     if(Array.isArray(out.x.cashtags)){ var _seenT={}; out.x.cashtags=out.x.cashtags.map(function(c){ c=(c||"").trim().toUpperCase().replace(/^\$+/,""); return c?"$"+c:""; }).filter(function(c){ if(!c||_seenT[c]) return false; _seenT[c]=1; return true; }).slice(0,2); }   /* Dedup + Normalisierung (Yuki 17.07.: $SPCE $SPCE) */
+    /* KEIN smartShorten mehr (Guardrail 1.2, Christian 28.07.2026): das hing bei Ueberlaenge
+       ein "…" an und schnitt mitten im Satz. Stattdessen wird das X-Limit dynamisch aus 280
+       minus Cashtag-Laenge berechnet und als BUDGET gesetzt — Stufe 2 markiert Ueberlaenge,
+       Stufe 3 formuliert den Post kuerzer. Nichts wird abgeschnitten. */
     if(out.x.text){
       var tagLen=((out.x.cashtags||[]).join(" ").length)+2;
-      if(out.x.text.length+tagLen>280) out.x.text=smartShorten(out.x.text, 280-tagLen);
+      /* Nur fuer DIESEN Lauf, nicht global (sonst leckt der Wert in den zero-Pfad). */
+      window._smRunLimits={ x_text: Math.max(120, 280-tagLen) };
     }
   }
   // Währungs-Normalisierung an der QUELLE: alle Felder inkl. Headline/Subline/Captions/Story
@@ -4834,6 +5989,28 @@ extractSocial = async function(txt){
     if(Array.isArray(out.bullets)){ $id("fB1").value=out.bullets[0]||""; $id("fB2").value=out.bullets[1]||""; $id("fB3").value=out.bullets[2]||""; }
     if(out.close) $id("fClose").value=out.close;
   }catch(e){}
+  /* ===== STUFE 2 + 3 + 4 + REPAIR-LOOP (Christian 28.07.2026) =====
+     Laeuft ueber ALLE Felder inkl. Captions. Deterministische Guards zuerst, dann
+     Neuformulierung der markierten Felder, dann das Sinn-Gate mit Repair-Loop.
+     Danach werden ALLE Werte in die Eingabefelder zurueckgeschrieben. */
+  var _qaHost=smQaHostId();
+  try{
+    var _inf2=$id("smAutoInfo");
+    if(_inf2) _inf2.textContent="Textprüfung läuft (Floskeln, Länge, Qualitäts-Gate) …";
+    var _qa=await smRunQaPipeline(out, txt, { mode:"finnet", limits:(window._smRunLimits||null) });
+    /* Ergebnis in die Eingabefelder spiegeln — die Pipeline hat out mutiert. */
+    if(out.head) $id("fHead").value=out.head;
+    if(out.sub) $id("fSub").value=out.sub;
+    if(Array.isArray(out.bullets)){ $id("fB1").value=out.bullets[0]||""; $id("fB2").value=out.bullets[1]||""; $id("fB3").value=out.bullets[2]||""; }
+    if(out.close) $id("fClose").value=out.close;
+    if(out.closeHead){ window._smCloseHead=out.closeHead; if($id("fCloseHead")) $id("fCloseHead").value=out.closeHead; }
+    smQaReport(_qa,_qaHost);
+    /* Die alte Laengen-Warnung ist durch die QA-Box abgedeckt — Doppelmeldung vermeiden. */
+    var _oldW=document.getElementById("smLenWarn"); if(_oldW) _oldW.style.display="none";
+    if(_inf2) _inf2.textContent="";
+  }catch(e){
+    try{ console.warn("[QA-Pipeline finnet]", e&&e.message); }catch(_){}
+  }
   window._smText=out;
   // Bei Auto: den von Claude gewaehlten Stil im UI markieren (Auto-Karte bleibt Auswahlzustand)
   if(window._smTextStyle==="auto" && out.textstyle && SM_TEXTSTYLES[out.textstyle]){
@@ -4880,7 +6057,10 @@ document.body.insertAdjacentHTML("beforeend",
   '<div class="ft"><button class="sm-dl" id="smBundle"><svg class="ic" viewBox="0 0 24 24" style="color:#fff"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/></svg> Download Bundle (ZIP)</button>'+
   '<span class="hint" style="display:block;margin-top:8px;text-align:center">Alle Slides in allen gewählten Plattform-Größen (2× HQ) + Captions als Textdatei.</span></div></div>');
 
+/* Alle Copy-/Export-Wege laufen ueber smCopyBtn bzw. die Section-Helfer — Markup dort strippen,
+   damit in Zwischenablage und Text-Downloads nie Sternchen landen. */
 function smCopyBtn(txt){
+  txt=smStripBold(txt);
   var b=document.createElement("button"); b.className="sm-copy"; b.textContent="Kopieren";
   b.onclick=function(){
     (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(function(){
@@ -4890,6 +6070,7 @@ function smCopyBtn(txt){
   return b;
 }
 function smSection(parent,label,text){
+  text=smStripBold(text);   /* Copy-Paste-Text nie mit Markup-Sternchen (Christian 28.07.2026) */
   var s=document.createElement("div"); s.className="sm-sec";
   var lb=document.createElement("div"); lb.className="lb";
   var sp=document.createElement("span"); sp.textContent=label; lb.appendChild(sp); lb.appendChild(smCopyBtn(text));
@@ -4966,6 +6147,7 @@ if(stage){
   cp.querySelector("#smCPanelX").onclick=function(){ cp.classList.remove("show"); };
 }
 function smCSection(parent,label,text){
+  text=smStripBold(text);   /* Copy-Box nie mit Markup-Sternchen (Christian 28.07.2026) */
   var s=document.createElement("div"); s.className="sm-sec";
   var lb=document.createElement("div"); lb.className="lb";
   var sp=document.createElement("span"); sp.textContent=label; lb.appendChild(sp); lb.appendChild(smCopyBtn(text));
@@ -5298,6 +6480,31 @@ function smMetaLines(){
     if((meta.focus||"").trim()) L.push("Redaktions-Fokus: "+meta.focus.trim());
     var ex=(window.smExtra||{});
     if(ex.on){ L.push("Extra-Grafik: ja ("+({chart:"Datenchart",context:"Kennzahl im Kontext",illu:"Illustration"}[ex.type]||ex.type)+(ex.title?(" — "+ex.title):"")+")"); }
+    /* Gewaehlte Story + QA-Status (Social-Paket Yuki, Christian 28.07.2026) — damit bei der
+       Abnahme nachvollziehbar ist, WELCHE Story gerendert wurde und wie das Gate geurteilt hat. */
+    var plan=(window._smStoryPlan||null);
+    if(plan && (plan.stories||[]).length){
+      var sel=(plan.stories.find(function(s){ return s.id===window._smStoryId; })||plan.stories.find(function(s){ return s.primary; }));
+      if(sel){
+        L.push("Story: "+sel.titel+" ["+sel.id+(sel.primary?", Hauptstory":", Alternative")+"]");
+        if(sel.begruendung) L.push("Story-Begruendung: "+sel.begruendung);
+      }
+      var roll=(plan.slide_rollen||[]);
+      if(roll.length) L.push("Slide-Rollen: "+roll.map(function(r){ return r.slide+"="+r.rolle; }).join(", "));
+      var drop=(plan.dropped_topics||[]).map(function(d){ return d&&d.thema; }).filter(Boolean);
+      if(drop.length) L.push("Nicht behandelte Themen (eigener Beitrag empfohlen): "+drop.join(", "));
+    }
+    var qa=(window._smQaState||null);
+    if(qa){
+      var openH=(qa.openHigh||[]).length, hints=(qa.hints||[]).length, lenF=(qa.lenFailed||[]).length;
+      L.push("QA-Status: "+(qa.error?("nicht abgeschlossen ("+qa.error+")"):
+        ((openH||lenF)?("offen — "+openH+" schwerwiegend, "+lenF+" Laengen-/Vollstaendigkeitsproblem(e)"):"bestanden"))+
+        " | Runden: "+(qa.rounds||0)+" | Hinweise: "+hints+
+        ((qa.applied&&qa.applied.length)?(" | automatisch korrigiert: "+qa.applied.length):""));
+      if(openH) L.push("QA offen: "+(qa.openHigh||[]).map(function(i){ return i.field+" ("+i.criterion+")"; }).join(", "));
+      if(lenF) L.push("QA Laenge offen: "+(qa.lenFailed||[]).join(", "));
+    }
+    L.push("Textmodelle: fill="+MODELS.fill+", plan="+MODELS.plan+", repair="+MODELS.repair+", qa="+MODELS.qa);
   }catch(e){ L.push("(Einstellungen teilweise nicht verfuegbar)"); }
   L.push(""); return L;
 }
@@ -5341,7 +6548,8 @@ async function smDownloadBundle(){
         if(t0.captions.linkedin){ l0.push("=== LINKEDIN CAPTION ==="); l0.push(t0.captions.linkedin); l0.push(""); l0.push("=== LINKEDIN HASHTAGS ==="); l0.push((t0.hashtags&&t0.hashtags.linkedin||[]).join(" ")); l0.push(""); }
         if(t0.x&&t0.x.text){ l0.push("=== X (TWITTER) ==="); l0.push((t0.x.text+"\n\n"+((t0.x.cashtags||[]).join(" "))).trim()); l0.push(""); }
       }
-      zip.file(root+"/captions_und_hashtags.txt", l0.join("\n"));
+      /* Markup-Sternchen nie in den Text-Download (Christian 28.07.2026) */
+      zip.file(root+"/captions_und_hashtags.txt", smStripBold(l0.join("\n")));
       var zblob=await zip.generateAsync({type:"blob"});
       var za2=document.createElement("a"); za2.href=URL.createObjectURL(zblob); za2.download=root+".zip"; za2.click();
       setTimeout(function(){ URL.revokeObjectURL(za2.href); },4000);
@@ -5406,7 +6614,8 @@ async function smDownloadBundle(){
     } else {
       lines.push("(Keine generierten Captions vorhanden — Felder wurden manuell befüllt.)");
     }
-    zip.file(root+"/captions_und_hashtags.txt", lines.join("\n"));
+    /* Markup-Sternchen nie in den Text-Download (Christian 28.07.2026) */
+    zip.file(root+"/captions_und_hashtags.txt", smStripBold(lines.join("\n")));
     var blob=await zip.generateAsync({type:"blob"});
     var a=document.createElement("a");
     a.href=URL.createObjectURL(blob);
@@ -5434,7 +6643,9 @@ if(rgBtn){ rgBtn.onclick=async function(){
   if(!txt){ toast("Kein Artikeltext im Feld \u2014 bitte oben einf\u00fcgen"); return; }
   if(genMode()==="demo"){ toast("Daf\u00fcr oben rechts ein KI-Modell verbinden",4000); return; }
   rgBtn.disabled=true; var old=rgBtn.innerHTML; rgBtn.textContent="Claude schreibt neu \u2026";
-  try{ await extractSocial(txt); toast("Texte neu generiert \u2014 Stil: "+(SM_TEXTSTYLES[window._smTextStyle]||{}).label); }
+  /* Einstellungen bei Neugenerierung ERHALTEN (Feature 16, Christian 28.07.2026): steht schon
+     ein Story-Plan, bleibt er samt gewaehlter Story bestehen \u2014 nur die Texte werden neu geschrieben. */
+  try{ await extractSocial(txt, { skipPlan: !!window._smStoryPlan }); toast("Texte neu generiert \u2014 Stil: "+(SM_TEXTSTYLES[window._smTextStyle]||{}).label); }
   catch(e){ toast("Neu generieren fehlgeschlagen: "+e.message,6500); }
   rgBtn.disabled=false; rgBtn.innerHTML=old;
 }; }
@@ -5873,23 +7084,43 @@ function smUpdateLegal(){
    Entkoppelter State: kann an JEDES zero-Karussell als letzte Slide angehängt werden.
    Typen: chart (Verlauf), context (Kennzahl im hist. Vergleich), illu (KI-Illustration).
    Daten kommen ausschließlich aus manueller Eingabe — nichts wird erfunden. */
-window.smExtra={ on:false, type:"chart", title:"", data:"", unit:"", note:"", illuPrompt:"", illuImg:null, illuUrl:"" };
+/* caption = kursiver Zwischentitel ueber der Grafik (Yuki-Vorbild, Christian 28.07.2026) */
+window.smExtra={ on:false, type:"chart", title:"", caption:"", data:"", unit:"", note:"", illuPrompt:"", illuImg:null, illuUrl:"" };
 /* Frage-Hook, eigener Fokus-Text, Quell-URL (Christian 21.07.2026) */
-window.smMeta={ hook:"", focus:"", sourceUrl:"" };
+/* storyId: gewaehlte Story aus Stufe 1 (Christian 28.07.2026) — landet in der Nachvollziehbarkeits-txt. */
+window.smMeta={ hook:"", focus:"", sourceUrl:"", storyId:"" };
 function smExtraActive(){ return !!(window.smExtra && window.smExtra.on); }
 /* Datenpunkte "Label = Wert" (auch "Label: Wert" / "Label Wert") -> [{l,v}] */
 function smExtraPoints(){
   const raw=(window.smExtra.data||"").split(/\n+/);
   const out=[];
+  const num=s=>parseFloat((""+s).replace(/\./g,"").replace(",","."));
   raw.forEach(line=>{
     const t=line.trim(); if(!t) return;
+    /* SPANNEN-SYNTAX (Christian 28.07.2026, Yuki-Vorbild Alphabet-Chart): "Q2 26 = 195-205"
+       ergibt einen Balken mit dem Label "195 - 205". Gerechnet wird mit dem Mittelwert,
+       angezeigt wird die Spanne — genau wie in Yukis abgenommener Grafik. */
+    const r=t.match(/^(.*?)[\s]*[=:\t]+[\s]*(-?[\d.,]+)\s*(?:-|–|—|bis)\s*(-?[\d.,]+)\s*$/i);
+    if(r){
+      const label=r[1].trim(), a=num(r[2]), b=num(r[3]);
+      if(label && !isNaN(a) && !isNaN(b)){ out.push({l:label, v:(a+b)/2, lo:Math.min(a,b), hi:Math.max(a,b), range:true}); return; }
+    }
     const m=t.match(/^(.*?)[\s]*[=:\t]+[\s]*(-?[\d.,]+)\s*$/) || t.match(/^(.*?)\s+(-?[\d.,]+)\s*$/);
     if(!m) return;
     const label=m[1].trim();
-    const v=parseFloat(m[2].replace(/\./g,"").replace(",","."));
+    const v=num(m[2]);
     if(label && !isNaN(v)) out.push({l:label,v:v});
   });
   return out;
+}
+/* Beschriftung eines Datenpunkts: Spanne als "195 - 205", sonst der Einzelwert.
+   Praefix/Suffix aus der Einheit (z.B. "$" davor oder "Mrd." dahinter). */
+function smPointLabel(p, unit){
+  const u=(unit||"").trim();
+  const pre=/^[$€£]$/.test(u)?u:"";
+  const suf=(!pre&&u)?(" "+u):"";
+  const f=v=>pre+smNum(v)+suf;
+  return p.range ? (f(p.lo)+" - "+f(p.hi)) : f(p.v);
 }
 
 function smSlides(){
@@ -6107,13 +7338,12 @@ QN_RENDER.market_update=function(x, W, H, slide){
   /* Deck — bricht auf max. 2 Zeilen um, läuft nie rechts raus (Christian 24.07.2026).
      Freie Breite links neben der Pfeil-Deko (die bei ~0.62*W beginnt). */
   y+=W*0.085;
-  { let dFS=W*0.050; const deckMaxW=W*0.60;
-    x.font="700 "+dFS+"px "+BRAND.font;
-    let dl=smWrap(x,d.deck||"",deckMaxW);
-    /* wenn mehr als 2 Zeilen: Schrift verkleinern bis es in 2 Zeilen passt */
-    for(let g=0; g<12 && dl.length>2; g++){ dFS*=0.94; x.font="700 "+dFS+"px "+BRAND.font; dl=smWrap(x,d.deck||"",deckMaxW); }
+  { const deckMaxW=W*0.60;
+    /* Shrink-to-fit, KEIN Kappen mehr (Christian 28.07.2026): alle Zeilen werden gezeichnet. */
+    const fit=smFitLines(x, d.deck||"", deckMaxW, 2, W*0.050, "700");
+    x.font="700 "+fit.fs+"px "+BRAND.font;
     x.fillStyle=ink;
-    dl.slice(0,2).forEach(ln=>{ x.fillText(ln, M, y); y+=dFS*1.2; });
+    fit.lines.forEach(ln=>{ x.fillText(ln, M, y); y+=fit.fs*1.2; });
   }
 
   /* Pfeil-Deko rechts, auf Höhe der Prozentzahl */
@@ -6169,16 +7399,16 @@ QN_RENDER.quicknews=function(x, W, H, slide){
 
   /* Headline (weiß, auf dem pinken Kreis) */
   let y=H*0.30;
-  const hlFS=W*0.088;
-  x.font="800 "+hlFS+"px "+BRAND.font; x.fillStyle="#ffffff"; x.textAlign="left";
-  const hlLines=smWrap(x,d.headline||"Headline",W*0.72);
-  hlLines.slice(0,3).forEach(ln=>{ x.fillText(ln, M, y); y+=hlFS*1.08; });
+  /* Shrink-to-fit statt Kappen (Christian 28.07.2026) */
+  const hlFit=smFitLines(x, d.headline||"Headline", W*0.72, 3, W*0.088, "800");
+  x.font="800 "+hlFit.fs+"px "+BRAND.font; x.fillStyle="#ffffff"; x.textAlign="left";
+  hlFit.lines.forEach(ln=>{ x.fillText(ln, M, y); y+=hlFit.fs*1.08; });
 
   /* Deck */
   y+=W*0.02;
-  const dkFS=W*0.040;
-  x.font="500 "+dkFS+"px "+BRAND.font; x.fillStyle="rgba(255,255,255,0.92)";
-  smWrap(x,d.deck||"",W*0.72).slice(0,3).forEach(ln=>{ x.fillText(ln, M, y); y+=dkFS*1.4; });
+  const dkFit=smFitLines(x, d.deck||"", W*0.72, 3, W*0.040, "500");
+  x.font="500 "+dkFit.fs+"px "+BRAND.font; x.fillStyle="rgba(255,255,255,0.92)";
+  dkFit.lines.forEach(ln=>{ x.fillText(ln, M, y); y+=dkFit.fs*1.4; });
 
   /* Ticker-Karte etwas höher/größer und mit Sicherheitsabstand zu den Bullets (Yuki 24.07.2026).
      cardTop wird VOR den Bullets bestimmt, damit die Bullets eine harte Untergrenze haben. */
@@ -6192,12 +7422,23 @@ QN_RENDER.quicknews=function(x, W, H, slide){
     x.font="800 "+(W*0.044)+"px "+BRAND.font; x.fillStyle="#ffffff";
     x.fillText(d.bhead||"Was steckt dahinter?", M, y); y+=W*0.058;
     const bl=[d.b1,d.b2,d.b3].filter(b=>(b||"").trim());
-    const step=W*0.058;
+    /* KEIN stiller Verlust mehr (Befund 28.07.2026): vorher brach ein "return" die Schleife ab,
+       sobald der Platz knapp wurde — Bullets verschwanden unsichtbar. Das verletzt die
+       Nie-abschneiden-Regel genauso wie ein Text-Trim. Jetzt werden Schriftgroesse und
+       Zeilenabstand gemeinsam verkleinert, bis ALLE Bullets zwischen y und bulletsBottom
+       passen. Reicht selbst die Untergrenze nicht, wird gezeichnet und der Fall protokolliert. */
+    let bFS=W*0.040, bStep=W*0.058;
+    const bMin=W*0.026, avail=bulletsBottom-y;
+    let bGuard=40;
+    while(bl.length*bStep>avail && bFS>bMin && bGuard-->0){ bFS*=0.96; bStep*=0.96; }
+    if(bl.length*bStep>avail){
+      try{ window._smFitOverflow=(window._smFitOverflow||[]);
+           window._smFitOverflow.push({ text:"qnCover-Bullets", lines:bl.length, max:Math.floor(avail/bStep) }); }catch(e){}
+    }
     bl.forEach(b=>{
-      if(y>bulletsBottom) return;   /* Sicherheitsstopp: nie in die Karte laufen */
-      x.beginPath(); x.arc(M+W*0.014, y-W*0.013, W*0.010, 0, 7); x.fillStyle="#ffffff"; x.fill();
-      x.font="600 "+(W*0.040)+"px "+BRAND.font; x.fillStyle="#ffffff";
-      x.fillText(smProtect(b), M+W*0.045, y); y+=step;
+      x.beginPath(); x.arc(M+W*0.014, y-bFS*0.32, W*0.010, 0, 7); x.fillStyle="#ffffff"; x.fill();
+      x.font="600 "+bFS+"px "+BRAND.font; x.fillStyle="#ffffff";
+      x.fillText(smProtect(b), M+W*0.045, y); y+=bStep;
     });
   }
 
@@ -6277,9 +7518,14 @@ QN_RENDER.topperformer=function(x, W, H, slide){
   x.fillText(isFlop?"Die größten Verlierer":"Die größten Gewinner", M, y);
   /* Sub-Zeile: tiefer + auf Bildbreite umbrechen statt abschneiden */
   y+=W*0.060;
-  x.font="500 "+(W*0.036)+"px "+BRAND.font; x.fillStyle=mut;
+  x.fillStyle=mut;
   const subTxt=(d.headline||"Die Börsenwoche")+(d.zeitraum?("  ·  "+d.zeitraum):"");
-  smWrap(x,subTxt,W-2*M).slice(0,2).forEach(ln=>{ x.fillText(ln, M, y); y+=W*0.046; });
+  /* Shrink-to-fit statt Kappen (Christian 28.07.2026) */
+  const subFit=smFitLines(x, subTxt, W-2*M, 2, W*0.036, "500");
+  x.font="500 "+subFit.fs+"px "+BRAND.font;
+  /* Zeilenabstand an die (evtl. verkleinerte) Schrift koppeln statt fest — sonst stehen die
+     Zeilen bei geschrumpfter Schrift unnoetig weit auseinander. */
+  subFit.lines.forEach(ln=>{ x.fillText(ln, M, y); y+=subFit.fs*1.28; });
 
   /* Werte aus Feldern: je Zeile "Name = Wert%" */
   const raw=(isFlop?d.flopdata:d.topdata)||"";
@@ -6303,8 +7549,11 @@ QN_RENDER.topperformer=function(x, W, H, slide){
     x.fillStyle=col; smRound(x,bx,by,bw,bh,W*0.014); x.fill();
     x.textAlign="center"; x.fillStyle=ink; x.font="800 "+(W*0.036)+"px "+BRAND.font;
     x.fillText((it.v>0?"+":"")+it.v.toString().replace(".",",")+"%", bx+bw/2, by-W*0.02);
-    x.fillStyle=mut; x.font="600 "+(W*0.026)+"px "+BRAND.font;
-    smWrap(x,it.name,bw*1.05).slice(0,2).forEach((ln,k)=>x.fillText(ln, bx+bw/2, chartBot+W*0.045+k*W*0.034));
+    x.fillStyle=mut;
+    /* Shrink-to-fit statt Kappen: lange Firmennamen komplett zeigen (Christian 28.07.2026) */
+    const nmFit=smFitLines(x, it.name, bw*1.05, 2, W*0.026, "600");
+    x.font="600 "+nmFit.fs+"px "+BRAND.font;
+    nmFit.lines.forEach((ln,k)=>x.fillText(ln, bx+bw/2, chartBot+W*0.045+k*nmFit.fs*1.3));
   });
   x.textAlign="left";
   if(!items.length){ x.fillStyle=mut; x.font="500 "+(W*0.036)+"px "+BRAND.font; x.textAlign="center";
@@ -6362,8 +7611,10 @@ function qnAzfCover(x,W,H,d,M){
     y+=W*0.03;
   }
   y+=W*0.075;
-  const hlFS=W*0.088; x.font="800 "+hlFS+"px "+BRAND.font; x.fillStyle="#fff"; x.textAlign="left";
-  smWrap(x,d.headline||"Headline",W-2*M).slice(0,3).forEach(ln=>{ x.fillText(ln,M,y); y+=hlFS*1.06; });
+  /* Shrink-to-fit statt Kappen (Christian 28.07.2026) */
+  const azfFit=smFitLines(x, d.headline||"Headline", W-2*M, 3, W*0.088, "800");
+  x.font="800 "+azfFit.fs+"px "+BRAND.font; x.fillStyle="#fff"; x.textAlign="left";
+  azfFit.lines.forEach(ln=>{ x.fillText(ln,M,y); y+=azfFit.fs*1.06; });
   const pr=W*0.058, px=W-M-pr, py=H-M-pr;
   x.beginPath(); x.arc(px,py,pr,0,7); x.fillStyle=QN_PINK; x.fill();
   x.strokeStyle="#fff"; x.lineWidth=W*0.008; x.lineCap="round"; x.lineJoin="round";
@@ -6377,8 +7628,10 @@ function qnAzfContent(x,W,H,d,M,slide){
   const i=(slide&&slide.i)||1;
   /* Headline mit klarem Abstand UNTER dem Header (Christian 24.07.2026: ragte vorher ins Icon) */
   let y=H*0.185;
-  const hlFS=W*0.066; x.font="800 "+hlFS+"px "+BRAND.font; x.fillStyle="#0b0b0f"; x.textAlign="left";
-  smWrap(x,d["s"+i+"head"]||d.headline||"Überschrift",W-2*M).slice(0,3).forEach(ln=>{ x.fillText(ln,M,y); y+=hlFS*1.08; });
+  /* Shrink-to-fit statt Kappen (Christian 28.07.2026) */
+  const cFit=smFitLines(x, d["s"+i+"head"]||d.headline||"Überschrift", W-2*M, 3, W*0.066, "800");
+  x.font="800 "+cFit.fs+"px "+BRAND.font; x.fillStyle="#0b0b0f"; x.textAlign="left";
+  cFit.lines.forEach(ln=>{ x.fillText(ln,M,y); y+=cFit.fs*1.08; });
   /* Trader-Bullets: NICHT bold (Gewicht 600), Punkt sitzt exakt auf der 1. Textzeile,
      Folgezeilen eingerückt (Christian 24.07.2026, analog finanzen.net-Bullet-Fix). */
   y+=W*0.055;
@@ -6741,6 +7994,7 @@ function smDrawCover(x,img,W,H){
    gekoppelt; smWrap splittet danach NUR an echten Leerzeichen. Analog noWrapUnits (Fabric). */
 var _NB=String.fromCharCode(160);   // U+00A0 geschuetztes Leerzeichen
 function smProtect(t){
+  t=smStripBold(t);   /* Sicherheitsnetz: nie ein Sternchen im Bild (Christian 28.07.2026) */
   t=(""+(t||"")).replace(new RegExp(_NB,"g")," ");   // vorhandene nbsp normalisieren
   t=t.replace(/(\d[\d.,]*) +(Mrd\.|Mio\.|Bio\.|Bill\.|Tsd\.)(?: +([A-Z]{2,4}|€|\$|Punkte))?/g,
     function(m,n,sc,cur){ return n+_NB+sc+(cur?_NB+cur:""); });
@@ -6754,9 +8008,41 @@ function smWrap(x,text,maxW){
   words.forEach(function(w){ var t=cur?cur+" "+w:w; if(x.measureText(t).width>maxW&&cur){lines.push(cur);cur=w;} else cur=t; });
   if(cur) lines.push(cur); return lines;
 }
+/* ============================================================================
+   SHRINK-TO-FIT statt Zeilen-Kappen (Christian 28.07.2026)
+   Bisher kappten mehrere zero-Renderpfade die umgebrochenen Zeilen hart auf die ersten
+   zwei bzw. drei — ab da verschwand Text STUMM. Das verletzt die Nie-abschneiden-Regel: Der
+   Redakteur sieht nicht, dass Inhalt fehlt. Stattdessen wird die Schrift verkleinert,
+   bis alle Zeilen passen. Erst wenn die Untergrenze erreicht ist (Text extrem lang),
+   bleibt es bei mehr Zeilen — dann lieber ein optischer Konflikt als verlorener Inhalt,
+   und das Feld wird fuer die QA-Anzeige protokolliert.
+   Rueckgabe: {lines, fs, lh, overflow} — der Aufrufer zeichnet mit fs/lh.
+   ============================================================================ */
+function smFitLines(x, text, maxW, maxLines, fs, weight, minFactor){
+  var w=(weight||"400"), minFs=Math.max(fs*(minFactor||0.62), 11), guard=60;
+  x.font=w+" "+fs+"px "+BRAND.font;
+  var lines=smWrap(x,text,maxW);
+  while(lines.length>maxLines && fs>minFs && guard-->0){
+    fs*=0.96; x.font=w+" "+fs+"px "+BRAND.font;
+    lines=smWrap(x,text,maxW);
+  }
+  var overflow=lines.length>maxLines;
+  if(overflow){
+    /* Nicht kappen. Sichtbar machen, damit der Redakteur es pruefen kann. */
+    try{ window._smFitOverflow=(window._smFitOverflow||[]);
+         window._smFitOverflow.push({ text:(text||"").slice(0,60), lines:lines.length, max:maxLines }); }catch(e){}
+  }
+  return { lines:lines, fs:fs, lh:fs*1.2, overflow:overflow };
+}
 /* Einzeilige Texte auf verfügbare Breite einpassen (verhindert Überlagerungen wie "17,2 Mrd. USD"+"+1 %") */
-/* Sauberes Kürzen auf ein Zeichenlimit OHNE Ellipsis (Regel Christian 16.07.2026): endet am
-   letzten Satzzeichen, sonst am letzten Wort; hängt nie "…" an. Für KI-Autofill der zero-Felder. */
+/* ============================================================================
+   NICHT MEHR VERWENDEN — smCapClean hat KEINE Aufrufstelle mehr (Stand 28.07.2026).
+   Frueher kuerzte es die zero-Felder beim KI-Autofill. Auch ein "sauberer" Schnitt am
+   Wortende ist ein Schnitt: der Redakteur verliert Inhalt, ohne es zu sehen. Ueberlaenge
+   gehoert in Stufe 3 (Neuformulierung), Layout-Enge in den Shrink-to-fit des Renderers.
+   Wer hier wieder einen Aufruf einbaut, bricht Guardrail 1.2 der Spec.
+   Bleibt nur stehen, weil ein Entfernen aus der Datei mehr Risiko als Nutzen haette.
+   ============================================================================ */
 function smCapClean(t,n){
   /* Sauberes Kürzen OHNE Ellipsis UND OHNE Wort-/Token-Zerhacken (Yuki 16.07.2026: Bug "USD/Ja",
      "Performance 12"). Regeln: (1) nie mitten in einem Wort schneiden, (2) nie mitten in einer
@@ -6812,9 +8098,57 @@ function smText(x,text,X,Y,fs,weight,color,maxW,lh){
     fs=nfs; x.font=(weight||"400")+" "+fs+"px "+BRAND.font;
   }
   x.fillStyle=color; x.textAlign="left";
-  const lines=smWrap(x,text,maxW);
+  /* Fett-Markup (Christian 28.07.2026, Yuki-Vorbild): liegt eine **Hervorhebung** vor, wird
+     Zeichen fuer Zeichen segmentweise gezeichnet und dabei die Schriftstaerke gewechselt.
+     Ohne Markup bleibt der schnelle Standardpfad (eine fillText-Operation je Zeile).
+     WICHTIG (Befund 28.07.2026): Der Umbruch muss die BREITERE fette Schrift beruecksichtigen.
+     smWrap misst mit der normalen Staerke; die hervorgehobenen Zeichen werden aber in 700/800
+     gezeichnet und sind rund 5 bis 7 Prozent breiter. Ohne Korrektur kann eine Zeile den
+     Rand ueberschreiten. Deshalb wird die verfuegbare Breite fuer den Umbruch anteilig
+     reduziert — proportional zum Anteil der hervorgehobenen Zeichen. */
+  var wrapW=maxW;
+  if(smHasBold(text)){
+    var visLen=smStripBold(text).length||1;
+    var boldLen=smParseBold(text).filter(function(s){ return s.b; }).reduce(function(n,s){ return n+s.t.length; },0);
+    /* 7 Prozent Zuschlag auf den fetten Anteil, als Sicherheitsreserve leicht ueberschaetzt. */
+    wrapW=maxW/(1+0.07*(boldLen/visLen));
+  }
+  const lines=smWrap(x,text,wrapW);
+  if(smHasBold(text)){
+    smDrawRichLines(x,text,lines,X,Y,fs,weight,lh);
+    return Y+(lines.length-1)*(lh||fs*1.22)+fs;
+  }
   lines.forEach((ln,i)=>x.fillText(ln,X,Y+i*(lh||fs*1.22)));
   return Y+(lines.length-1)*(lh||fs*1.22)+fs;
+}
+/* Zeichnet umgebrochene Zeilen mit Inline-Fett. Die Flag-Liste kommt aus dem ROH-Text
+   (mit Sternchen), gezeichnet wird der bereits gestrippte, umgebrochene Text — der Cursor
+   laeuft synchron ueber die sichtbaren Zeichen und ueberspringt Umbruch-Whitespace. */
+function smDrawRichLines(x,raw,lines,X,Y,fs,weight,lh){
+  var segs=smParseBold(raw), flags=[], idx=0;
+  segs.forEach(function(s){
+    /* Auf denselben Stand normalisieren wie der gezeichnete Text (nbsp-Schutz). */
+    var vis=smProtect(s.t);
+    for(var i=0;i<vis.length;i++) flags[idx+i]=s.b;
+    idx+=vis.length;
+  });
+  var plain=smProtect(smStripBold(raw)), cursor=0;
+  var wNorm=(weight||"400"), wBold=(parseInt(wNorm,10)>=700?"800":"700");
+  lines.forEach(function(ln,li){
+    var px=X, ly=Y+li*(lh||fs*1.22);
+    /* Whitespace, das durch den Umbruch entfaellt, im Cursor nachziehen. */
+    while(cursor<plain.length && /[ \t\r\n]/.test(plain[cursor]) && ln[0]!==plain[cursor]) cursor++;
+    for(var ci=0; ci<ln.length; ci++){
+      var ch=ln[ci];
+      var bold=!!flags[cursor];
+      x.font=(bold?wBold:wNorm)+" "+fs+"px "+BRAND.font;
+      x.fillText(ch, px, ly);
+      px+=x.measureText(ch).width;
+      cursor++;
+    }
+    while(cursor<plain.length && /[ \t\r\n]/.test(plain[cursor])) cursor++;
+  });
+  x.font=wNorm+" "+fs+"px "+BRAND.font;   /* Zustand zuruecksetzen */
 }
 function smKicker(ctx,label){
   const {x,M,B}=ctx; if(!label) return ctx.top;
@@ -7375,7 +8709,7 @@ function smDrawContent(ctx){
    Daten; illu = generiertes Bild in einem eingerückten Rahmen (nie vollflächig). */
 function smDrawExtra(ctx,S,headFS,bodyFS){
   const {x,W,H,M,B}=ctx, E=window.smExtra||{};
-  let y=smKicker(ctx, (E.type==="context")?"Einordnung":(E.type==="illu")?"Kontext":"Datencheck");
+  let y=smKicker(ctx, (E.type==="context")?"Einordnung":(E.type==="illu")?"Kontext":(E.type==="bars")?"Vergleich":"Datencheck");
   const title=(E.title||"").trim()||"Zusätzlicher Kontext";
   y=smText(x,title,M,y+headFS*0.9,headFS*0.82,"800",B.ink,W-2*M,headFS*1.02);
 
@@ -7383,9 +8717,19 @@ function smDrawExtra(ctx,S,headFS,bodyFS){
   const note=(E.note||"").trim();
   let noteH=0;
   if(note){ x.font="600 "+bodyFS*0.95+"px "+BRAND.font; noteH=bodyFS*2.2; }
-  const gTop=y+S*0.03, gBot=ctx.bottom-noteH-S*0.02;
+  let gTop=y+S*0.03;
+  const gBot=ctx.bottom-noteH-S*0.02;
 
   const pts=(typeof smExtraPoints==="function")?smExtraPoints():[];
+  /* Kursiver Zwischentitel ueber der Grafik (Yuki-Vorbild: "Alphabets Investitionsausgaben
+     fuer 2026:"). Optionales Feld; wenn leer, bleibt der Platz ungenutzt. */
+  const chartCap=(E.caption||"").trim();
+  if(chartCap && E.type!=="illu"){
+    const cFS=bodyFS*0.92;
+    x.font="italic 700 "+cFS+"px "+BRAND.font; x.fillStyle=B.ink; x.textAlign="left";
+    x.fillText(smProtect(chartCap), M, gTop+cFS);
+    gTop+=cFS*1.9;
+  }
 
   if(E.type==="illu"){
     /* Illustration füllt den definierten Kasten EXAKT aus (cover + clip) — nie vollflächig über die
@@ -7410,6 +8754,8 @@ function smDrawExtra(ctx,S,headFS,bodyFS){
       x.fillText("Illustration über den Button anlegen", W/2, box.y+box.h/2);
       x.textAlign="left";
     }
+  } else if(E.type==="bars" && pts.length>=1){
+    smDrawExtraBars(ctx,pts,gTop,gBot,bodyFS);
   } else if(pts.length>=2){
     smDrawExtraChart(ctx,pts,gTop,gBot,bodyFS,(E.type==="context"));
   } else {
@@ -7427,6 +8773,58 @@ function smDrawExtra(ctx,S,headFS,bodyFS){
   }
 }
 
+/* ============================================================================
+   BALKENCHART nach Yukis Vorbild (Christian 28.07.2026, Referenz: Alphabet-Beitrag
+   vom 23.07., Slide 3 "Mehr Milliarden für KI").
+   Merkmale aus der Vorlage: Wert-/Spannen-Label UEBER dem Balken, abgerundete
+   Balkenkoepfe, der LETZTE Balken dunkel hervorgehoben (die uebrigen im hellen
+   Akzentblau), X-Achsen-Labels darunter, kein Gitternetz, keine Y-Achse.
+   ============================================================================ */
+function smDrawExtraBars(ctx,pts,cy0,cy1,bodyFS){
+  const {x,W,M,B}=ctx, E=window.smExtra||{};
+  const cx0=M, cx1=W-M;
+  const n=pts.length;
+  const labFS=bodyFS*0.95;                     /* Wert-/Spannen-Label ueber dem Balken */
+  const axFS=bodyFS*0.78;                      /* X-Achsen-Label darunter */
+  const labH=labFS*1.5, axH=axFS*2.0;
+  const barTop=cy0+labH, barBot=cy1-axH;
+  const availH=Math.max(barBot-barTop, W*0.10);
+  /* Balkenbreite mit Luecken; bei wenigen Balken nicht unnoetig breit werden. */
+  const slot=(cx1-cx0)/n;
+  const bw=Math.min(slot*0.62, W*0.20);
+  /* Skala von 0 (bzw. Minimum bei negativen Werten) bis Maximum, damit die
+     Hoehenverhaeltnisse ehrlich bleiben. Yukis Chart startet optisch bei 0. */
+  const tops=pts.map(p=>p.range?p.hi:p.v);
+  const mx=Math.max(...tops), mnRaw=Math.min(0, ...pts.map(p=>p.range?p.lo:p.v));
+  const span=(mx-mnRaw)||1;
+  /* Nur 78 % der Hoehe nutzen, damit kleine Balken sichtbar bleiben und der
+     groesste nicht am Label klebt. */
+  const hOf=v=>Math.max(((v-mnRaw)/span)*availH*0.94, W*0.02);
+  const light=B.dark?"rgba(255,255,255,0.30)":"#5B8DEF";   /* helles Akzentblau wie in der Vorlage */
+  const dark=B.dark?B.accent:"#0A3A6B";                     /* dunkler Hervorhebungs-Balken */
+  pts.forEach((p,i)=>{
+    const cxc=cx0+slot*i+slot/2;
+    const bh=hOf(p.range?p.hi:p.v);
+    const by=barBot-bh, bx=cxc-bw/2;
+    const isLast=(i===n-1);
+    x.fillStyle=isLast?dark:light;
+    smRound(x,bx,by,bw,bh,Math.min(W*0.022,bw*0.28)); x.fill();
+    /* Wert bzw. Spanne UEBER dem Balken */
+    const txt=smProtect(smPointLabel(p,E.unit));
+    x.textAlign="center"; x.fillStyle=B.ink;
+    /* Label auf Balkenbreite einpassen, damit lange Spannen nicht ueberlappen. */
+    let tfs=labFS; x.font="700 "+tfs+"px "+BRAND.font;
+    let guard=30;
+    while(x.measureText(txt).width>slot*0.98 && tfs>bodyFS*0.55 && guard-->0){ tfs*=0.95; x.font="700 "+tfs+"px "+BRAND.font; }
+    x.fillText(txt, cxc, by-labFS*0.45);
+    /* X-Achsen-Label darunter (umbrechend, nie gekappt) */
+    x.fillStyle=B.muted;
+    const nmFit=smFitLines(x, p.l||"", slot*0.95, 2, axFS, "600");
+    x.font="600 "+nmFit.fs+"px "+BRAND.font;
+    nmFit.lines.forEach((ln,k)=>x.fillText(ln, cxc, barBot+axFS*1.25+k*nmFit.fs*1.25));
+  });
+  x.textAlign="left";
+}
 /* Liniendiagramm für die Extra-Slide (angelehnt an chart_story). highlightLast=true
    hebt den letzten Punkt als "aktuellen Wert" hervor (Kennzahl-im-Kontext). */
 function smDrawExtraChart(ctx,pts,cy0,cy1,bodyFS,highlightLast){
@@ -7806,7 +9204,8 @@ function initSocialMedia(){
     if(!txt){ toast("Bitte zuerst oben einen Artikel einfügen"); return; }
     if(genMode()==="demo"){ toast("Dafür oben rechts ein KI-Modell verbinden",4000); return; }
     const b=$("smRefill"), old=b.innerHTML; b.disabled=true; b.textContent="Claude füllt neu …";
-    try{ await extractSM(txt,{skipPick:true}); toast("Felder für "+smTpl.name+" gefüllt"); }
+    /* Story-Plan erhalten, falls schon vorhanden (Feature 16) — nur neu befuellen. */
+    try{ await extractSM(txt,{skipPick:true, skipPlan: !!window._smStoryPlan}); toast("Felder für "+smTpl.name+" gefüllt"); }
     catch(e){ toast("Konnte nicht füllen: "+e.message,6000); }
     b.disabled=false; b.innerHTML=old;
   };
@@ -7826,6 +9225,8 @@ function smExtraSyncType(){
   const h=$("smExtraDataHint");
   if(h) h.textContent = t==="context"
     ? "— historische Reihe, letzter Punkt = aktueller Wert (wird hervorgehoben)"
+    : t==="bars"
+    ? "— je Zeile: Label = Wert ODER Label = von-bis (z.B. „Q2 26 = 195-205“). Letzter Balken wird dunkel hervorgehoben."
     : "— je Zeile: Label = Wert, mind. 2 Zeilen";
 }
 function smWireExtra(){
@@ -7839,7 +9240,7 @@ function smWireExtra(){
   });
   const bind=(id,key)=>{ const el=$(id); if(el) el.addEventListener("input",()=>{ window.smExtra[key]=el.value; smRender(); }); };
   bind("smExtraTitle","title"); bind("smExtraData","data"); bind("smExtraUnit","unit");
-  bind("smExtraNote","note"); bind("smExtraIlluPrompt","illuPrompt");
+  bind("smExtraNote","note"); bind("smExtraIlluPrompt","illuPrompt"); bind("smExtraCaption","caption");
   const ts=$("smExtraType"); if(ts) ts.addEventListener("change",()=>{ smExtraSyncType(); smRender(); });
   const ig=$("smExtraIlluGen"); if(ig) ig.onclick=smExtraGenIllu;
   const ic=$("smExtraIlluClear"); if(ic) ic.onclick=()=>{ window.smExtra.illuImg=null; window.smExtra.illuUrl=""; ic.style.display="none"; if($("smExtraIlluStatus")) $("smExtraIlluStatus").textContent=""; smRender(); };
