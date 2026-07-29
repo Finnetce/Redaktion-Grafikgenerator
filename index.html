@@ -3672,8 +3672,22 @@ async function extractSocial(txt){
 /* Schritt 1 (zero Auto-Pilot): Claude wählt das passende Template + Format
    aus dem Artikel. Danach Schritt 2: Felder füllen + Stil + Auto-Bild. */
 async function smPickTemplate(txt){
-  const list=SM_TEMPLATES.map(t=>t.id+" = "+t.name+" ("+t.desc+" Formate: "+t.formats.join(",")+")").join("; ");
-  const sys="Du bist Social-Media-Redakteur bei finanzen.net zero (deutscher Neobroker). Wähle für den Artikel das am besten passende Grafik-Template und das beste Format. Antworte NUR mit reinem JSON: {\"template_id\":\"...\",\"format\":\"...\",\"begruendung\":\"max 90 Zeichen, deutsch\"}. Verfügbare Templates: "+list+". Regeln: Quartalszahlen/Earnings-Meldung einer Aktie -> zero_qn_earnings. Wochenrückblick mit Top- und Flop-Werten/Ranking -> zero_topperformer. Mehrteilige Story/Analyse-Thema (Karussell) -> zero_azf_carousel. Format: 4:5 ist Standard (Feed), 9:16 nur wenn explizit Story gewünscht.";
+  /* Nur Templates DER AKTIVEN MARKE anbieten (Christian 29.07.2026) — sonst schlug die
+     Auswahl dem aktien Magazin zero-Templates vor, die es gar nicht rendern darf. */
+  const _pool=tfTplsFor(smBrand);
+  const list=_pool.map(t=>t.id+" = "+t.name+" ("+t.desc+" Formate: "+t.formats.join(",")+")").join("; ");
+  const sys=(smBrand==="tfam")
+    ? "Du bist Social-Media-Redakteur beim aktien Magazin (TraderFox), einem redaktionellen "+
+      "Analyse-Medium für Privatanleger. Wähle für den Artikel das am besten passende Grafik-"+
+      "Template und das beste Format. Antworte NUR mit reinem JSON: {\"template_id\":\"...\","+
+      "\"format\":\"...\",\"begruendung\":\"max 90 Zeichen, deutsch\"}. Verfügbare Templates: "+list+
+      ". Zuordnungsregeln: Chartanalyse / Ausbruch / technische Situation -> tfam_chartstory. "+
+      "Eine einzelne Makro- oder Marktkennzahl im Mittelpunkt (Inflation, Zinsen, Stimmungsindex) "+
+      "-> tfam_zahl. Rangliste von Sektoren, Branchen oder Screening-Treffern -> tfam_ranking. "+
+      "Quartalszahlen und die Kursreaktion darauf -> tfam_earnings. Steckbrief eines einzelnen "+
+      "Unternehmens mit Kennzahlen (auch Insider-Transaktionen) -> tfam_snapshot. "+
+      "Format: 4:5 ist Standard (Feed), 9:16 nur wenn explizit Story gewünscht."
+    : "Du bist Social-Media-Redakteur bei finanzen.net zero (deutscher Neobroker). Wähle für den Artikel das am besten passende Grafik-Template und das beste Format. Antworte NUR mit reinem JSON: {\"template_id\":\"...\",\"format\":\"...\",\"begruendung\":\"max 90 Zeichen, deutsch\"}. Verfügbare Templates: "+list+". Regeln: Quartalszahlen/Earnings-Meldung einer Aktie -> zero_qn_earnings. Wochenrückblick mit Top- und Flop-Werten/Ranking -> zero_topperformer. Mehrteilige Story/Analyse-Thema (Karussell) -> zero_azf_carousel. Format: 4:5 ist Standard (Feed), 9:16 nur wenn explizit Story gewünscht.";
   const out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,6000)}]));
   return out;
 }
@@ -3771,7 +3785,12 @@ async function extractSM(txt,opts){
     if(info) info.textContent="Claude wählt das Template …";
     try{
       const pick=await smPickTemplate(txt);
-      if(pick && pick.template_id && SM_TEMPLATES.some(t=>t.id===pick.template_id)){
+      /* Marken-Filter auch bei der ANNAHME (Christian 29.07.2026, vom Review gefunden):
+         smPickTemplate bietet dem Modell nur die Templates der aktiven Marke an, geprüft wurde
+         die Antwort aber gegen den GESAMTEN Katalog. Halluzinierte das Modell eine fremde ID,
+         landete ein aktien-Magazin-Nutzer in einem zero-Template — mit tfam-Legal, aber
+         zero-Layout und zero-Logo. */
+      if(pick && pick.template_id && tfTplsFor(smBrand).some(t=>t.id===pick.template_id)){
         smSelectTpl(pick.template_id);
         if(pick.format && smTpl.formats.includes(pick.format)){ smFmt=pick.format; smBuildFmt(); }
         const tag=$("smTplAutoTag"); if(tag) tag.textContent="Auto-gewählt: "+smTpl.name+(pick.begruendung?(" — "+pick.begruendung):"");
@@ -3836,6 +3855,36 @@ async function extractSM(txt,opts){
   /* ===== Vorgaben aus Stufe 1 + Zeichenbudget (Christian 28.07.2026) =====
      Redaktions-Plan gibt den roten Faden, das Budget verhindert Ueberlaenge von vornherein.
      Weiches Ziel im Prompt; die harte Pruefung macht Stufe 2, das Kuerzen Stufe 3. NIE schneiden. */
+  /* ===== Marken-Umschaltung aktien Magazin / TraderFox (Christian 29.07.2026) =====
+     Der Prompt oben ist auf zero geschrieben (Neobroker, harte Compliance). Für die Marke
+     aktien Magazin gilt eine andere Rolle: redaktionelles Analyse-Medium, das laut AM-Lead
+     "Wissen, sehr fundiert" verkauft. Deshalb Rolle und Compliance-Absatz überschreiben
+     statt einen zweiten Prompt-Baum zu pflegen. Die Fach-Regeln (Grounding, Grammatik,
+     Labels, Bindestrich-Stapel, Zeichenbudget) bleiben unverändert gültig. */
+  if(smBrand==="tfam"){
+    const _pubName=(smData.pub||"aktien Magazin");
+    const _aud=(smData.audience||"bestand");
+    sys+=" MARKENWECHSEL — DIESE VORGABEN HABEN VORRANG vor der Rollenbeschreibung am Anfang: "+
+      "Du schreibst NICHT für finanzen.net zero, sondern als Redakteur des aktien Magazins "+
+      "(TraderFox), Publikation \""+_pubName+"\". Das ist ein redaktionelles Analyse-Medium, kein "+
+      "Broker. Kernversprechen der Marke: fundiertes Wissen und Analyse-Tiefe, die es woanders "+
+      "nicht gibt — und gern Unternehmen, die nicht jeder auf dem Schirm hat. Substanz vor "+
+      "Lautstärke: keine Ausrufezeichen-Ketten, keine Hype-Sprache, Emojis höchstens sehr "+
+      "sparsam. Screening-Logik, Scores und Chart-Situationen nachvollziehbar erklären. "+
+      "COMPLIANCE ANDERS ALS BEI ZERO: Als redaktionelles Medium darf eine Einschätzung "+
+      "formuliert werden (z. B. dass eine Aktie aufgegriffen werden kann, mit Kursziel oder "+
+      "Stopp), sofern sie durch den Artikel gedeckt ist. Die zero-Verbotsliste für "+
+      "Formulierungen wie 'jetzt kaufen' oder 'Top-Pick' gilt hier NICHT. Weiterhin verboten "+
+      "bleibt: Zahlen erfinden, Fakten ohne Deckung im Artikel, Renditeversprechen.";
+    sys += (_aud==="jung")
+      ? " ZIELGRUPPE JÜNGER (vom Redakteur gewählt): Einstieg über eine konkrete überraschende "+
+        "Zahl oder ein unbekanntes Unternehmen, kurze klare Sätze, schneller Einstieg ohne "+
+        "Vorgeplänkel. Trotzdem NICHT anbiedern und nicht ins Reißerische kippen — die Marke "+
+        "wird bewusst scheibchenweise geöffnet, nicht neu erfunden. Fachbegriffe immer auflösen."
+      : " ZIELGRUPPE BESTAND (vom Redakteur gewählt): Die Bestandsleser sind erfahren und "+
+        "sicherheitsorientiert. Ruhiger, sachlicher Ton, Einordnung und Herleitung wichtiger "+
+        "als Zuspitzung. Kennzahlen dürfen dichter stehen als bei einem Einsteigerpublikum.";
+  }
   const _planBlockZ=smStoryPromptBlock();
   if(_planBlockZ) sys+=" "+_planBlockZ;
   const _budgetZ={};
@@ -4561,7 +4610,15 @@ window.SOCIAL_BRANDS={
   zero:{ id:"zero", label:"finanzen.net zero", navy:"#0A1F44", accent:"#4A7FF7", logo:"zero",
     handle:"finanzen.net zero",
     disclaimer:"Investieren birgt Verlustrisiken. Keine Anlageberatung.",
-    ton:"sachlich-informativ mit starkem Zahlen-Fokus (Zielgruppe ca. 80 Prozent Trader/aktive Anleger). Packende erste Zeile, kurze Absätze, Rankings/Vergleiche mit konkreten Zahlen, gezielt einzelne Emojis (z.B. Rakete, Chart, Medaillen), am Ende häufig eine kurze Engagement-Frage an die Community (z.B. Was denkt ihr?). 5 thematische Hashtags, klein geschrieben. Kein Anlage-Rat, keine Kaufempfehlung." }
+    ton:"sachlich-informativ mit starkem Zahlen-Fokus (Zielgruppe ca. 80 Prozent Trader/aktive Anleger). Packende erste Zeile, kurze Absätze, Rankings/Vergleiche mit konkreten Zahlen, gezielt einzelne Emojis (z.B. Rakete, Chart, Medaillen), am Ende häufig eine kurze Engagement-Frage an die Community (z.B. Was denkt ihr?). 5 thematische Hashtags, klein geschrieben. Kein Anlage-Rat, keine Kaufempfehlung." },
+  /* aktien Magazin / TraderFox (Christian 29.07.2026). Positionierung wörtlich aus dem
+     Meeting mit dem AM-Lead: "du kriegst bei uns Wissen, sehr fundiert" und "Unternehmen
+     vorstellen, die nicht jeder auf dem Schirm hat". Bestandszielgruppe ist ÄLTER und
+     sicherheitsorientiert -> Marke scheibchenweise weiterentwickeln, nicht verbrennen. */
+  tfam:{ id:"tfam", label:"aktien Magazin", navy:"#111111", accent:"#D51019", logo:"aktien_magazin",
+    handle:"aktien Magazin",
+    disclaimer:"Angaben ohne Gewähr, keine Anlageberatung.",
+    ton:"fundiert und kompetent — die Marke verkauft Wissen, nicht Hype. Kernversprechen: hier bekommt man Analyse-Tiefe, die es woanders nicht gibt, und Unternehmen vorgestellt, die nicht jeder auf dem Schirm hat. Daher: Substanz vor Lautstärke, Screening-/Scoring-Logik und Chart-Situation nachvollziehbar erklären, Fachbegriffe kurz auflösen. Kurze klare Sätze, KEINE Übertreibung, keine Ausrufezeichen-Ketten, Emojis maximal sehr sparsam. Bestandsleser sind älter und sicherheitsorientiert — nicht anbiedern, aber den Einstieg für jüngere Leser über eine konkrete überraschende Zahl oder ein unbekanntes Unternehmen öffnen. Am Ende eine echte Frage oder ein Hinweis auf die vollständige Analyse im Magazin." }
 };
 window._smBrand="finnet"; window._smText=null; window._smFormat=null; window._smCloseHead="";
 
@@ -6523,7 +6580,7 @@ renderSlideTabs=function(){
 async function smDownloadPlatform(p, btn){
   if(typeof JSZip==="undefined"){ toast("ZIP-Bibliothek nicht geladen"); return; }
   if(typeof canvas==="undefined"||!canvas||!slides||!slides.length){ toast("Erst einen Post generieren"); return; }
-  if(window._smBrand==="zero" && typeof smExportGate==="function" && !smExportGate()) return;   /* Regel-Gate */
+  if((window._smBrand==="zero"||window._smBrand==="tfam") && typeof smExportGate==="function" && !smExportGate()) return;   /* Regel-Gate (auch tfam, Christian 29.07.2026) */
   if(btn){ btn.disabled=true; var old=btn.innerHTML; btn.textContent="Wird gebaut …"; }
   try{
     var zip=new JSZip();
@@ -6685,10 +6742,21 @@ if(goBtn && typeof goBtn.onclick==="function"){
    Slide-Anzahl, Textstil, Format, Plattformen, Bildprompt(s). Damit man einen Export spaeter
    rekonstruieren kann. */
 function smMetaLines(){
-  var isZero=(window._smBrand==="zero");
+  /* Diese Verzweigung trennt NICHT "zero gegen alles andere", sondern zwei Bedienoberflächen:
+     den Template-Katalog (smTpl/smFmt/smSlides) gegen den finanzen.net-Karussell-Flow
+     (curUseCase/_smSeries/curFmt). Die Marke aktien Magazin nutzt den Template-Katalog und
+     muss deshalb hier mit hinein (Christian 29.07.2026, vom Review gefunden) — vorher landete
+     sie im finnet-Zweig und schrieb Slide-Serie und Textstil in die Text-Downloads, während
+     Template, Format und KI-Hintergrund fehlten. */
+  var isTplCatalog=(window._smBrand==="zero"||window._smBrand==="tfam");
   var L=[]; L.push("===== EINSTELLUNGEN (zur Nachvollziehbarkeit) =====");
   try{
-    if(isZero){
+    L.push("Marke: "+(((typeof SM_BRANDS!=="undefined")&&SM_BRANDS[window._smBrand]&&SM_BRANDS[window._smBrand].label)||window._smBrand||"—"));
+    if(window._smBrand==="tfam"&&typeof smData!=="undefined"&&smData){
+      if(smData.pub) L.push("Publikation: "+smData.pub);
+      if(smData.audience) L.push("Zielgruppe: "+(smData.audience==="jung"?"jünger (knackig)":"Bestand (fundiert)"));
+    }
+    if(isTplCatalog){
       L.push("Template: "+((typeof smTpl!=="undefined"&&smTpl)?(smTpl.name+" ("+smTpl.id+")"):"—"));
       L.push("Format: "+((typeof smFmt!=="undefined")?smFmt:"—"));
       var nSl=(typeof smSlides==="function")?smSlides().length:1;
@@ -6759,7 +6827,7 @@ async function smDownloadBundle(){
   if(typeof canvas==="undefined"||!canvas||!slides||!slides.length){ toast("Erst einen Post generieren"); return; }
   var plats=smSelectedPlatforms();
   if(!plats.length){ toast("Mindestens eine Plattform anwählen"); return; }
-  if(window._smBrand==="zero" && typeof smExportGate==="function" && !smExportGate()) return;   /* Regel-Gate */
+  if((window._smBrand==="zero"||window._smBrand==="tfam") && typeof smExportGate==="function" && !smExportGate()) return;   /* Regel-Gate (auch tfam, Christian 29.07.2026) */
   var btn=$id("smBundle"); btn.disabled=true; var old=btn.innerHTML; btn.textContent="Bundle wird gebaut …";
   try{
     var zip=new JSZip();
@@ -6952,18 +7020,38 @@ const SM_BRANDS={
     dark:false, bg1:"#ffffff", bg2:"#f2f5fa", ink:"#0a1f44", muted:"#5f6b78",
     accent:"#00935d", accent2:"#0a1f44", neg:"#d0312d", chip:"rgba(0,147,93,.10)",
     logo:"finanzen_net", swatches:["#ffffff","#0a1f44","#00935d"]
+  },
+  /* ===== aktien Magazin / TraderFox (Christian 29.07.2026) =====
+     Grundlage: Stephan Banks Use-Case-Excel (11 befüllte Zeilen) + Beispiel-Assets
+     (Top-Sektoren/Top-Branchen-Screening, Zahl der Woche, Großwetterlage-Matrix,
+     Earnings-Radar) + Meeting 29.07. mit dem AM-Lead.
+     Farbwerte aus den gelieferten Grafiken ABGELEITET, nicht von Stephan bestätigt:
+     Header-Schwarz #111111, Signalrot #D51019 (Logo-Wortmarke "MAGAZIN" + Datums-Badge),
+     Tabellenkopf-Grau #7F7F7F, Performance-Grün #21B25A, Flächen-Grau #F1F1F1.
+     -> Sobald Stephan die verbindlichen Werte + Logo-PNGs liefert: HIER eintragen
+        und Logo in LOGOS_BUILTIN unter "aktien_magazin" ergänzen. */
+  tfam:{
+    label:"aktien Magazin", sub:"TraderFox · Screenings, Chartanalysen, Megatrends. Publikation und Zielgruppe werden im Formular gewählt — ein Grundaufbau je Magazin für Wiedererkennung im Feed.",
+    dark:false, bg1:"#ffffff", bg2:"#f1f1f1", ink:"#111111", muted:"#6b6b6b",
+    accent:"#D51019", accent2:"#111111", neg:"#D51019", pos:"#21B25A", chip:"rgba(213,16,25,.10)",
+    logo:"aktien_magazin", swatches:["#111111","#D51019","#21B25A","#f1f1f1"],
+    provisorisch:true
   }
 };
 let smBrand="zero";
 
 /* ---------- Legal-Profile (Platzhalter-Wortlaute, vorbehaltlich Legal-Freigabe) ---------- */
+/* tfam-Wortlaute (Christian 29.07.2026): abgeleitet aus der Fußzeile der von Stephan
+   gelieferten Screening-Grafiken — dort steht wörtlich "Datenstand aktien Magazin ·
+   Angaben ohne Gewähr, keine Anlageberatung." Als base übernommen, damit die Grafiken
+   identisch zu den Bestandsgrafiken auslaufen. Legal-Freigabe steht noch aus. */
 const SM_LEGAL={
-  base:{ zero:"Werbemitteilung. Keine Anlageberatung, keine Anlageempfehlung.", fnet:"Redaktioneller Inhalt. Keine Anlageberatung." },
-  risk:{ zero:"Kapitalanlagen bergen Risiken bis zum Totalverlust.", fnet:"" },
-  perf:{ zero:"Frühere Wertentwicklung ist kein verlässlicher Indikator für die künftige Wertentwicklung.", fnet:"Frühere Wertentwicklung ist kein verlässlicher Indikator für die künftige Wertentwicklung." },
-  model:{ zero:"Modellrechnung, unverbindlich. Keine Garantie künftiger Erträge. Ohne Berücksichtigung von Steuern.", fnet:"Modellrechnung, unverbindlich. Ohne Berücksichtigung von Steuern." },
-  crypto:{ zero:"Kryptowerte sind hochvolatil – Risiko des Totalverlusts.", fnet:"Kryptowerte sind hochvolatil – Risiko des Totalverlusts." },
-  poll:{ zero:"Nicht repräsentative Community-Umfrage.", fnet:"Nicht repräsentative Community-Umfrage." }
+  base:{ zero:"Werbemitteilung. Keine Anlageberatung, keine Anlageempfehlung.", fnet:"Redaktioneller Inhalt. Keine Anlageberatung.", tfam:"Angaben ohne Gewähr, keine Anlageberatung." },
+  risk:{ zero:"Kapitalanlagen bergen Risiken bis zum Totalverlust.", fnet:"", tfam:"" },
+  perf:{ zero:"Frühere Wertentwicklung ist kein verlässlicher Indikator für die künftige Wertentwicklung.", fnet:"Frühere Wertentwicklung ist kein verlässlicher Indikator für die künftige Wertentwicklung.", tfam:"Frühere Wertentwicklung ist kein verlässlicher Indikator für die künftige Wertentwicklung." },
+  model:{ zero:"Modellrechnung, unverbindlich. Keine Garantie künftiger Erträge. Ohne Berücksichtigung von Steuern.", fnet:"Modellrechnung, unverbindlich. Ohne Berücksichtigung von Steuern.", tfam:"Modellrechnung, unverbindlich. Ohne Berücksichtigung von Steuern." },
+  crypto:{ zero:"Kryptowerte sind hochvolatil – Risiko des Totalverlusts.", fnet:"Kryptowerte sind hochvolatil – Risiko des Totalverlusts.", tfam:"Kryptowerte sind hochvolatil – Risiko des Totalverlusts." },
+  poll:{ zero:"Nicht repräsentative Community-Umfrage.", fnet:"Nicht repräsentative Community-Umfrage.", tfam:"Nicht repräsentative Community-Umfrage." }
 };
 
 /* zero-Hausregeln: keine aktive Kauf-/Verkaufsansicht aus persönlicher Sicht.
@@ -7070,6 +7158,124 @@ const SM_TEMPLATES=[
   ]}
 ];
 
+/* ============================================================================
+   aktien Magazin / TraderFox — Templates (Christian 29.07.2026)
+   ----------------------------------------------------------------------------
+   Fünf Formate, im Meeting am 29.07. gemeinsam festgelegt: Chart Story,
+   Zahl des Tages, Rankings, Earnings Reaction, Instrument-Snapshot.
+
+   Jedes Template führt zwei markenweite Steuerfelder, die aus der im Meeting
+   beschlossenen Auswahlkette kommen (Magazin -> Artikelformat -> Zielgruppe):
+     pub      = Publikation (aktien Magazin / MEGATREND / Tenbagger / Trendfollowing)
+                -> steuert die Eyebrow-Zeile, NICHT das Layout, damit ein Magazin
+                   im Feed wiedererkennbar bleibt.
+     audience = gewünschte Zielgruppe (Bestand vs. jünger)
+                -> steuert NUR die Textansprache im KI-Prompt, nie die Zahlen.
+                   Bestandsleser sind laut AM-Lead älter und sicherheitsorientiert,
+                   die Marke soll scheibchenweise geöffnet werden.
+
+   Diese Templates erscheinen nur, wenn die Marke aktien Magazin gewählt ist
+   (Filter in smBuildTplGrid). zero und finanzen.net sehen sie nicht.
+   ============================================================================ */
+const TF_COMMON_FIELDS=[
+  {k:"pub",l:"Publikation",type:"sel",opts:["aktien Magazin","MEGATREND","Tenbagger","Trendfollowing"],def:"aktien Magazin"},
+  {k:"audience",l:"Gewünschte Zielgruppe (steuert nur die Textansprache)",type:"seg",
+   opts:["bestand","jung"],optlabels:["Bestand (fundiert)","Jünger (knackig)"],def:"bestand"}
+];
+const TF_TAIL_FIELDS=[
+  {k:"source",l:"Quelle",type:"text",max:50,def:"aktien Magazin"},
+  {k:"stand",l:"Datenstand (erscheint im roten Badge)",type:"text",max:14,def:"",ph:"14.07.2026"}
+];
+const SM_TEMPLATES_TFAM=[
+  { id:"tfam_chartstory", name:"Chart Story", prio:"P1", path:"A", carousel:false, renderer:"tf_chartstory", brand:"tfam",
+    desc:"Kursverlauf mit einer markierten Marke und einer Kernaussage. Für Chartanalysen.",
+    note:"Minimalistisch nach Meeting-Vorgabe: eine Linie, eine Marke, eine Aussage — keine Indikator-Batterie. Farbe der Linie ergibt sich aus der Richtung.",
+    formats:["4:5","9:16"], master:"4:5", legal:[],
+    fields:[...TF_COMMON_FIELDS,
+      {k:"title",l:"Titel im Header (erstes Wort weiß, Rest rot)",type:"text",max:26,def:"CHART STORY"},
+      {k:"name",l:"Unternehmen",type:"text",max:40,def:"Marten Transport"},
+      {k:"ticker",l:"Ticker / Kürzel",type:"text",max:16,def:"MRTN"},
+      {k:"kurs",l:"Kurs",type:"text",max:14,def:"18,40 USD"},
+      {k:"change",l:"Veränderung (mit Vorzeichen)",type:"text",max:12,def:"+6,2 %"},
+      {k:"points",l:"Kursverlauf — je Zeile  Label = Wert",type:"area",max:600,
+       def:"Feb = 15,1\nMär = 14,2\nApr = 14,9\nMai = 16,0\nJun = 17,1\nJul = 18,4"},
+      {k:"mark",l:"Marke / Niveau (optional, Zahl)",type:"text",max:12,def:"17,5"},
+      {k:"marklabel",l:"Bezeichnung der Marke",type:"text",max:20,def:"Widerstand"},
+      {k:"takeaway",l:"Kernaussage",type:"area",max:180,def:"Die Branchenstärke der Transportaktien führt reihenweise zu Ausbrüchen — Marten Transport testet das Niveau vor den Quartalszahlen."},
+      ...TF_TAIL_FIELDS
+    ]},
+  { id:"tfam_zahl", name:"Zahl des Tages", prio:"P1", path:"A", carousel:false, renderer:"tf_zahl", brand:"tfam",
+    desc:"Eine große Zahl, ein Label, eine Einordnung. Das feedstärkste Minimal-Format.",
+    note:"Nachbau der Bestandsgrafik Zahl der Woche. Farbe kommt aus dem Vorzeichen; auf neutral stellen, wenn die Zahl keine Richtung hat (z. B. eine Stückzahl).",
+    formats:["4:5","9:16"], master:"4:5", legal:[],
+    fields:[...TF_COMMON_FIELDS,
+      {k:"zmode",l:"Theme",type:"seg",opts:["light","dark"],optlabels:["Light","Dark"],def:"light"},
+      {k:"title",l:"Titel im Header",type:"text",max:26,def:"ZAHL DER WOCHE"},
+      {k:"value",l:"Die Zahl (mit Vorzeichen und Einheit)",type:"text",max:14,def:"−0,4 %"},
+      {k:"zcolor",l:"Farbe der Zahl",type:"seg",opts:["signal","neutral"],optlabels:["Aus Vorzeichen","Neutral"],def:"signal"},
+      {k:"label",l:"Was die Zahl beschreibt",type:"text",max:70,def:"US-Verbraucherpreise (CPI) m/m, Juni"},
+      {k:"erklaerung",l:"Einordnung (der Wissens-Teil)",type:"area",max:400,
+       def:"Größter Monatsrückgang seit April 2020. Fallende Energiepreise drückten die Jahresrate von 4,2 auf 3,5 Prozent. Die Zinserwartung für September sank dennoch nur moderat, da der Nahost-Konflikt zwischenzeitlich wieder eskalierte."},
+      ...TF_TAIL_FIELDS
+    ]},
+  { id:"tfam_ranking", name:"Ranking (Top 5)", prio:"P1", path:"A", carousel:false, renderer:"tf_ranking", brand:"tfam",
+    desc:"Tabellen-Ranking im Haus-Look: graue Kopfzeile, Rang, Name, Wert in Grün/Rot.",
+    note:"Übernimmt die Tabellenstruktur der Screening-Grafiken, aber bewusst nur 5 Zeilen — die Screening-PDFs zeigen 30, das ist im Feed nicht lesbar. Spaltentitel sind frei wählbar, damit Sektoren, Branchen und Screener-Ergebnisse dasselbe Template nutzen.",
+    formats:["4:5","9:16"], master:"4:5", legal:[],
+    fields:[...TF_COMMON_FIELDS,
+      {k:"title",l:"Titel im Header (erstes Wort weiß, Rest rot)",type:"text",max:26,def:"TOP SEKTOREN"},
+      {k:"collabel",l:"Spaltentitel Mitte",type:"text",max:20,def:"SEKTOR"},
+      {k:"vallabel",l:"Spaltentitel rechts",type:"text",max:22,def:"PERF. 7 TAGE"},
+      {k:"unit",l:"Einheit hinter dem Wert",type:"text",max:6,def:"%"},
+      {k:"rows",l:"Zeilen — je Zeile  Name = Wert (max. 5)",type:"area",max:400,
+       def:"Energy = 6,78\nReal Estate = 0,89\nUtilities = 0,86\nConsumer Defensive = 0,60\nTechnology = 0,10"},
+      ...TF_TAIL_FIELDS
+    ]},
+  { id:"tfam_earnings", name:"Earnings Reaction", prio:"P1", path:"A", carousel:false, renderer:"tf_earnings", brand:"tfam",
+    desc:"Kursreaktion auf Quartalszahlen groß, darunter bis zu drei harte Kennzahlen.",
+    note:"Für Aktie on Fire und den Earnings-Radar. Die Kursreaktion ist der Hook, die Kennzahlen liefern den Beleg. Nur die Zahlen eintragen, die wirklich die Reaktion erklären.",
+    formats:["4:5","9:16"], master:"4:5", legal:[],
+    fields:[...TF_COMMON_FIELDS,
+      {k:"title",l:"Titel im Header",type:"text",max:28,def:"EARNINGS REACTION"},
+      {k:"quartal",l:"Quartal / Zeitraum",type:"text",max:18,def:"Q2 2026"},
+      {k:"name",l:"Unternehmen",type:"text",max:40,def:"J.B. Hunt Transport Services"},
+      {k:"ticker",l:"Ticker / Kürzel",type:"text",max:16,def:"JBHT"},
+      {k:"change",l:"Kursreaktion (mit Vorzeichen)",type:"text",max:12,def:"+12,4 %"},
+      {k:"reaktion",l:"Zeile unter der Zahl",type:"text",max:56,def:"Kursreaktion am Tag nach den Zahlen"},
+      {k:"k1l",l:"Kennzahl 1 – Label",type:"text",max:24,def:"Umsatz"},
+      {k:"k1v",l:"Kennzahl 1 – Wert",type:"text",max:18,def:"3,50 Mrd. USD"},
+      {k:"k2l",l:"Kennzahl 2 – Label",type:"text",max:24,def:"Ergebnis je Aktie"},
+      {k:"k2v",l:"Kennzahl 2 – Wert",type:"text",max:18,def:"+45 %"},
+      {k:"k3l",l:"Kennzahl 3 – Label (optional)",type:"text",max:24,def:"Umsatzwachstum"},
+      {k:"k3v",l:"Kennzahl 3 – Wert (optional)",type:"text",max:18,def:"+19 %"},
+      ...TF_TAIL_FIELDS
+    ]},
+  { id:"tfam_snapshot", name:"Instrument-Snapshot", prio:"P1", path:"A", carousel:false, renderer:"tf_snapshot", brand:"tfam",
+    desc:"Steckbrief einer Aktie: Kurs, Kennzahlen als Liste, kurzer Einordnungssatz.",
+    note:"Trägt die Positionierung aus dem Meeting: Unternehmen vorstellen, die nicht jeder auf dem Schirm hat. Kennzahlen frei wählbar, damit Screening-Scores, Insider-Daten und klassische Fundamentaldaten dasselbe Template nutzen.",
+    formats:["4:5","9:16"], master:"4:5", legal:[],
+    fields:[...TF_COMMON_FIELDS,
+      {k:"title",l:"Titel im Header",type:"text",max:26,def:"AKTIE IM PROFIL"},
+      {k:"name",l:"Unternehmen",type:"text",max:40,def:"MBB SE"},
+      {k:"branche",l:"Branche / Segment",type:"text",max:34,def:"Beteiligungen · Industrie"},
+      /* Assetklasse (Christian 29.07.2026): smLegalLines hängt bei "Krypto" den regulatorisch
+         nötigen Volatilitätshinweis an. Ohne dieses Feld war jener Zweig toter Code (vom
+         Review gefunden) — jetzt ist er erreichbar, sobald das Magazin einen Kryptowert zeigt. */
+      {k:"aclass",l:"Assetklasse (steuert den Pflichthinweis)",type:"sel",opts:["Aktie","ETF","Krypto","Sonstiges"],def:"Aktie"},
+      {k:"ticker",l:"Ticker / ISIN",type:"text",max:22,def:"DE000A0ETBQ4"},
+      {k:"kurs",l:"Kurs",type:"text",max:14,def:"195,20 EUR"},
+      {k:"change",l:"Veränderung (mit Vorzeichen)",type:"text",max:12,def:"−3,1 %"},
+      {k:"kpis",l:"Kennzahlen — je Zeile  Label = Wert",type:"area",max:500,
+       def:"Marktkapitalisierung = 925 Mio. EUR\nNettoliquidität = 766 Mio. EUR\nInsiderkauf = 4.508 Aktien\nAktienrückkauf Q1 = 72.616 Stück"},
+      {k:"note",l:"Einordnung in einem Satz",type:"area",max:200,def:"Der Insiderkauf und der parallele Aktienrückkauf unterstreichen, dass das Management die Aktie für unterbewertet hält."},
+      ...TF_TAIL_FIELDS
+    ]}
+];
+/* An den Katalog anhängen statt ihn zu ersetzen — zero-Templates bleiben unverändert. */
+SM_TEMPLATES.push(...SM_TEMPLATES_TFAM);
+/* Templates ohne brand-Feld gehören zu zero (Bestandsverhalten). */
+function tfTplsFor(brand){ return SM_TEMPLATES.filter(t=>(t.brand||"zero")===brand); }
+
 /* ---------- State ---------- */
 let smTpl=SM_TEMPLATES[0], smFmt="4:5", smData={}, smSlide=0, smBgImg=null, smBgUrl="";
 
@@ -7102,6 +7308,21 @@ function smChooseBrand(id){
   const b=SM_BRANDS[id];
   $("smActiveBrand").innerHTML='<span class="sm-brand-chip"><span class="dot" style="background:'+b.accent+'"></span>'+b.label+'</span> <button class="sm-brand-switch" id="smBrandSwitch">Marke wechseln</button>';
   $("smBrandSwitch").onclick=()=>{ $("smWork").style.display="none"; $("smGate").style.display=""; window.scrollTo(0,0); };
+  /* Template-Katalog auf die gewählte Marke umstellen (Christian 29.07.2026).
+     WICHTIG — nur umschalten, wenn das aktive Template NICHT zur gewählten Marke gehört.
+     smSelectTpl setzt smData={} und würde sonst bereits eingegebene Felder löschen: Wer bei
+     zero Werte eintippt, über "Marke wechseln" ins Gate geht und zero erneut wählt, hätte
+     seine Eingaben verloren. Genau dieses Verhalten gab es vor der Erweiterung NICHT
+     (die alte Fassung rief hier gar kein smSelectTpl auf) — also kein Regress einbauen. */
+  const _tplPasst=smTpl && (smTpl.brand||"zero")===id;
+  if(!_tplPasst){
+    const _first=tfTplsFor(id)[0];
+    if(_first) smSelectTpl(_first.id);
+    else { smBuildTplGrid(); smBuildFields(); smBuildFmt(); }
+  } else {
+    /* Marke unverändert -> Katalog-Kacheln neu zeichnen, Eingaben behalten. */
+    smBuildTplGrid();
+  }
   smUpdateLegal(); smRender();
   window.scrollTo(0,0);
 }
@@ -7112,7 +7333,9 @@ function smTplSlideInfo(t){
   return "3–7 Slides";
 }
 function smBuildTplGrid(){
-  $("smTplGrid").innerHTML=SM_TEMPLATES.map(t=>
+  /* Nur die Templates der aktiven Marke zeigen (Christian 29.07.2026) — zero sieht die
+     aktien-Magazin-Formate nicht und umgekehrt. */
+  $("smTplGrid").innerHTML=tfTplsFor(smBrand).map(t=>
     '<button class="sm-tpl'+(t.id===smTpl.id?" on":"")+'" data-t="'+t.id+'"><h4>'+t.name+'</h4><p>'+t.desc+'</p>'+
     '<div class="badges"><span class="sm-badge sm-b-'+t.prio.toLowerCase()+'">'+t.prio+'</span>'+
     '<span class="sm-badge sm-b-car">'+smTplSlideInfo(t)+'</span>'+
@@ -7121,7 +7344,10 @@ function smBuildTplGrid(){
   $("smTplGrid").querySelectorAll("[data-t]").forEach(el=>el.onclick=()=>smSelectTpl(el.dataset.t,true));
 }
 function smSelectTpl(id,manual){
-  smTpl=SM_TEMPLATES.find(t=>t.id===id)||SM_TEMPLATES[0];
+  /* Fallback auf das erste Template DER AKTIVEN MARKE (Christian 29.07.2026) — sonst
+     landete aktien Magazin beim zero-Market-Update. */
+  const _pool=tfTplsFor(smBrand);
+  smTpl=SM_TEMPLATES.find(t=>t.id===id)||_pool[0]||SM_TEMPLATES[0];
   /* Manuelle Wahl + Artikel vorhanden -> Neu-Befüllen anbieten (wie finanzen.net: Use-Case-Wechsel + "Felder füllen") */
   const rr=$("smRefillRow");
   if(rr) rr.style.display=(manual && $("src-sm") && $("src-sm").value.trim())?"":"none";
@@ -7130,8 +7356,14 @@ function smSelectTpl(id,manual){
   window._smMotifZ="auto"; window._smMotivesZ=null;
   smBuildTplGrid(); smBuildFields(); smBuildFmt(); smUpdateLegal();
   if(typeof smBuildMotifZ==="function") smBuildMotifZ();
-  /* KI-Hintergrund für ALLE Templates verfügbar; bei Pfad A mit Hinweis (Zahlen bleiben deterministisch) */
-  $("smBgCard").style.display="";
+  /* KI-Hintergrund für ALLE Templates verfügbar; bei Pfad A mit Hinweis (Zahlen bleiben deterministisch).
+     AUSNAHME aktien Magazin (Christian 29.07.2026, vom Review angemerkt): die fünf tf_*-Renderer
+     zeichnen ihren Hintergrund vollständig selbst und lesen smBgImg NICHT. Die Karte hätte dort
+     also ein Bild erzeugt, das nie erscheint — deshalb ausgeblendet statt irreführend anzubieten.
+     Das entspricht auch der Design-Leitlinie aus dem Meeting: minimalistisch, ohne Stockfoto-Look. */
+  const _tfamNoBg=(smBrand==="tfam");
+  $("smBgCard").style.display=_tfamNoBg?"none":"";
+  if(_tfamNoBg){ smBgImg=null; smBgUrl=""; }
   if($("smBgPrompt")) $("smBgPrompt").value=smTpl.bgPrompt||"Abstract premium fintech background, subtle depth, soft gradient, atmospheric glow, generous negative space";
   $("smBgStatus").textContent = smTpl.path==="A" ? "Hinweis: Bei diesem Daten-Template wird das Bild abgedunkelt hinterlegt — Zahlen, Chart und Pflichttexte bleiben deterministisch." : "";
   $("smBgClear").style.display="none";
@@ -7242,8 +7474,14 @@ function smLegalLines(){
   if(smBrand==="zero"){
     lines=[SM_LEGAL.base.zero, SM_LEGAL.risk.zero].filter(Boolean);
     if(smTpl.id==="zero_sm_instrument_snapshot" && (smData.aclass||"")==="Krypto") lines.push(SM_LEGAL.crypto.zero);
+  } else if(smBrand==="tfam"){
+    /* aktien Magazin (Christian 29.07.2026): wie bei zero EINE feste Fußzeile über alle
+       Templates — der Gewähr-Hinweis aus den Bestandsgrafiken. Krypto-Hinweis kommt additiv
+       dazu, wenn das Template eine Assetklasse führt. */
+    lines=[SM_LEGAL.base.tfam].filter(Boolean);
+    if((smData.aclass||"")==="Krypto") lines.push(SM_LEGAL.crypto.tfam);
   } else {
-    lines=smTpl.legal.map(k=>SM_LEGAL[k][smBrand]).filter(Boolean);
+    lines=(smTpl.legal||[]).map(k=>(SM_LEGAL[k]||{})[smBrand]).filter(Boolean);
     if(smTpl.id==="zero_sm_instrument_snapshot" && (smData.aclass||"")==="Krypto") lines.push(SM_LEGAL.crypto[smBrand]);
   }
   return lines;
@@ -7275,6 +7513,17 @@ var SM_RULES={
       disclaimer:[],                          /* redaktionell, kein fixer Risiko-Disclaimer */
       complianceTriggers:false,
       quelleFixed:null
+    },
+    /* aktien Magazin / TraderFox (Christian 29.07.2026): redaktionelles Medium, kein Broker
+       -> KEINE Compliance-Trigger wie bei zero (das Magazin darf sehr wohl "Die Aktie kann
+       aufgegriffen werden" schreiben, siehe Stephans Bulle-der-Woche-Beispiel). Fußzeile
+       aber immer mit dem Gewähr-Hinweis, wie in den Bestandsgrafiken. */
+    tfam:{
+      font:"Poppins",
+      formats:["4:5","9:16"],                 /* Instagram-Fokus: Feed + Story */
+      disclaimer:["base"],
+      complianceTriggers:false,
+      quelleFixed:"aktien Magazin"
     }
   },
   /* template-spezifische Zusätze (nur echte Ausnahmen, kein Duplikat der Feld-Limits) */
@@ -7940,6 +8189,593 @@ function qnAzfPodcast(x,W,H,d,M){
   x.textAlign="left";
 }
 
+/* ============================================================================
+   aktien Magazin / TraderFox — Renderer (Christian 29.07.2026)
+   ----------------------------------------------------------------------------
+   Grundlage: die von Stephan Bank gelieferten Bestandsgrafiken (Top-Sektoren /
+   Top-Branchen-Screening, Zahl der Woche, Megatrend-Großwetterlage, Earnings-
+   Radar) plus das Meeting mit dem AM-Lead am 29.07.2026.
+
+   Design-Leitlinie aus dem Meeting: MINIMALISTISCHER als die Bestandsposts.
+   Die Bestandsgrafiken sind bewusst dicht (Screening-Tabellen mit 6 Spalten) —
+   das funktioniert im Magazin, aber nicht bei 1,25 Sekunden Aufmerksamkeit im
+   Feed. Deshalb übernehmen diese Templates die HAUS-SPRACHE (schwarzer Header
+   mit Eyebrow, rotes Datums-Badge, schwarze Fußleiste, graue Kopfzeile über
+   Tabellen, grün/rot aus dem Vorzeichen) und reduzieren gleichzeitig die
+   Informationsmenge pro Grafik deutlich.
+
+   Positionierung, die jede Grafik tragen soll: fundiertes Wissen, und gern
+   Unternehmen, die nicht jeder auf dem Schirm hat.
+
+   Alle fünf Renderer zeichnen selbst und laufen über QN_RENDER — sie hängen
+   NICHT am zero-Chrome und ändern nichts am Verhalten von zero oder
+   finanzen.net.
+   ============================================================================ */
+const TF_BLACK="#111111", TF_RED="#D51019", TF_GREEN="#21B25A", TF_GREY="#7F7F7F", TF_FLAT="#F1F1F1";
+
+/* Publikationen innerhalb der Marke (Meeting-Entscheidung: EIN Grundaufbau je Magazin,
+   Publikation als Feld statt eigener Marke). Steuert nur die Eyebrow-Zeile und den
+   Akzent — nicht das Layout, damit der Feed-Wiedererkennungswert erhalten bleibt. */
+const TF_PUBS={
+  "aktien Magazin":   { eyebrow:"AKTIEN MAGAZIN",   accent:TF_RED },
+  "MEGATREND":        { eyebrow:"MEGATREND-MONITOR", accent:TF_RED },
+  "Tenbagger":        { eyebrow:"TENBAGGER",        accent:TF_RED },
+  "Trendfollowing":   { eyebrow:"TRENDFOLLOWING",   accent:TF_RED }
+};
+function tfPub(){ return TF_PUBS[(smData.pub||"aktien Magazin")]||TF_PUBS["aktien Magazin"]; }
+
+/* Vorzeichen -> Farbe, gleiche Logik wie die Bestandsgrafiken (grüne Performance-Spalte). */
+function tfSignColor(v){ const u=qnUp(v); return u===false?TF_RED:TF_GREEN; }
+
+/* Wortmarke als Vektor-Fallback: "aktien" schwarz + "MAGAZIN" rot, wie im Logo.
+   Wird verwendet, solange Stephan keine Logo-PNGs geliefert hat. Sobald LOGOS
+   einen Eintrag "aktien_magazin" hat, wird stattdessen das echte Logo gezeichnet.
+   Gibt die gezeichnete Breite zurück. */
+function tfDrawWordmark(x, rightX, cy, targetW, onDark){
+  const img=_smLogoCache["aktien_magazin_"+(onDark?"hell":"dunkel")]||_smLogoCache["aktien_magazin_dunkel"]||_smLogoCache["aktien_magazin_hell"];
+  if(img){
+    const ar=img.height/img.width, w=targetW, h=w*ar;
+    x.drawImage(img, rightX-w, cy-h/2, w, h);
+    return w;
+  }
+  /* Fallback: gezeichnete Wortmarke, optisch an das Logo angelehnt. */
+  const fs=targetW*0.235;
+  x.save();
+  x.textBaseline="middle"; x.textAlign="right";
+  x.font="800 "+fs+"px "+BRAND.font;
+  const wMag=x.measureText("MAGAZIN").width;
+  x.fillStyle=TF_RED; x.fillText("MAGAZIN", rightX, cy);
+  x.font="800 "+fs+"px "+BRAND.font;
+  x.fillStyle=onDark?"#ffffff":TF_BLACK;
+  x.fillText("aktien", rightX-wMag-fs*0.16, cy);
+  const total=wMag+fs*0.16+x.measureText("aktien").width;
+  x.restore();
+  x.textBaseline="alphabetic"; x.textAlign="left";
+  return total;
+}
+
+/* ---- Haus-Header: schwarzes Band, Eyebrow + Titel links, rotes Datums-Badge rechts ----
+   1:1 die Struktur der Screening-Grafiken. Gibt die Unterkante des Bands zurück. */
+function tfHeader(x, W, H, M, opts){
+  opts=opts||{};
+  const d=smData, P=tfPub();
+  const bandH=Math.round(H*(opts.compact?0.108:0.132));
+  x.fillStyle=TF_BLACK; x.fillRect(0,0,W,bandH);
+  /* rotes Datums-Badge rechts, volle Bandhöhe (wie in der Vorlage) */
+  const stand=(d.stand||"").trim();
+  let badgeW=0;
+  if(stand){
+    /* Gemessen wird GENAU der String, der auch gezeichnet wird — inklusive Sperrung und mit
+       derselben Schriftgröße (Christian 29.07.2026, vom Review angemerkt): vorher wurde
+       "DATENSTAND" ungesperrt und mit 0.030 gemessen, gezeichnet aber gesperrt mit 0.026.
+       Das unterschätzte die Labelbreite um rund ein Viertel; nur das Padding deckte es ab. */
+    const lblTxt=tfTrack("DATENSTAND",1);
+    x.font="700 "+(W*0.026)+"px "+BRAND.font;
+    const wLbl=x.measureText(lblTxt).width;
+    x.font="800 "+(W*0.052)+"px "+BRAND.font;
+    const wVal=x.measureText(stand).width;
+    badgeW=Math.max(wLbl,wVal)+W*0.085;
+    x.fillStyle=P.accent; x.fillRect(W-badgeW,0,badgeW,bandH);
+    x.textAlign="center";
+    x.font="700 "+(W*0.026)+"px "+BRAND.font; x.fillStyle="rgba(255,255,255,0.85)";
+    x.fillText(lblTxt, W-badgeW/2, bandH*0.40);
+    x.font="800 "+(W*0.052)+"px "+BRAND.font; x.fillStyle="#ffffff";
+    x.fillText(stand, W-badgeW/2, bandH*0.76);
+    x.textAlign="left";
+  }
+  /* Eyebrow mit rotem Quadrat davor */
+  const availW=W-2*M-badgeW-W*0.02;
+  let y=bandH*0.34;
+  const sq=W*0.014;
+  x.fillStyle=P.accent; x.fillRect(M, y-sq*0.85, sq, sq);
+  /* Eyebrow muss VOR dem roten Datums-Badge enden (Christian 29.07.2026, vom Review belegt):
+     mit "MEGATREND-MONITOR" plus langem Ticker/Quartal und einem breiten Datums-Badge lief die
+     weiße Schrift unter das Badge. Deshalb dieselbe Shrink-Schleife wie beim Titel — der
+     verfügbare Platz ist availW minus dem Quadrat und seinem Abstand. */
+  const ebTxt=tfTrack((opts.eyebrow||P.eyebrow)+(opts.eyebrow2?("  ·  "+opts.eyebrow2):""), 1);
+  const ebMaxW=availW-sq*1.9;
+  let ebFS=W*0.025;
+  for(let g=0;g<60;g++){
+    x.font="700 "+ebFS+"px "+BRAND.font;
+    if(x.measureText(ebTxt).width<=ebMaxW || ebFS<=W*0.010) break;
+    ebFS*=0.96;
+  }
+  x.font="700 "+ebFS+"px "+BRAND.font; x.fillStyle="rgba(255,255,255,0.80)";
+  x.fillText(ebTxt, M+sq*1.9, y);
+  /* Titel: erstes Wort weiß, Rest rot — genau wie "TOP SEKTOREN" in der Vorlage */
+  y=bandH*0.80;
+  const title=(opts.title||"").trim();
+  if(title){
+    const parts=title.split(/\s+/);
+    const head=parts.length>1?parts[0]:"";
+    const tail=parts.length>1?parts.slice(1).join(" "):parts[0];
+    let fs=W*0.082;
+    for(let g=0;g<40;g++){
+      x.font="800 "+fs+"px "+BRAND.font;
+      if(x.measureText(title).width<=availW || fs<=W*0.036) break;
+      fs*=0.96;
+    }
+    x.font="800 "+fs+"px "+BRAND.font;
+    let tx=M;
+    if(head){ x.fillStyle="#ffffff"; x.fillText(head+" ", tx, y); tx+=x.measureText(head+" ").width; }
+    x.fillStyle=P.accent; x.fillText(tail, tx, y);
+  }
+  return bandH;
+}
+
+/* Buchstabenabstand von Hand (Canvas letterSpacing ist nicht überall verfügbar).
+   Christian 29.07.2026 (vom Review gefunden): Das zweite Argument wirkte nur als An/Aus-
+   Schalter — drei verschiedene Aufrufwerte lieferten identisches Ergebnis. Jetzt steuert
+   `stufe` die Stärke echt: 1 = ein Haarspace (U+200A), 2 = zwei. Mehr braucht es für
+   Eyebrow und Tabellenköpfe nicht, und der gesperrte String wird überall auch GEMESSEN,
+   sodass Umbrüche und Shrink-Schleifen die tatsächliche Breite sehen. */
+function tfTrack(s, stufe){
+  const n=Math.max(0, Math.round(stufe||0));
+  if(!n) return String(s);
+  return String(s).split("").join(String.fromCharCode(8202).repeat(n));
+}
+
+/* ---- Haus-Fußleiste: schwarzes Band, Legal links, Wortmarke rechts ---- */
+function tfFooter(x, W, H, M){
+  const bandH=Math.round(H*0.062);
+  const by=H-bandH;
+  x.fillStyle=TF_BLACK; x.fillRect(0,by,W,bandH);
+  const cy=by+bandH/2;
+  const lw=tfDrawWordmark(x, W-M, cy, W*0.155, true);
+  x.textBaseline="middle"; x.textAlign="left";
+  /* Wortlaut aus SM_LEGAL statt als Literal (Christian 29.07.2026, vom Review angemerkt):
+     die Legal-Freigabe steht noch aus, und ein Literal hier hätte bedeutet, dass die Grafik
+     nach einer Wortlaut-Änderung etwas anderes zeigt als Validator und Legal-Anzeige.
+     smLegalLines() ist die eine Quelle; der Präfix nennt die Publikation als Datenherkunft,
+     wie in Stephans Bestandsgrafiken ("Datenstand aktien Magazin · …"). */
+  let legalTxt="Angaben ohne Gewähr, keine Anlageberatung.";
+  try{
+    const _ll=(typeof smLegalLines==="function")?smLegalLines():null;
+    if(_ll&&_ll.length) legalTxt=_ll.join("  ·  ");
+  }catch(e){}
+  const legal=(smData.stand?("Datenstand "+(smData.pub||"aktien Magazin")+" · "):"")+legalTxt;
+  const maxW=W-2*M-lw-W*0.04;
+  let fs=W*0.024;
+  for(let g=0;g<30;g++){ x.font="500 "+fs+"px "+BRAND.font; if(x.measureText(legal).width<=maxW||fs<=W*0.015) break; fs*=0.95; }
+  x.font="500 "+fs+"px "+BRAND.font; x.fillStyle="rgba(255,255,255,0.62)";
+  x.fillText(legal, M, cy);
+  x.textBaseline="alphabetic";
+  return by;
+}
+
+/* ---- Quellzeile über der Fußleiste (optional) ---- */
+function tfSource(x, W, footTop, M){
+  const src=(smData.source||"").trim(); if(!src) return footTop;
+  x.textAlign="left"; x.font="500 "+(W*0.026)+"px "+BRAND.font; x.fillStyle=TF_GREY;
+  x.fillText("Quelle: "+src, M, footTop-W*0.028);
+  return footTop-W*0.070;
+}
+
+/* ============================ 1) CHART STORY ============================
+   Aus Stephans Use Case "Chartanalyse" (Analog: zero, Textstil Chart-Story).
+   Minimalistisch: EINE Kursverlaufslinie, die Marken/Zonen die die Analyse
+   nennt, und maximal zwei Kernaussagen. Keine Indikator-Batterie. */
+QN_RENDER.tf_chartstory=function(x, W, H, slide){
+  const d=smData, M=Math.round(W*0.066);
+  x.fillStyle="#ffffff"; x.fillRect(0,0,W,H);
+  const bandH=tfHeader(x,W,H,M,{ title:(d.title||"CHARTANALYSE"), eyebrow2:(d.ticker||"") });
+  const footTop=tfFooter(x,W,H,M);
+  let contentBot=tfSource(x,W,footTop,M);
+
+  /* Kurszeile: Name groß, Kurs + Veränderung darunter */
+  let y=bandH+W*0.085;
+  const nmFit=smFitLines(x,(d.name||"Unternehmen"),W-2*M,2,W*0.062,"800");
+  x.font="800 "+nmFit.fs+"px "+BRAND.font; x.fillStyle=TF_BLACK; x.textAlign="left";
+  nmFit.lines.forEach(ln=>{ x.fillText(ln,M,y); y+=nmFit.fs*1.12; });
+
+  const kurs=(d.kurs||"").trim(), chg=(d.change||"").trim();
+  if(kurs||chg){
+    y+=W*0.012;
+    x.font="800 "+(W*0.052)+"px "+BRAND.font; x.fillStyle=TF_BLACK;
+    x.fillText(kurs, M, y);
+    const kw=x.measureText(kurs).width;
+    if(chg){ x.fillStyle=tfSignColor(chg); x.fillText("  "+chg, M+kw, y); }
+    y+=W*0.030;
+  }
+
+  /* Chartfläche */
+  const pts=tfPoints(d.points||"");
+  const chTop=y+W*0.055;
+  const chBot=contentBot-W*0.115;
+  const chH=Math.max(W*0.20, chBot-chTop);
+  const chX=M, chW=W-2*M;
+  x.fillStyle=TF_FLAT; x.fillRect(chX,chTop,chW,chH);
+  if(pts.length>=2){
+    const vals=pts.map(p=>p.v);
+    let lo=Math.min(...vals), hi=Math.max(...vals);
+    if(hi===lo){ hi=lo+1; lo-=1; }
+    const pad=(hi-lo)*0.14; lo-=pad; hi+=pad;
+    const px=i=>chX+ (chW*0.055) + (i/(pts.length-1))*(chW*0.89);
+    const py=v=>chTop+chH*0.90 - ((v-lo)/(hi-lo))*(chH*0.80);
+    /* optionale horizontale Marke (Widerstand/Ausbruchsniveau) */
+    const mark=parseFloat(String(d.mark||"").replace(/\./g,"").replace(",","."));
+    if(!isNaN(mark) && mark>=lo && mark<=hi){
+      const my=py(mark);
+      x.save(); x.setLineDash([W*0.012,W*0.010]);
+      x.strokeStyle=TF_RED; x.lineWidth=Math.max(2,W*0.004);
+      x.beginPath(); x.moveTo(chX+chW*0.03,my); x.lineTo(chX+chW*0.97,my); x.stroke(); x.restore();
+      x.font="700 "+(W*0.026)+"px "+BRAND.font; x.fillStyle=TF_RED; x.textAlign="right";
+      x.fillText((d.marklabel||"Marke")+" "+(d.mark||""), chX+chW*0.97, my-W*0.014);
+      x.textAlign="left";
+    }
+    /* Verlaufsfläche + Linie */
+    const rising=vals[vals.length-1]>=vals[0];
+    const lineCol=rising?TF_GREEN:TF_RED;
+    x.beginPath(); x.moveTo(px(0),py(pts[0].v));
+    pts.forEach((p,i)=>{ if(i) x.lineTo(px(i),py(p.v)); });
+    x.lineTo(px(pts.length-1), chTop+chH); x.lineTo(px(0), chTop+chH); x.closePath();
+    x.fillStyle=rising?"rgba(33,178,90,0.13)":"rgba(213,16,25,0.10)"; x.fill();
+    x.beginPath(); x.moveTo(px(0),py(pts[0].v));
+    pts.forEach((p,i)=>{ if(i) x.lineTo(px(i),py(p.v)); });
+    x.strokeStyle=lineCol; x.lineWidth=Math.max(3,W*0.007); x.lineJoin="round"; x.lineCap="round"; x.stroke();
+    x.lineJoin="miter"; x.lineCap="butt";
+    /* letzter Punkt betont */
+    const lx=px(pts.length-1), ly=py(pts[pts.length-1].v);
+    x.beginPath(); x.arc(lx,ly,W*0.014,0,7); x.fillStyle=lineCol; x.fill();
+    x.beginPath(); x.arc(lx,ly,W*0.014,0,7); x.strokeStyle="#fff"; x.lineWidth=W*0.005; x.stroke();
+    /* erste/letzte Beschriftung */
+    x.font="600 "+(W*0.026)+"px "+BRAND.font; x.fillStyle=TF_GREY;
+    x.fillText(pts[0].label||"", chX+chW*0.045, chTop+chH-W*0.020);
+    x.textAlign="right";
+    x.fillText(pts[pts.length-1].label||"", chX+chW*0.955, chTop+chH-W*0.020);
+    x.textAlign="left";
+  } else {
+    x.textAlign="center"; x.font="500 "+(W*0.030)+"px "+BRAND.font; x.fillStyle=TF_GREY;
+    x.fillText("Kursverlauf eingeben: je Zeile  Label = Wert", chX+chW/2, chTop+chH/2);
+    x.textAlign="left";
+  }
+
+  /* Kernaussage unter dem Chart — max. 2 Zeilen, Shrink statt Kappen */
+  y=chTop+chH+W*0.055;
+  const say=(d.takeaway||"").trim();
+  if(say){
+    x.fillStyle=TF_RED; x.fillRect(M, y-W*0.030, W*0.010, W*0.048);
+    const sFit=smFitLines(x, say, W-2*M-W*0.030, 3, W*0.038, "600");
+    x.font="600 "+sFit.fs+"px "+BRAND.font; x.fillStyle=TF_BLACK;
+    let sy=y;
+    sFit.lines.forEach(ln=>{ x.fillText(ln, M+W*0.030, sy); sy+=sFit.fs*1.26; });
+  }
+};
+
+/* Parser "Label = Wert" pro Zeile — gleiche Syntax wie die zero-Extra-Grafik,
+   damit die Redaktion nicht zwei Eingabelogiken lernen muss. */
+function tfPoints(raw){
+  const out=[];
+  String(raw||"").split(/\n+/).forEach(line=>{
+    const s=line.trim(); if(!s) return;
+    /* Vorzeichen (Christian 29.07.2026, vom Review gefunden): Die erste Fassung erlaubte nur
+       ein ASCII-Minus. Damit wurden "Energy = +6,78" (Performance-Spalte MIT Vorzeichen aus dem
+       Screening kopiert) und "Bad = −0,5" (U+2212, die Hausschreibweise dieser App — die
+       tfam-Defaults selbst nutzen sie) STILL verworfen: Ranking-Zeilen fielen weg und die
+       Rangnummern verschoben sich. Jetzt sind + sowie ASCII-Minus und U+2212 erlaubt und
+       werden vor parseFloat normalisiert. */
+    const m=s.match(/^(.*?)[\s]*[=:]\s*([+\-−]?[\d.,]+)\s*%?\s*$/);
+    if(!m) return;
+    const num=m[2].replace(/−/g,"-").replace(/\+/g,"").replace(/\./g,"").replace(",",".");
+    const v=parseFloat(num);
+    if(isNaN(v)) return;
+    out.push({label:m[1].trim(), v:v});
+  });
+  return out;
+}
+
+/* ========================= 2) ZAHL DES TAGES =========================
+   Aus Stephans "Makrokompass · Zahl der Woche" (gelieferte PNG: rote Riesenzahl,
+   Label darunter, Erklärabsatz). Bewusst radikal minimalistisch — eine Zahl,
+   ein Label, eine Einordnung. Das ist das feedstärkste Format. */
+QN_RENDER.tf_zahl=function(x, W, H, slide){
+  const d=smData, M=Math.round(W*0.066);
+  const dark=(d.zmode==="dark");
+  x.fillStyle=dark?TF_BLACK:"#ffffff"; x.fillRect(0,0,W,H);
+  const ink=dark?"#ffffff":TF_BLACK, mut=dark?"rgba(255,255,255,0.62)":TF_GREY;
+  const bandH=tfHeader(x,W,H,M,{ title:(d.title||"ZAHL DER WOCHE"), compact:true });
+  const footTop=tfFooter(x,W,H,M);
+  const contentBot=tfSource(x,W,footTop,M);
+
+  /* dünne rote Linie als Auftakt (wie in der Vorlage über der Zahl) */
+  let y=bandH+W*0.10;
+  x.fillStyle=TF_RED; x.fillRect(M, y, W*0.16, Math.max(3,W*0.008));
+  y+=W*0.075;
+
+  /* Riesenzahl — füllt die Breite aus, Farbe aus dem Vorzeichen */
+  const val=(d.value||"0 %").trim();
+  let fs=W*0.230;
+  for(let g=0;g<60;g++){ x.font="800 "+fs+"px "+BRAND.font; if(x.measureText(val).width<=W-2*M||fs<=W*0.070) break; fs*=0.96; }
+  x.font="800 "+fs+"px "+BRAND.font;
+  x.fillStyle=(d.zcolor==="neutral")?ink:tfSignColor(val);
+  y+=fs*0.78;
+  x.textAlign="left"; x.fillText(val, M-W*0.004, y);
+
+  /* Label direkt darunter */
+  y+=W*0.055;
+  const lblFit=smFitLines(x,(d.label||"Kennzahl"),W-2*M,3,W*0.050,"700");
+  x.font="700 "+lblFit.fs+"px "+BRAND.font; x.fillStyle=ink;
+  lblFit.lines.forEach(ln=>{ x.fillText(ln,M,y); y+=lblFit.fs*1.18; });
+
+  /* Einordnung — der eigentliche Wissens-Teil, deshalb großzügig Platz */
+  y+=W*0.040;
+  const availH=contentBot-y-W*0.02;
+  const maxLines=Math.max(2, Math.floor(availH/(W*0.038*1.34)));
+  const eFit=smFitLines(x,(d.erklaerung||""),W-2*M,maxLines,W*0.036,"500");
+  x.font="500 "+eFit.fs+"px "+BRAND.font; x.fillStyle=mut;
+  eFit.lines.forEach(ln=>{ x.fillText(ln,M,y); y+=eFit.fs*1.34; });
+};
+
+/* =========================== 3) RANKING (TOP 5) ===========================
+   Aus Stephans "Sektoren/Branchen" + "Aktienscreener" (beides Ranking, nur Tops).
+   Übernimmt die Tabellenstruktur der Vorlage: graue Kopfzeile, wechselnd
+   hinterlegte Zeilen, Rang links, Wert rechts in Grün/Rot. Auf 5 Zeilen
+   begrenzt — die Screening-PDFs zeigen 30, das ist Feed-untauglich. */
+QN_RENDER.tf_ranking=function(x, W, H, slide){
+  const d=smData, M=Math.round(W*0.066);
+  x.fillStyle="#ffffff"; x.fillRect(0,0,W,H);
+  const bandH=tfHeader(x,W,H,M,{ title:(d.title||"TOP SEKTOREN") });
+  const footTop=tfFooter(x,W,H,M);
+  const contentBot=tfSource(x,W,footTop,M);
+
+  const items=tfPoints(d.rows||"").slice(0,5);
+  const tblTop=bandH+W*0.085;
+  const headH=W*0.058;
+
+  /* graue Kopfzeile */
+  x.fillStyle=TF_GREY; x.fillRect(M,tblTop,W-2*M,headH);
+  x.textBaseline="middle";
+  x.font="700 "+(W*0.024)+"px "+BRAND.font; x.fillStyle="#ffffff"; x.textAlign="left";
+  x.fillText(tfTrack("RANG",1), M+W*0.030, tblTop+headH/2);
+  x.fillText(tfTrack((d.collabel||"SEKTOR"),1), M+W*0.120, tblTop+headH/2);
+  x.textAlign="right";
+  x.fillText(tfTrack((d.vallabel||"PERF. 7 TAGE"),1), W-M-W*0.030, tblTop+headH/2);
+  x.textAlign="left"; x.textBaseline="alphabetic";
+
+  if(!items.length){
+    x.textAlign="center"; x.font="500 "+(W*0.030)+"px "+BRAND.font; x.fillStyle=TF_GREY;
+    x.fillText("Zeilen eingeben: je Zeile  Name = Wert", W/2, tblTop+headH+W*0.12);
+    x.textAlign="left"; return;
+  }
+
+  /* Zeilen füllen den verfügbaren Platz gleichmäßig */
+  const avail=contentBot-(tblTop+headH)-W*0.02;
+  const rowH=Math.min(W*0.135, avail/items.length);
+  items.forEach((it,i)=>{
+    const ry=tblTop+headH+i*rowH;
+    x.fillStyle=(i%2===0)?TF_FLAT:"#ffffff"; x.fillRect(M,ry,W-2*M,rowH);
+    x.textBaseline="middle";
+    const cy=ry+rowH/2;
+    /* Rang */
+    x.font="700 "+(W*0.040)+"px "+BRAND.font; x.fillStyle=TF_BLACK; x.textAlign="center";
+    x.fillText(String(i+1), M+W*0.052, cy);
+    /* Name — Shrink, nie abschneiden */
+    x.textAlign="left";
+    /* Wert-Text zuerst bilden und MESSEN, damit die Namensspalte den tatsächlich benötigten
+       Platz freihält (Christian 29.07.2026, vom Review belegt): vorher stand hier eine
+       konstante Reserve von W*0.20. Die reicht für "%", aber nicht für längere Einheiten wie
+       "Mio.", "Punkt" oder "Mrd. USD" — und genau die sind vorgesehen, weil das Template auch
+       Screener-Ergebnisse abbilden soll. Ergebnis war eine Kollision von Name und Wert. */
+    const valTxt=(it.v>0?"+":"")+String(it.v).replace(".",",")+" "+(d.unit||"%");
+    x.font="800 "+(W*0.042)+"px "+BRAND.font;
+    const valW=x.measureText(valTxt).width;
+    const nameMaxW=(W-M-W*0.030-valW-W*0.040) - (M+W*0.120);
+    /* tfPoints liefert das Feld "label" — NICHT "name". Christian 29.07.2026: hier stand
+       zuerst it.name, dadurch zeichnete jede Ranking-Zeile "undefined". Vom Testharness
+       gefunden, deshalb bleibt der Hinweis stehen. */
+    const nm=String(it.label||"");
+    /* Sehr lange Sektor-/Firmennamen dürfen NICHT über den Wert laufen (Trim-Verbot gilt,
+       also umbrechen und schrumpfen statt kappen). smFitLines bricht auf zwei Zeilen und
+       verkleinert, bis beides passt. Vom Testharness mit Extremdaten erzwungen. */
+    const nmFit=smFitLines(x, nm, nameMaxW, 2, W*0.040, "700", 0.42);
+    x.font="700 "+nmFit.fs+"px "+BRAND.font; x.fillStyle=TF_BLACK;
+    const nmY=cy-(nmFit.lines.length-1)*nmFit.fs*0.56;
+    nmFit.lines.forEach((ln,k)=>x.fillText(ln, M+W*0.120, nmY+k*nmFit.fs*1.12));
+    /* Wert rechts, Vorzeichen-Farbe (Text steht schon oben als valTxt, dort gemessen) */
+    x.font="800 "+(W*0.042)+"px "+BRAND.font; x.fillStyle=it.v<0?TF_RED:TF_GREEN; x.textAlign="right";
+    x.fillText(valTxt, W-M-W*0.030, cy);
+    x.textAlign="left"; x.textBaseline="alphabetic";
+  });
+};
+
+/* ======================== 4) EARNINGS REACTION ========================
+   Aus Stephans "Aktie on Fire" / "Earnings-Radar": Zahlen sind raus, die Aktie
+   reagiert. Minimalistisch: Kursreaktion groß, darunter max. drei harte
+   Kennzahlen als Kacheln (Umsatz / EPS / Prognose). */
+QN_RENDER.tf_earnings=function(x, W, H, slide){
+  const d=smData, M=Math.round(W*0.066);
+  x.fillStyle="#ffffff"; x.fillRect(0,0,W,H);
+  const bandH=tfHeader(x,W,H,M,{ title:(d.title||"EARNINGS REACTION"), eyebrow2:(d.quartal||"") });
+  const footTop=tfFooter(x,W,H,M);
+  const contentBot=tfSource(x,W,footTop,M);
+
+  /* Unternehmen + Ticker */
+  let y=bandH+W*0.085;
+  const nmFit=smFitLines(x,(d.name||"Unternehmen"),W-2*M,2,W*0.058,"800");
+  x.font="800 "+nmFit.fs+"px "+BRAND.font; x.fillStyle=TF_BLACK;
+  nmFit.lines.forEach(ln=>{ x.fillText(ln,M,y); y+=nmFit.fs*1.12; });
+  if((d.ticker||"").trim()){
+    x.font="600 "+(W*0.030)+"px "+BRAND.font; x.fillStyle=TF_GREY;
+    x.fillText(d.ticker, M, y); y+=W*0.020;
+  }
+
+  /* Kursreaktion groß mit Richtungspfeil */
+  y+=W*0.070;
+  const chg=(d.change||"+0,0 %").trim();
+  const up=qnUp(chg)!==false;
+  const col=tfSignColor(chg);
+  let cfs=W*0.150;
+  for(let g=0;g<50;g++){ x.font="800 "+cfs+"px "+BRAND.font; if(x.measureText(chg).width<=W*0.62||cfs<=W*0.060) break; cfs*=0.96; }
+  x.font="800 "+cfs+"px "+BRAND.font; x.fillStyle=col;
+  x.fillText(chg, M-W*0.004, y);
+  /* kompakter Pfeil rechts daneben */
+  { const cw=x.measureText(chg).width, ax=M+cw+W*0.055, ay=y-cfs*0.30, s=cfs*0.34;
+    x.beginPath();
+    if(up){ x.moveTo(ax,ay-s); x.lineTo(ax+s*0.86,ay+s*0.55); x.lineTo(ax-s*0.86,ay+s*0.55); }
+    else  { x.moveTo(ax,ay+s); x.lineTo(ax+s*0.86,ay-s*0.55); x.lineTo(ax-s*0.86,ay-s*0.55); }
+    x.closePath(); x.fillStyle=col; x.fill(); }
+  y+=W*0.030;
+  x.font="600 "+(W*0.030)+"px "+BRAND.font; x.fillStyle=TF_GREY;
+  x.fillText((d.reaktion||"Kursreaktion nach Zahlen"), M, y);
+
+  /* Kennzahl-Kacheln: bis zu drei, gleiche Breite */
+  const kpis=[[d.k1l,d.k1v],[d.k2l,d.k2v],[d.k3l,d.k3v]].filter(k=>(k[0]||"").trim()&&(k[1]||"").trim());
+  if(kpis.length){
+    const gap=W*0.024;
+    const boxW=(W-2*M-(kpis.length-1)*gap)/kpis.length;
+    const boxH=Math.min(W*0.235, Math.max(W*0.16, contentBot-(y+W*0.070)-W*0.02));
+    const boxY=y+W*0.070;
+    kpis.forEach((k,i)=>{
+      const bx=M+i*(boxW+gap);
+      x.fillStyle=TF_FLAT; x.fillRect(bx,boxY,boxW,boxH);
+      x.fillStyle=TF_RED; x.fillRect(bx,boxY,boxW,Math.max(3,W*0.006));
+      /* Label */
+      x.textAlign="left";
+      const lFit=smFitLines(x,String(k[0]),boxW-W*0.048,2,W*0.026,"700");
+      x.font="700 "+lFit.fs+"px "+BRAND.font; x.fillStyle=TF_GREY;
+      let ly=boxY+W*0.052;
+      lFit.lines.forEach(ln=>{ x.fillText(ln,bx+W*0.024,ly); ly+=lFit.fs*1.22; });
+      /* Wert */
+      const vFit=smFitLines(x,String(k[1]),boxW-W*0.048,2,W*0.048,"800");
+      x.font="800 "+vFit.fs+"px "+BRAND.font; x.fillStyle=TF_BLACK;
+      let vy=boxY+boxH-W*0.030-(vFit.lines.length-1)*vFit.fs*1.14;
+      vFit.lines.forEach(ln=>{ x.fillText(ln,bx+W*0.024,vy); vy+=vFit.fs*1.14; });
+    });
+  }
+};
+
+/* ======================= 5) INSTRUMENT SNAPSHOT =======================
+   Steckbrief eines Unternehmens — trägt die Positionierung aus dem Meeting:
+   Unternehmen vorstellen, die nicht jeder auf dem Schirm hat. Kennzahlen als
+   Zeilenliste mit Punktführung, darunter ein kurzer Einordnungssatz. */
+QN_RENDER.tf_snapshot=function(x, W, H, slide){
+  const d=smData, M=Math.round(W*0.066);
+  x.fillStyle="#ffffff"; x.fillRect(0,0,W,H);
+  const bandH=tfHeader(x,W,H,M,{ title:(d.title||"AKTIE IM PROFIL") });
+  const footTop=tfFooter(x,W,H,M);
+  const contentBot=tfSource(x,W,footTop,M);
+
+  /* Name + Branche/ISIN */
+  let y=bandH+W*0.085;
+  const nmFit=smFitLines(x,(d.name||"Unternehmen"),W-2*M,2,W*0.062,"800");
+  x.font="800 "+nmFit.fs+"px "+BRAND.font; x.fillStyle=TF_BLACK;
+  nmFit.lines.forEach(ln=>{ x.fillText(ln,M,y); y+=nmFit.fs*1.12; });
+  const meta=[(d.branche||"").trim(),(d.ticker||"").trim()].filter(Boolean).join("  ·  ");
+  if(meta){
+    x.font="600 "+(W*0.030)+"px "+BRAND.font; x.fillStyle=TF_GREY;
+    x.fillText(meta, M, y); y+=W*0.014;
+  }
+
+  /* Kurs + Veränderung als Zeile mit rotem Balken links */
+  y+=W*0.060;
+  const kurs=(d.kurs||"").trim(), chg=(d.change||"").trim();
+  if(kurs||chg){
+    x.fillStyle=TF_RED; x.fillRect(M, y-W*0.046, W*0.010, W*0.062);
+    x.font="800 "+(W*0.072)+"px "+BRAND.font; x.fillStyle=TF_BLACK;
+    x.fillText(kurs, M+W*0.032, y);
+    const kw=x.measureText(kurs).width;
+    if(chg){ x.font="800 "+(W*0.042)+"px "+BRAND.font; x.fillStyle=tfSignColor(chg);
+             x.fillText("  "+chg, M+W*0.032+kw, y); }
+    y+=W*0.030;
+  }
+
+  /* Kennzahlen-Liste: "Label ....... Wert", Syntax "Label = Wert" pro Zeile */
+  const rows=[];
+  String(d.kpis||"").split(/\n+/).forEach(line=>{
+    const s=line.trim(); if(!s) return;
+    const m=s.match(/^(.*?)\s*[=:]\s*(.+)$/);
+    if(m) rows.push([m[1].trim(), m[2].trim()]);
+  });
+  y+=W*0.055;
+  if(rows.length){
+    const availH=contentBot-y-W*0.14;
+    /* KEINE Untergrenze für rowH (Christian 29.07.2026, vom Review belegt): mit Math.max(W*0.052, …)
+       wuchs die Liste über den verfügbaren Platz hinaus, sobald mehr als zehn Kennzahlen
+       eingetragen waren (das Feldlimit erlaubt bis 19). Ab elf Zeilen überlappte die
+       Einordnungs-Box das Fußband, ab zwölf lag sie außerhalb der Grafik — der Einordnungssatz,
+       also die Pointe des Templates, war unsichtbar. Zeilen rücken jetzt zusammen statt
+       überzulaufen; gekappt wird nach wie vor nichts. */
+    const rowH=Math.min(W*0.082, Math.max(W*0.020, availH/rows.length));
+    const fsBase=Math.min(W*0.036, rowH*0.52);
+    rows.forEach((r,i)=>{
+      const cy=y+i*rowH;
+      /* Shrink-to-fit pro Zeile (Christian 29.07.2026): Label und Wert müssen NEBENEINANDER
+         in die Breite passen. Ohne das liefen lange Kennzahl-Bezeichnungen über den Rand
+         hinaus und überlappten den Wert — vom Testharness mit Extremdaten gefunden. */
+      let fs=fsBase;
+      for(let g=0;g<120;g++){
+        x.font="500 "+fs+"px "+BRAND.font; const wl=x.measureText(r[0]).width;
+        x.font="800 "+fs+"px "+BRAND.font; const wv=x.measureText(r[1]).width;
+        /* Untergrenze bewusst sehr tief (0,8 % der Breite): bei absurd langen Eingaben ist
+           winzige Schrift immer noch besser als Text, der aus der Grafik läuft oder gekappt
+           wird. Normale Kennzahlen erreichen diese Grenze nie. */
+        if(wl+wv+W*0.050 <= W-2*M || fs<=W*0.008) break;
+        fs*=0.95;
+      }
+      x.font="500 "+fs+"px "+BRAND.font; x.fillStyle=TF_GREY; x.textAlign="left";
+      x.fillText(r[0], M, cy);
+      const lw=x.measureText(r[0]).width;
+      x.font="800 "+fs+"px "+BRAND.font; x.fillStyle=TF_BLACK; x.textAlign="right";
+      x.fillText(r[1], W-M, cy);
+      const vw=x.measureText(r[1]).width;
+      /* Punktführung zwischen Label und Wert */
+      x.textAlign="left";
+      const dotFrom=M+lw+W*0.020, dotTo=W-M-vw-W*0.020;
+      if(dotTo>dotFrom){
+        x.save(); x.setLineDash([Math.max(1,W*0.003),W*0.010]);
+        x.strokeStyle="rgba(17,17,17,0.22)"; x.lineWidth=Math.max(1,W*0.002);
+        x.beginPath(); x.moveTo(dotFrom,cy-fs*0.28); x.lineTo(dotTo,cy-fs*0.28); x.stroke(); x.restore();
+      }
+      /* Trennlinie */
+      if(i<rows.length-1){
+        x.fillStyle="rgba(17,17,17,0.08)"; x.fillRect(M, cy+rowH*0.30, W-2*M, Math.max(1,W*0.0015));
+      }
+    });
+    y+=rows.length*rowH;
+  } else {
+    x.font="500 "+(W*0.030)+"px "+BRAND.font; x.fillStyle=TF_GREY; x.textAlign="center";
+    x.fillText("Kennzahlen eingeben: je Zeile  Label = Wert", W/2, y+W*0.06);
+    x.textAlign="left";
+  }
+
+  /* Einordnungssatz unten, grau hinterlegt */
+  const note=(d.note||"").trim();
+  if(note){
+    const nFit=smFitLines(x,note,W-2*M-W*0.060,3,W*0.034,"600");
+    const boxH=nFit.lines.length*nFit.fs*1.30+W*0.058;
+    /* Die Box sitzt immer unten am Inhaltsende. Das frühere Math.max(y+…, contentBot-boxH)
+       garantierte nur den Abstand zur Liste nach oben, aber keine Obergrenze nach unten —
+       genau dadurch rutschte sie bei vielen Kennzahlen ins Fußband bzw. aus der Grafik.
+       Dass sie nicht mehr mit der Liste kollidiert, stellt oben das rowH-Shrink sicher. */
+    const boxY=contentBot-boxH;
+    x.fillStyle=TF_FLAT; x.fillRect(M,boxY,W-2*M,boxH);
+    x.fillStyle=TF_RED; x.fillRect(M,boxY,Math.max(3,W*0.008),boxH);
+    x.font="600 "+nFit.fs+"px "+BRAND.font; x.fillStyle=TF_BLACK; x.textAlign="left";
+    let ny=boxY+W*0.042;
+    nFit.lines.forEach(ln=>{ x.fillText(ln, M+W*0.030, ny); ny+=nFit.fs*1.30; });
+  }
+};
+
 function smRender(){
   const F=FORMATS[smFmt], c=$("smCanvas");
   if(!c) return;
@@ -7949,7 +8785,9 @@ function smRender(){
   /* Neue Voll-Design-zero-Formate (Christian 22.07.2026): zeichnen ALLES selbst
      (Hintergrund, Header, Content, Ticker, Footer, Logo) und überspringen den Standard-Chrome. */
   if(smTpl.renderer && typeof QN_RENDER[smTpl.renderer]==="function"){
-    BRAND.font="Plus Jakarta Sans";
+    /* Marken-Font aus der Regel-Registry statt hart verdrahtet (Christian 29.07.2026) —
+       zero bleibt Plus Jakarta Sans, aktien Magazin rendert in Poppins. */
+    BRAND.font=(smBrandRules().font)||"Plus Jakarta Sans";
     x._capTag=window._smCaptureOn?"main":null;
     QN_RENDER[smTpl.renderer](x, c.width, c.height, sl[smSlide]||{t:"single"});
     smBuildPager();
@@ -9374,7 +10212,7 @@ function smLogEntry(kind){
     ts:new Date().toISOString(),
     brand:(window._smBrand||smBrand||""),
     template:(typeof smTpl!=="undefined"&&smTpl)?smTpl.name:"",
-    headline:(smData&&(smData.headline||smData.term||smData.label||smData.value)||"").toString().slice(0,140),
+    headline:(smData&&(smData.headline||smData.term||smData.name||smData.label||smData.value)||"").toString().slice(0,140),
     source:(meta.sourceUrl||"").trim(),
     hook:(meta.hook||"").trim(),
     extra: ex.on?(({chart:"Datenchart",context:"Kennzahl im Kontext",illu:"Illustration"}[ex.type]||ex.type)):"",
@@ -9398,16 +10236,16 @@ function smLogCsv(){
 }
 
 function smDoExport(fromBatch){
-  if(smBrand==="zero" && !smExportGate()) return;   /* Regel-Gate vor Export (Christian 16.07.) */
+  if((smBrand==="zero"||smBrand==="tfam") && !smExportGate()) return;   /* Regel-Gate vor Export (Christian 16.07.; tfam ergaenzt 29.07.2026) */
   const a=document.createElement("a");
-  a.download=(window.smFileBase?smFileBase(smData.headline||smData.term||smTpl.name):smTpl.id)+"_"+smFmt.replace(":","x")+(smSlides().length>1?"_slide"+(smSlide+1):"")+".png";
+  a.download=(window.smFileBase?smFileBase(smData.headline||smData.term||smData.name||smTpl.name):smTpl.id)+"_"+smFmt.replace(":","x")+(smSlides().length>1?"_slide"+(smSlide+1):"")+".png";
   a.href=$("smCanvas").toDataURL("image/png");
   a.click();
   if(!fromBatch){ _smLoggedThisExport=false; smLogEntry("png"); }
   else smLogEntry("png");
 }
 async function smExportAll(){
-  if(smBrand==="zero" && !smExportGate()) return;   /* Regel-Gate vor Export */
+  if((smBrand==="zero"||smBrand==="tfam") && !smExportGate()) return;   /* Regel-Gate vor Export */
   const sl=smSlides(), keep=smSlide;
   _smLoggedThisExport=false;   /* ein Log-Eintrag pro "Alle Slides"-Aktion */
   for(let i=0;i<sl.length;i++){ smSlide=i; smRender(); await new Promise(r=>setTimeout(r,350)); smDoExport(true); }
@@ -9427,7 +10265,7 @@ async function smExportPdf(){
     pdf.addImage(url,"JPEG",0,0,F.w,F.h);
   }
   smSlide=keep; smRender();
-  pdf.save((window.smFileBase?smFileBase(smData.headline||smData.term||smTpl.name):smTpl.id)+"_"+smFmt.replace(":","x")+"_linkedin.pdf");
+  pdf.save((window.smFileBase?smFileBase(smData.headline||smData.term||smData.name||smTpl.name):smTpl.id)+"_"+smFmt.replace(":","x")+"_linkedin.pdf");
   _smLoggedThisExport=false; smLogEntry("pdf");
 }
 
