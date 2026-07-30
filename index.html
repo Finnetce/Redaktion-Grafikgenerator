@@ -3338,26 +3338,51 @@ $("brandHome").addEventListener("click",()=>showView("home"));
        supported_parameters. Deshalb setzen wir keine Temperatur mehr — die
        Determinismus-Vorgabe der Spec wird ueber reasoning_effort + klare
        Prompt-Regeln erreicht.
-   Fallback fuer plan/qa, falls die Urteilsqualitaet nicht reicht: den unten
-   dokumentierten Opus-Slug eintragen — sonst nichts aendern.
-   ACHTUNG Schreibweise: der Opus-Slug lautet "anthropic/claude-opus-4.8" MIT PUNKT
-   (die Spec nannte faelschlich "claude-opus-4-8"; verifiziert 28.07.2026,
-   5,00 USD/M Input, 25,00 USD/M Output, 1M Kontext).
+   STAND 30.07.2026: plan/qa laufen inzwischen auf "anthropic/claude-opus-5" (siehe
+   Begruendung direkt an der MODELS-Registry unten). Der frueher hier dokumentierte
+   Fallback Opus 4.8 ist damit ueberholt — Opus 5 kostet dasselbe und ist neuer.
+   ACHTUNG Schreibweise bei Opus-4.x-Slugs: MIT PUNKT ("anthropic/claude-opus-4.8"),
+   die alte Spec nannte faelschlich "claude-opus-4-8". Opus 5 hat keine Nebenversion.
    reasoning-Stufen wirken nur im Direct-Pfad (OpenRouter direkt); die Make-Route 33
    reicht das Modell durch, aber kein reasoning-Feld. Make wird NICHT angefasst.
    ============================================================================ */
+/* ---------------------------------------------------------------------------
+   MODELL-UPGRADE 30.07.2026 (Christian), gegengepruefft an der OpenRouter-Model-API:
+   Seit 24.07.2026 gibt es "anthropic/claude-opus-5" (1M Kontext, 128k Output).
+   Preis identisch zum bisherigen Fallback Opus 4.8 (5,00 / 25,00 USD pro M Token) —
+   das Upgrade des Fallbacks ist also gratis. Sonnet 5 (30.06.2026) bleibt der
+   aktuellste Sonnet, hier hat sich nichts geaendert.
+
+   AUFTEILUNG NACH AUFGABENTYP (bewusste Entscheidung, nicht "ueberall das Teuerste"):
+   - URTEILSSTUFEN auf Opus 5: Stufe 1 waehlt die Story und den Aufhaenger, Stufe 4 ist
+     das Sinn-Gate. Genau hier setzt Yukis Kritik an (roter Faden, staerkster Fakt statt
+     naheliegendster, ohne Vorwissen verstaendlich) — das ist Urteilsvermoegen, kein
+     Handwerk, und rechtfertigt das staerkere Modell.
+   - MECHANISCHE STUFEN auf Sonnet 5: Befuellung nach klarem Schema und die
+     Laengen-Reparatur (Text + Limit rein, kuerzere Formulierung raus) haben kaum
+     Urteilsspielraum. Opus waere hier das Vierfache an Kosten und mehr Latenz,
+     ohne erkennbaren Gewinn.
+   KOSTEN neu: rund 0,10 USD pro Beitrag statt 0,05 (bei 20 Beitraegen/Arbeitstag also
+   grob 60 statt 30 USD im Monat). Zurueckschalten = plan/qa wieder auf Sonnet 5 setzen,
+   eine Zeile pro Stufe, sonst nichts.
+   HINWEIS temperature: Opus 5 unterstuetzt den Parameter (Sonnet 5 nicht). Wir setzen
+   trotzdem KEINE Temperatur — orChat filtert sie zentral heraus, damit beide Modelle
+   denselben Pfad nehmen. Determinismus laeuft ueber reasoning_effort + Prompt-Regeln.
+   --------------------------------------------------------------------------- */
 const MODELS={
   fill:   "anthropic/claude-sonnet-5",   /* Feldbefuellung + Template-/Chart-/Sankey-Extraktion */
-  plan:   "anthropic/claude-sonnet-5",   /* Stufe 1: Story-Auswahl + Slide-Rollen */
+  plan:   "anthropic/claude-opus-5",     /* Stufe 1: Story-Auswahl + Slide-Rollen (Urteil) */
   repair: "anthropic/claude-sonnet-5",   /* Stufe 3: Laengen-/Formulierungs-Reparatur */
-  qa:     "anthropic/claude-sonnet-5"    /* Stufe 4: Qualitaets- und Sinn-Gate */
+  qa:     "anthropic/claude-opus-5"      /* Stufe 4: Qualitaets- und Sinn-Gate (Urteil) */
 };
 /* Reasoning-Aufwand pro Aufgabe: Urteilsstufen hoch, mechanische Reparatur niedrig (Kosten/Latenz). */
 const MODEL_REASONING={ plan:"high", qa:"high", repair:"low", fill:null };
-/* KOSTEN pro Beitrag (nachgerechnet 28.07.2026 mit den verifizierten Sonnet-5-Preisen,
-   Artikel ~9.000 Zeichen, alle vier Stufen): rund 0,05 USD wenn das Gate beim ersten
-   Versuch besteht, rund 0,08 USD im Worst Case mit zwei Repair-Runden.
-   Bei 20 Beitraegen pro Arbeitstag entspricht das etwa 22 bis 34 USD im Monat. */
+/* KOSTEN pro Beitrag (neu gerechnet 30.07.2026 nach dem Opus-5-Upgrade der Urteilsstufen,
+   Artikel ~9.000 Zeichen, alle vier Stufen): rund 0,10 USD wenn das Gate beim ersten
+   Versuch besteht, rund 0,17 USD im Worst Case mit zwei Repair-Runden (jede Runde zieht
+   Stufe 4 auf Opus erneut). Bei 20 Beitraegen pro Arbeitstag entspricht das etwa 44 bis
+   75 USD im Monat. Vorher, mit Sonnet 5 auf allen vier Stufen: 0,05 bis 0,08 USD bzw.
+   22 bis 34 USD im Monat. Wer sparen muss, setzt plan/qa zurueck auf Sonnet 5. */
 const TEXT_MODEL=MODELS.fill;
 /* orChat(messages, extra) — extra.model ueberschreibt das Modell, extra.reasoning die Stufe.
    Beides wird vor dem Request aus dem Body entfernt bzw. korrekt gesetzt, damit OpenRouter
@@ -3400,7 +3425,8 @@ async function orChat(messages, extra){
        vollstaendig ist. Ein abgeschnittener Text hat unbalancierte Klammern. */
     if(smLooksTruncated(d.text)){
       var _e2=new Error("Die Antwort des Modells wurde abgeschnitten (Token-Limit in Make). "+
-        "Im Make-Szenario Route 33 muss max_tokens von 4000 auf 16000 erhoeht werden "+
+        "Im Make-Szenario Route 33 muss max_tokens weiter erhoeht werden — Stand "+
+        "30.07.2026 sind dort 64000 gesetzt, Maximum ist 128000 "+
         "(siehe MAKE_HINWEIS im Code).");
       _e2.code="TRUNCATED"; throw _e2;
     }
@@ -3432,20 +3458,27 @@ async function orChatFor(role, messages, extra){
   return orChat(messages, Object.assign({ model:MODELS[role]||TEXT_MODEL, reasoning:MODEL_REASONING[role]||null }, extra||{}));
 }
 /* ============================================================================
-   MAKE_HINWEIS (Christian 28.07.2026) — WICHTIG bei "Antwort abgeschnitten"
+   MAKE_HINWEIS (Christian 28.07.2026, ERLEDIGT-Stand 30.07.2026)
    ----------------------------------------------------------------------------
-   Das Make-Szenario "v018 finanzen Creative Studio — Image Gateway" begrenzt in
-   Route 33 (Filter action=chat, HTTP-Modul id 33) die Antwort auf
-       "max_tokens": 4000
-   Das reicht fuer die Feldbefuellung NICHT mehr aus. Gruende:
+   ERLEDIGT: Im Blueprint "v018 ... (Social-Logging + temp 0.2)" steht Route 33
+   (Filter action=chat, HTTP-Modul id 33) inzwischen auf "max_tokens": 64000 —
+   verifiziert am hochgeladenen Blueprint am 30.07.2026. Das Problem unten ist
+   damit behoben; der Abschnitt bleibt als Diagnose-Hilfe stehen, falls die
+   Meldung "Antwort abgeschnitten" je wieder auftritt.
+   Route 33 setzt ausserdem "temperature": 0.2 — das ist fuer Sonnet 5 und Opus 5
+   wirkungslos bzw. wird ignoriert und schadet nicht. Der Direct-Pfad filtert den
+   Parameter bewusst heraus (siehe orChat).
+   URSPRUENGLICHES PROBLEM: max_tokens stand auf 4000. Das reicht fuer die
+   Feldbefuellung nicht aus. Gruende:
      - das Schema verlangt rund 40 Felder inkl. langer Captions (~3.400 Token)
      - Sonnet 5 nutzt einen neuen Tokenizer und braucht 1,0 bis 1,35x mehr Token
      - Sonnet 5 hat Adaptive Thinking standardmaessig aktiv; Denk-Token gehen vom
        SELBEN Budget ab wie die Antwort
    Folge: Die Antwort bricht mitten im JSON ab -> "Unexpected end of JSON input".
-   FIX in Make: max_tokens auf 16000 setzen. Sonnet 5 erlaubt bis 128000, und
-   berechnet wird nur, was tatsaechlich erzeugt wird — ein hoeheres Limit kostet
-   also nichts zusaetzlich, es verhindert nur das Abschneiden.
+   FIX in Make (umgesetzt): max_tokens hochsetzen; aktuell 64000. Sonnet 5 und
+   Opus 5 erlauben bis 128000, und berechnet wird nur, was tatsaechlich erzeugt
+   wird — ein hoeheres Limit kostet nichts zusaetzlich, es verhindert nur das
+   Abschneiden.
    ============================================================================ */
 /* Ruft die Feldbefuellung auf und wiederholt bei abgeschnittener Antwort EINMAL mit
    reduziertem Umfang (opts.lean), damit ein einzelner Abbruch nicht die ganze
