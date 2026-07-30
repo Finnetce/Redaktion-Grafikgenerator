@@ -2923,7 +2923,7 @@ async function exportPNG(){
     catch(e){ /* fallback: volle Auflösung */ }
   }
   const a=document.createElement("a");
-  a.href=out; a.download=(window.smFileBase?smFileBase(window._content.head||grUseCase||"grafik"):((window._content.head||grUseCase||"grafik").replace(/[^a-z0-9]+/gi,"_").slice(0,40)))+suffix+".png"; a.click();
+  a.href=out; a.download=(window.smFileBase?window.smFileBase(window._content.head||grUseCase||"grafik"):((window._content.head||grUseCase||"grafik").replace(/[^a-z0-9]+/gi,"_").slice(0,40)))+suffix+".png"; a.click();
 }
 $("tExport").onclick=exportPNG;
 
@@ -2952,7 +2952,7 @@ async function exportPDF(){
     /* Ursprüngliche Slide wiederherstellen */
     if(keep>=0&&keep!==current){ current=keep; await new Promise(r=>canvas.loadFromJSON(slides[keep].json,()=>{canvas.renderAll();r();})); }
     renderSlideTabs();
-    pdf.save((window.smFileBase?smFileBase((window._content&&window._content.head)||"karussell"):(((window._content&&window._content.head)||"karussell").replace(/[^a-z0-9]+/gi,"_").slice(0,40)))+"_linkedin.pdf");
+    pdf.save((window.smFileBase?window.smFileBase((window._content&&window._content.head)||"karussell"):(((window._content&&window._content.head)||"karussell").replace(/[^a-z0-9]+/gi,"_").slice(0,40)))+"_linkedin.pdf");
   }catch(e){ alert("PDF-Export fehlgeschlagen: "+e.message); }
   hideLoading();
 }
@@ -3137,7 +3137,7 @@ function initGraphic(){
       const composed = await _composeGraphic(_grLastImg);   // Logo + Quelle deterministisch drauf (voller Auflösung)
       const out = tg ? await fitToTarget(composed, tg[0], tg[1], "image/png") : composed;
       const a=document.createElement("a"); a.href=out;
-      a.download=(window.smFileBase?smFileBase(($("grTitle")&&$("grTitle").value)||grUseCase):grUseCase)+"_"+grUseCase+(tg?("_"+tg[0]+"x"+tg[1]):"")+".png"; a.click();
+      a.download=(window.smFileBase?window.smFileBase(($("grTitle")&&$("grTitle").value)||grUseCase):grUseCase)+"_"+grUseCase+(tg?("_"+tg[0]+"x"+tg[1]):"")+".png"; a.click();
     }catch(e){ toast("Export fehlgeschlagen: "+e.message+" — nutze 'Im Editor öffnen'",6000); }
   };
 }
@@ -3804,9 +3804,9 @@ async function extractSM(txt,opts){
     if(info) info.textContent="Claude prüft, welche Story sich am besten eignet …";
     try{
       var _nSl=(typeof smSlides==="function")?(smSlides().length||1):1;
-      var _planZ=await smStoryPlan(txt,_nSl);
+      var _planZ=await window.smStoryPlan(txt,_nSl);
       window._smStoryId=null;                /* neue Analyse -> Auswahl auf primary zuruecksetzen */
-      smRenderStoryPlan(_planZ);
+      window.smRenderStoryPlan(_planZ);
     }catch(e){
       /* Nicht still scheitern (Spec 9): sichtbar melden, Befuellung laeuft trotzdem weiter. */
       try{ console.warn("[Stufe 1 zero] Story-Plan fehlgeschlagen:", e&&e.message); }catch(_){}
@@ -3827,11 +3827,12 @@ async function extractSM(txt,opts){
   /* Nur EIN Motiv-Prompt anfordern statt aller vier (Christian 28.07.2026, Token-Budget).
      Bei manuell gewaehltem Motiv genau dieses, bei "auto" empfiehlt das Modell eines und
      liefert nur dafuer den Prompt. Fehlt spaeter ein Prompt, laedt smMotifPrompt() ihn nach. */
-  /* SM_MOTIF_HINT/-STYLE stehen in einem spaeteren <script>-Block; extractSM laeuft erst
-     nach dem Laden, daher sind sie hier verfuegbar. Defensiv trotzdem mit Fallback. */
+  /* SM_MOTIF_HINT/-STYLE stehen in einem spaeteren <script>-Block, und zwar INNERHALB einer
+     IIFE — sie sind hier also NICHT als freie Variablen sichtbar (Bugfix 30.07.2026). Zugriff
+     laeuft deshalb ueber die Export-Bruecke window.* am Ende jenes Blocks, mit Fallback. */
   var _mz=(window._smMotifZ||"auto");
-  var _hint=(typeof SM_MOTIF_HINT!=="undefined")?SM_MOTIF_HINT:{};
-  var _mstyle=(typeof SM_MOTIF_STYLE!=="undefined")?SM_MOTIF_STYLE:
+  var _hint=window.SM_MOTIF_HINT||{};
+  var _mstyle=window.SM_MOTIF_STYLE||
     " Natuerliches ruhiges Business-/Finanz-Stockfoto, weiches Tageslicht, neutrale Farben.";
   schema["motive"] = (_mz!=="auto" && _hint[_mz])
     ? { "empfohlen": _mz,
@@ -3885,13 +3886,13 @@ async function extractSM(txt,opts){
         "sicherheitsorientiert. Ruhiger, sachlicher Ton, Einordnung und Herleitung wichtiger "+
         "als Zuspitzung. Kennzahlen dürfen dichter stehen als bei einem Einsteigerpublikum.";
   }
-  const _planBlockZ=smStoryPromptBlock();
+  const _planBlockZ=window.smStoryPromptBlock();
   if(_planBlockZ) sys+=" "+_planBlockZ;
   const _budgetZ={};
   smTpl.fields.forEach(function(f){ if(f.max) _budgetZ[f.k]=f.max; });
-  _budgetZ.caption_instagram=FIELD_LIMITS.caption_instagram;
-  _budgetZ.caption_linkedin=FIELD_LIMITS.caption_linkedin;
-  _budgetZ.x_text=FIELD_LIMITS.x_text;
+  _budgetZ.caption_instagram=window.FIELD_LIMITS.caption_instagram;
+  _budgetZ.caption_linkedin=window.FIELD_LIMITS.caption_linkedin;
+  _budgetZ.x_text=window.FIELD_LIMITS.x_text;
   /* Management-Vorgabe 28.07.2026: keine gestapelten Bindestriche (beanstandet wurde die
      Cover-Headline "Musks Boring Company vor 20-Mrd.-Bewertung"). */
   sys+=" KEINE GESTAPELTEN BINDESTRICHE (Management-Vorgabe, gilt fuer ALLE Felder, besonders "+
@@ -3909,11 +3910,11 @@ async function extractSM(txt,opts){
     "VOLLSTAENDIGE Aussage als ein abgeschnittener Satz. Ein Feld darf NIEMALS mitten im Wort oder "+
     "Satz enden. Budget pro Feld in Zeichen: "+JSON.stringify(_budgetZ)+".";
   /* Abgenommene Referenzbeispiele fuer zero-Earnings/Karussell, sofern hinterlegt (Feature 11). */
-  try{ sys+=smFewshotBlock(smTpl.carousel?"azf_carousel":"zero_earnings"); }catch(e){}
+  try{ sys+=window.smFewshotBlock(smTpl.carousel?"azf_carousel":"zero_earnings"); }catch(e){}
   /* Eigener Fokus/Zusatzinfo (Christian 21.07.2026): fließt als Redaktions-Anweisung VOR den Artikel.
      Ändert keine Fakten, steuert nur Schwerpunkt/Blickwinkel. */
   const _focus=(window.smMeta&&window.smMeta.focus||"").trim();
-  const _userMsg=(_focus?("REDAKTIONS-FOKUS (vom Redakteur, hat Priorität bei der Schwerpunktsetzung — aber NUR Fakten aus dem Artikel verwenden): "+_focus+"\n\n---\n\n"):"")+txt.slice(0,SM_ARTICLE_WINDOW);
+  const _userMsg=(_focus?("REDAKTIONS-FOKUS (vom Redakteur, hat Priorität bei der Schwerpunktsetzung — aber NUR Fakten aus dem Artikel verwenden): "+_focus+"\n\n---\n\n"):"")+txt.slice(0,window.SM_ARTICLE_WINDOW);
   /* Wiederholversuch bei abgeschnittener Antwort (Christian 28.07.2026): beim zweiten
      Versuch wird das Schema knapper angefordert, damit die Antwort ins Budget passt. */
   const _leanHint=" KURZFASSUNG (Wiederholversuch, weil die vorige Antwort zu lang war): Halte "+
@@ -3951,7 +3952,7 @@ async function extractSM(txt,opts){
   try{
     if(smTpl.fields.some(f=>f.k==="headline") && smTpl.fields.some(f=>f.k==="deck") && (out.headline||smData.headline)){
       var _z={head:out.headline||smData.headline||"", sub:out.deck||smData.deck||""};
-      var _zr=await ensureHeadSub(_z, txt);
+      var _zr=await window.ensureHeadSub(_z, txt);
       if(_zr.changed){
         /* Kein Trim (Guardrail 1.2): Ueberlaenge geht in Stufe 3, nicht in den Schnitt. */
         if(_z.head){ smData.headline=_z.head; var hi=$("smFields").querySelector('[data-smk="headline"]'); if(hi) hi.value=smData.headline; }
@@ -4005,7 +4006,7 @@ async function extractSM(txt,opts){
     _work.caption_instagram=out.caption_instagram||"";
     _work.caption_linkedin=out.caption_linkedin||"";
     _work.x_text=out.x_text||"";
-    var _qaZ=await smRunQaPipeline(_work, txt, { mode:"zero" });
+    var _qaZ=await window.smRunQaPipeline(_work, txt, { mode:"zero" });
     /* Zurueckschreiben: Template-Felder in smData UND in die sichtbaren Inputs. */
     smTpl.fields.forEach(function(f){
       if(typeof _work[f.k]!=="string" || _work[f.k]===smData[f.k]) return;
@@ -4020,7 +4021,7 @@ async function extractSM(txt,opts){
       window._smText.captions={instagram:out.caption_instagram||"",linkedin:out.caption_linkedin||""};
       if(window._smText.x) window._smText.x.text=out.x_text||"";
     }
-    smQaReport(_qaZ,"auto-sm");
+    window.smQaReport(_qaZ,"auto-sm");
     if(info) info.textContent="";
   }catch(e){ try{ console.warn("[QA-Pipeline zero]", e&&e.message); }catch(_){} }
   if(smTpl.carousel) smBuildTplGrid();
@@ -4599,6 +4600,35 @@ function showWiki(key){
 (function(){
 "use strict";
 var $id=function(x){ return document.getElementById(x); };
+
+/* ===== EXPORT-BRUECKE (Christian 30.07.2026, Bugfix "smStoryPromptBlock is not defined") =====
+   URSACHE: Dieser Social-Media-Block laeuft in einer IIFE, seine Funktionen sind also PRIVAT.
+   Der zero-/tfam-Befuellpfad (extractSM) liegt in einem FRUEHEREN <script>-Block und kann sie
+   nicht direkt sehen. Solange nur der finanzen.net-Pfad die QA-Pipeline nutzte, fiel das nicht
+   auf; seit die Pipeline (28.07.) auch fuer zero laeuft, brach die Befuellung sofort mit
+   "smStoryPromptBlock is not defined" ab.
+   LOESUNG: alle von aussen benoetigten Funktionen explizit auf window legen; aussen wird nur
+   noch ueber window.* zugegriffen.
+   WICHTIG — die Bruecke steht ABSICHTLICH GANZ OBEN und nicht am Blockende: Funktions-
+   Deklarationen werden gehoisted, sind hier also schon verfuegbar. Stuende der Export unten,
+   wuerde ein einziger fehlgeschlagener DOM-Aufruf dazwischen alle Exporte verschlucken und der
+   Fehler waere zurueck. Konstanten koennen NICHT hier stehen (var-Hoisting = undefined), die
+   werden direkt an ihrer Deklaration exportiert. */
+window.smStoryPlan          = smStoryPlan;
+window.smStoryPromptBlock   = smStoryPromptBlock;
+window.smRenderStoryPlan    = smRenderStoryPlan;
+window.smRunQaPipeline      = smRunQaPipeline;
+window.smQaReport           = smQaReport;
+window.smQaGate             = smQaGate;
+window.smGuards             = smGuards;
+window.smRepairLength       = smRepairLength;
+window.smFewshotBlock       = smFewshotBlock;
+window.ensureHeadSub        = ensureHeadSub;
+window.ensureLength         = ensureLength;
+window.groundingVerify      = groundingVerify;
+window.smFieldLimit         = smFieldLimit;
+window.smMotifPrompt        = smMotifPrompt;
+window.smFileBase           = smFileBase;
 
 /* ---------- Marken-Konfiguration ----------
    ZERO: Farbwerte/Logo sind PROVISORISCH, bis Yuki die finalen
@@ -5356,6 +5386,10 @@ var FIELD_LIMITS={
    muss es in FINNET_LIMITS aendern — eine Aenderung nur oben in FIELD_LIMITS waere wirkungslos.
    Die Werte sind aktuell identisch; diese Zeile haelt sie identisch. */
 try{ Object.keys(FINNET_LIMITS).forEach(function(k){ FIELD_LIMITS[k]=FINNET_LIMITS[k]; }); }catch(e){}
+/* Export fuer den zero-Pfad (siehe EXPORT-BRUECKE oben). Konstanten muessen an ihrer
+   Deklaration exportiert werden, weil var-Hoisting oben nur undefined liefern wuerde. */
+window.SM_ARTICLE_WINDOW=SM_ARTICLE_WINDOW;
+window.FIELD_LIMITS=FIELD_LIMITS;
 
 /* Limit fuer ein Feld. Bei zero kommt es aus dem aktiven Template, sonst aus FIELD_LIMITS. */
 function smFieldLimit(k){
@@ -6041,6 +6075,9 @@ var SM_MOTIF_HINT={
   metapher:"konkrete, literal beschriebene visuelle Metapher zur Kernaussage, cleaner Stil, neutrales Licht"
 };
 var SM_MOTIF_STYLE=" STIL IMMER natuerliches ruhiges Business-/Finanz-Stockfoto, weiches gleichmaessiges Tageslicht, neutrale Farben, NICHT dramatisch oder cinematisch.";
+/* Export fuer den zero-Pfad (siehe EXPORT-BRUECKE oben). */
+window.SM_MOTIF_HINT=SM_MOTIF_HINT;
+window.SM_MOTIF_STYLE=SM_MOTIF_STYLE;
 function _motivSchema(lean){
   var sel=(window._smMotif||"auto");
   var laenge=lean?"(2-3 Saetze, 30-50 Woerter)":"(3-5 Saetze, 50-90 Woerter)";
@@ -6656,6 +6693,7 @@ function smFileBase(topic){
   t=(""+t).replace(/[^a-z0-9äöüß]+/gi,"_").replace(/^_+|_+$/g,"").slice(0,50)||"post";
   return smStamp()+"_"+t;
 }
+
 /* ---------- Export PNG gruppen-bewusst: aktive Gruppe bestimmt Format & Größe ----------
    FIX: In der Story-Gruppe exportierte der Button bisher das 4:5-Master (1080x1350 bzw. 1349) —
    jetzt wird die Slide nativ im Story-Layout gerendert und exakt in Plattform-Größe (1080x1920) geladen. */
@@ -10238,7 +10276,7 @@ function smLogCsv(){
 function smDoExport(fromBatch){
   if((smBrand==="zero"||smBrand==="tfam") && !smExportGate()) return;   /* Regel-Gate vor Export (Christian 16.07.; tfam ergaenzt 29.07.2026) */
   const a=document.createElement("a");
-  a.download=(window.smFileBase?smFileBase(smData.headline||smData.term||smData.name||smTpl.name):smTpl.id)+"_"+smFmt.replace(":","x")+(smSlides().length>1?"_slide"+(smSlide+1):"")+".png";
+  a.download=(window.smFileBase?window.smFileBase(smData.headline||smData.term||smData.name||smTpl.name):smTpl.id)+"_"+smFmt.replace(":","x")+(smSlides().length>1?"_slide"+(smSlide+1):"")+".png";
   a.href=$("smCanvas").toDataURL("image/png");
   a.click();
   if(!fromBatch){ _smLoggedThisExport=false; smLogEntry("png"); }
@@ -10265,7 +10303,7 @@ async function smExportPdf(){
     pdf.addImage(url,"JPEG",0,0,F.w,F.h);
   }
   smSlide=keep; smRender();
-  pdf.save((window.smFileBase?smFileBase(smData.headline||smData.term||smData.name||smTpl.name):smTpl.id)+"_"+smFmt.replace(":","x")+"_linkedin.pdf");
+  pdf.save((window.smFileBase?window.smFileBase(smData.headline||smData.term||smData.name||smTpl.name):smTpl.id)+"_"+smFmt.replace(":","x")+"_linkedin.pdf");
   _smLoggedThisExport=false; smLogEntry("pdf");
 }
 
