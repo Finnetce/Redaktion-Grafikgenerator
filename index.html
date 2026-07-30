@@ -3598,6 +3598,87 @@ async function smFillWithRetry(buildSys, userContent, onLean){
 /* Robust gegen leicht defektes Modell-JSON (Yuki 15.07.: Fehler "Expected ',' or '}'"):
    mehrere Reparaturstufen, bevor aufgegeben wird. Häufigste Ursache: ein nicht-escaptes
    Anführungszeichen mitten in einem String-Wert (z.B. Zitat "aktuelle Gerüchte" im Fließtext). */
+/* ============================================================================
+   STRUKTURBEWUSSTER JSON-SANITIZER (Christian 30.07.2026)
+   ----------------------------------------------------------------------------
+   Anlass: Live-Fehler "Expected ':' after property name at position 5591".
+   URSACHE: Das Modell liefert deutsche Zitate MITTEN in einem String-Wert, ohne sie zu
+   escapen — z.B.  "deck":"Gulden sagte "Wir haben geliefert", das reicht nicht"
+   Der Parser sieht den zweiten " als String-Ende, danach ", das reicht nicht" wie einen
+   neuen KEY, und verlangt einen Doppelpunkt. Dieselbe Klasse erzeugt je nach Textstelle
+   auch "Expected ',' or '}'" — es ist immer dasselbe Grundproblem.
+   Zweite Fehlklasse: echte Zeilenumbrueche in Captions ("Bad control character").
+
+   WARUM DIE ALTE HEURISTIK NICHT REICHTE: Sie entschied nur nach dem NAECHSTEN Zeichen.
+   Bei  ..."Wir haben geliefert", das...  folgt auf den Quote ein Komma — also hielt sie
+   ihn fuer ein legitimes String-Ende. Genau falsch.
+
+   NEUER ANSATZ: Der Scanner kennt den Zustand der Struktur (erwarte ich gerade einen Key,
+   einen Wert, einen Doppelpunkt?). In einem WERT-String gilt ein " nur dann als Ende, wenn
+   danach — nur Whitespace uebersprungen — ein Zeichen kommt, das strukturell folgen DARF:
+   , } ] oder Ende. Steht dort etwas anderes, ist es ein eingebettetes Zitat und wird
+   escapt. Zusaetzlich werden echte Steuerzeichen in Strings escapt.
+   Das ist konservativ: gueltiges JSON bleibt unveraendert (durch Tests abgesichert).
+   ============================================================================ */
+function smJsonSanitize(raw){
+  var s=""+(raw||"");
+  var out="";
+  var i=0, n=s.length;
+  var inStr=false, isKey=false;
+  /* Struktur-Kontext: was erwarten wir als naechstes? */
+  var expect="value";           /* "key" | "value" */
+  var depthStack=[];            /* "{" oder "[" */
+  while(i<n){
+    var ch=s[i];
+    if(!inStr){
+      if(ch==="{"){ depthStack.push("{"); expect="key"; out+=ch; i++; continue; }
+      if(ch==="["){ depthStack.push("["); expect="value"; out+=ch; i++; continue; }
+      if(ch==="}"||ch==="]"){ depthStack.pop();
+        expect=(depthStack[depthStack.length-1]==="{")?"key":"value"; out+=ch; i++; continue; }
+      if(ch===":"){ expect="value"; out+=ch; i++; continue; }
+      if(ch===","){ expect=(depthStack[depthStack.length-1]==="{")?"key":"value"; out+=ch; i++; continue; }
+      if(ch==='"'){ inStr=true; isKey=(expect==="key"); out+=ch; i++; continue; }
+      out+=ch; i++; continue;
+    }
+    /* --- innerhalb eines Strings --- */
+    if(ch==="\\"){
+      /* Escape-Sequenz unveraendert uebernehmen (inkl. \" \\ \n \uXXXX) */
+      out+=ch+(s[i+1]||""); i+=2; continue;
+    }
+    if(ch==='"'){
+      if(isKey){ inStr=false; out+=ch; i++; continue; }   /* Keys sind kurz und sauber */
+      /* Wert-String: ist das ein legitimes Ende? */
+      var j=i+1; while(j<n && /\s/.test(s[j])) j++;
+      var nx=s[j];
+      if(nx===undefined || nx===","||nx==="}"||nx==="]"){
+        /* Koennte Ende sein — aber Vorsicht: bei  "..."Zitat", weiter..."  folgt auch ein
+           Komma. Absichern: nach dem Komma muss strukturell ein KEY (") oder bei Arrays ein
+           Wert-Anfang stehen. Folgt dort Prosa (Buchstabe), war es ein eingebettetes Zitat. */
+        if(nx===","){
+          var k=j+1; while(k<n && /\s/.test(s[k])) k++;
+          var after=s[k];
+          var inObj=(depthStack[depthStack.length-1]==="{");
+          var strukturOk = (after==='"') || after==="{" || after==="[" ||
+                           (!inObj && (after==="-"||/[0-9]/.test(after)||
+                            s.slice(k,k+4)==="true"||s.slice(k,k+5)==="false"||s.slice(k,k+4)==="null"));
+          if(!strukturOk){ out+='\\"'; i++; continue; }   /* Prosa -> eingebettetes Zitat */
+        }
+        inStr=false; out+=ch; i++; continue;
+      }
+      out+='\\"'; i++; continue;                          /* eingebettetes Zitat */
+    }
+    /* Echte Steuerzeichen in Strings sind laut JSON verboten -> escapen statt scheitern.
+       Betrifft vor allem Zeilenumbrueche in Captions. */
+    var code=ch.charCodeAt(0);
+    if(code<32){
+      out+= (ch==="\n")?"\\n" : (ch==="\r")?"\\r" : (ch==="\t")?"\\t"
+          : "\\u"+("000"+code.toString(16)).slice(-4);
+      i++; continue;
+    }
+    out+=ch; i++; continue;
+  }
+  return out;
+}
 function parseJSON(s){
   s=(s||"").trim().replace(/^```(json)?/i,"").replace(/```\s*$/,"").trim();
   // Nur den JSON-Kern zwischen erster { und letzter } behalten (entfernt Vor-/Nachgeschwätz)
@@ -3630,6 +3711,16 @@ function parseJSON(s){
     }
     return out.replace(/,\s*([}\]])/g,"$1");
   })(s));
+  /* Stufe 4 + 5 (Christian 30.07.2026): strukturbewusster Sanitizer — faengt genau die
+     Faelle, an denen die aeltere Heuristik oben scheiterte (eingebettetes Zitat, dem ein
+     Komma folgt, sowie echte Zeilenumbrueche in Captions). Bewusst NACH den alten Stufen,
+     damit sich am bisherigen Verhalten nichts aendert, wo es schon funktioniert hat. */
+  attempts.push(smJsonSanitize(s));
+  attempts.push(smJsonSanitize(s).replace(/,\s*([}\]])/g,"$1"));
+  /* Stufe 6: Trailing-Komma ZUERST weg, DANN sanitieren. Notwendig, wenn beide Defekte
+     zusammen auftreten: das Trailing-Komma laesst den Scanner das kaputte Zitat sonst als
+     legitimes String-Ende durchgehen (Fuzz-Fall "Trailing-Komma + Zitat"). */
+  attempts.push(smJsonSanitize(s.replace(/,(\s*[}\]])/g,"$1")));
   let lastErr=null;
   for(const cand of attempts){
     try{ return JSON.parse(cand); }catch(e){ lastErr=e; }
@@ -3982,6 +4073,10 @@ async function extractSM(txt,opts){
      Zeichenbudget, Few-Shot). Mit const knallt schon die erste Erweiterung. */
   let sys="Du bist Redakteur bei finanzen.net zero (deutscher Neobroker) und schreibst professionelles, korrektes Deutsch mit Umlauten. Lies den Artikel und fülle die Felder für das Social-Template \""+smTpl.name+"\" ("+smTpl.desc+"). "+
     "ABSOLUT ZWINGEND: Antworte AUSSCHLIESSLICH mit einem einzigen gültigen JSON-Objekt nach dem Schema unten — NIE mit Fließtext, NIE mit einer Rückfrage, NIE mit Erklärungen davor oder danach. Auch wenn die Eingabe KURZ, unvollständig oder bereits vorstrukturiert ist (z.B. Stichpunkte oder Label:Wert-Zeilen): übernimm die vorhandenen Angaben direkt in die passenden Felder und lasse den Rest leer. Stelle NIEMALS Gegenfragen. "+
+    /* JSON-HYGIENE (Christian 30.07.2026): Ursache des Live-Fehlers "Expected ':' after
+       property name". Das Modell setzte woertliche Zitate unescaped in String-Werte. Der
+       Parser wird das jetzt reparieren, aber besser ist, es entsteht gar nicht erst. */
+    "JSON-HYGIENE (haeufigste Fehlerquelle, bitte strikt beachten): Wörtliche Zitate im Text IMMER mit einfachen Anführungszeichen setzen (Gulden sagte 'Wir haben geliefert'), NIEMALS mit doppelten — doppelte Anführungszeichen zerstören das JSON. Keine echten Zeilenumbrüche in Werten: nutze \\n. Keine typografischen Anführungszeichen. "+
     "PRIORISIERUNG (Pflicht-Schritt VOR dem Ausfüllen, Redakteurs-Feedback Yuki 15.07.): Identifiziere gedanklich ALLE Einzelfakten des Artikels (Zahlen, Vergleiche, Entscheidungen, Ereignisse, Kursbewegungen) und bewerte jeden nach (a) Größe/strukturellem Gewicht, (b) Überraschungswert, (c) Relevanz für die Anlageentscheidung. Wähle für Headline/Kicker/erstes Feld explizit den Fakt mit dem höchsten Gesamtwert — das ist KEINE Regel gegen Kursbewegungen (bei vielen Artikeln ist die Kursbewegung selbst der stärkste Fakt), sondern gegen automatisches Übernehmen einer nebensächlichen oder austauschbaren Randinfo nur weil sie im Text zuerst steht oder leicht zu formulieren ist. Beispiel für einen Fehler, den es zu vermeiden gilt: eine vage Bewertung wie 'starkes Quartal' ohne Zahl wählen, obwohl der Artikel einen härteren, konkreteren Fakt (z.B. eine prozentuale Kostensenkung oder Kapazitätsverschiebung) enthält. Alle Felder zusammen sollen einen klaren roten Faden ergeben (Ereignis -> Hintergrund -> Konsequenz). KEINE META-REFERENZ AUF DEN ARTIKEL (Pflicht, Redakteurs-Feedback Yuki 15.07.): Schreibe niemals 'wird im Artikel als X bezeichnet', 'laut Artikel', 'weitere Details nennt die Firma nicht' oder ähnliche Verweise auf den Quelltext selbst. Formuliere Fakten direkt (STATT 'X ist im SDAX notiert und wird im Artikel als Technologiekonzern bezeichnet' -> 'X ist ein im SDAX notierter Technologiekonzern'). Fehlt eine Info im Artikel, lasse sie ersatzlos weg statt das Fehlen zu erwähnen. "+
     "Antworte NUR mit reinem JSON, ohne Markdown. Schema (Feldname: Bedeutung): "+JSON.stringify(schema)+". COMPLIANCE ZWINGEND: keine Kauf- oder Verkaufsempfehlung aus persönlicher Sicht, keine Formulierungen wie 'jetzt kaufen', 'lohnt sich', 'Top-Pick'. Erlaubt: neutrale Fakten, Analysten-Bezug mit Quelle, oder Frage-Framing. Nutze NUR Zahlen, die im Text stehen; erfinde keine. Felder, für die der Text nichts hergibt, als leeren String lassen. Zahlen in deutscher Schreibweise (Komma). "+
     "KURSDATEN-GROUNDING (absolut kritisch, Fehler = unbrauchbar, Redakteurs-Feedback Christian 15.07.): Kurs, Veränderung (Δ %), Vorzeichen und Zeitraum MÜSSEN exakt so im Artikel stehen — NIEMALS Richtung oder Wert erfinden oder umdrehen (Negativ-Beispiel: Grafik zeigte '-6,06 % (1 Tag)', obwohl der Artikel einen zweistelligen KursANSTIEG meldete). Prüfe explizit: Steigt oder fällt der Kurs laut Artikel? Übernimm das Vorzeichen daraus. Steht kein konkreter aktueller Kurs oder keine konkrete Prozent-Veränderung im Artikel, lasse das Feld LEER statt zu schätzen. QUELLEN-WAHL BEI MEHREREN KURSEN (Christian 15.07.): finanzen.net-Artikel enthalten oft ZWEI Kurse — (a) das eingebettete Kurs-Widget ('Werte in diesem Artikel', meist EUR vom deutschen Handelsplatz, Live-Momentaufnahme) und (b) die Kurse im redaktionellen Fließtext. Nimm IMMER den Kurs aus dem Fließtext, der zum Hauptkontext des Artikels passt (gleiche Börse/Währung wie Kursziel und Story); das Widget ignorieren. ZEITRAUM: Das Feld cperiod/Δ-Zeitraum NIEMALS pauschal mit '1 Tag' belegen — übernimm den Zeitbezug WÖRTLICH aus dem Artikel ('vorbörslich', 'nachbörslich', 'im Seoul-Handel', 'seit Jahresbeginn'). Passt keine der Dropdown-Optionen, wähle keine und nenne den Zeitbezug stattdessen NUR im Börsenplatz-Feld (z.B. 'NASDAQ, vorbörslich') — denselben Zeitbezug nie doppelt in Δ-Zeitraum UND Börsenplatz/Stand schreiben. Beachte das Artikeldatum: Formuliere Stand/Zeitraum relativ zum Artikel, nicht zum heutigen Tag. "+
@@ -6312,7 +6407,8 @@ extractSocial = async function(txt, xopts){
   /* Der System-Prompt wird als FUNKTION von lean gebaut (Christian 28.07.2026), damit der
      Wiederholversuch nach einer abgeschnittenen Antwort mit knapperem Schema laufen kann. */
   var _buildSys=function(lean){
-  var sys="Du bist Social-Media-Redakteur bei "+b.label+" und schreibst professionelles, korrektes Deutsch mit Umlauten. Tonalit\u00e4t: "+b.ton+stylePart+" Lies den Artikeltext und antworte NUR mit reinem JSON ohne Markdown. Schema: {"+
+  /* JSON-HYGIENE auch hier (Christian 30.07.2026) \u2014 derselbe Live-Fehler trat bei finnet auf. */
+  var sys="Du bist Social-Media-Redakteur bei "+b.label+" und schreibst professionelles, korrektes Deutsch mit Umlauten. Tonalit\u00e4t: "+b.ton+stylePart+" Lies den Artikeltext und antworte NUR mit reinem JSON ohne Markdown. JSON-HYGIENE (haeufigste Fehlerquelle): Woertliche Zitate IMMER mit einfachen Anfuehrungszeichen setzen (Gulden sagte 'Wir haben geliefert'), NIEMALS mit doppelten \u2014 doppelte zerstoeren das JSON. Keine echten Zeilenumbrueche in Werten: nutze \\n. Schema: {"+
     "\" PRIORISIERUNG (Pflicht-Schritt VOR dem Schreiben, Redakteurs-Feedback Yuki 15.07.): Bevor du auch nur ein Feld formulierst, identifiziere gedanklich ALLE Einzelfakten des Artikels (Zahlen, Vergleiche, Entscheidungen, Zitate, Ereignisse, Kursbewegungen) und bewerte jeden nach drei Kriterien: (a) Groesse/strukturelles Gewicht (z.B. eine dauerhafte Kostensenkung, ein Vertragswert, eine Kapazitaetsverschiebung wiegt oft schwerer als eine kurzfristige Kursbewegung von 1-2 Tagen), (b) Ueberraschungswert (weicht der Fakt von der Erwartung ab, ist er neu oder kontraintuitiv?), (c) Relevanz fuer die Anlageentscheidung des Lesers. WICHTIG (Praezisierung Yuki 15.07., nach Rueckfrage): Das ist KEINE pauschale Regel gegen Kursbewegungen -- bei vielen Artikeln IST die Kursbewegung selbst der staerkste, meldungswuerdigste Fakt (z.B. ein Kurssprung von 15 Prozent nach Uebernahmegeruechten) und gehoert dann zu Recht in head/bullets[0]. Entscheide von Fall zu Fall anhand der drei Kriterien oben, nicht anhand der Reihenfolge im Artikel. Vermeide nur den Fehler, eine NEBENSAECHLICHE oder AUSTAUSCHBARE Randinfo (z.B. eine kurze, durch andere Fakten im Artikel klar uebertroffene Kursbewegung, oder eine vage Bewertung wie 'starkes Quartal' ohne Zahl) automatisch zu waehlen, nur weil sie im Text zuerst steht oder am leichtesten zu formulieren ist, wenn der Artikel einen staerkeren Fakt enthaelt. Negativ-Beispiele aus echtem Feedback: Bei einem Mercedes-Artikel wurde faelschlich der zweitaegige Kursanstieg als Hauptaussage gewaehlt, obwohl der Artikel auch 'rund 70 Prozent niedrigere Produktionskosten in Ungarn' nannte -- ein staerkerer, ueberraschenderer Fakt mit echtem strukturellem Gewicht, der stattdessen in head/bullets[0] gehoert haette. Bei einem Rio-Tinto-Artikel wurde 'starkes Q2 aus Pilbara' gewaehlt -- eine vage, austauschbare Bewertung ohne Zahl und ohne Neuigkeitswert, obwohl der Artikel konkretere, haertere Fakten enthielt. Gib deine Priorisierung explizit im Feld relevanz zurueck (Pflichtfeld zur Selbstkontrolle, erscheint NICHT auf der Grafik). Der staerkste Fakt aus relevanz MUSS wortgleich oder sinngleich in head ODER bullets[0] auftauchen -- harte Bedingung. GEWICHTUNGS-HINWEIS (Redakteurs-Feedback Yuki 20.07.2026): Konkrete NEUE Ereignisse — frische Auftraege/Abrufe, Programme, Deals, Produkt-/Vertragsmeldungen — sind fuer den Leser oft interessanter und meldungswuerdiger als eine reine Analysten-Kurszielanpassung (Kursziel rauf/runter). Wenn der Artikel BEIDES enthaelt, gewichte das konkrete Ereignis tendenziell hoeher — ES SEI DENN, die Kurszielanpassung ist ungewoehnlich gross/ueberraschend oder klar der Kern der Meldung. Bleibe fallweise, kein Automatismus. ROTER FADEN (Pflicht): Alle Felder zusammen muessen eine zusammenhaengende Story mit klarem Bogen ergeben (Ereignis -> Ursache/Hintergrund -> Konsequenz), nicht eine lose Ansammlung einzelner Fakten -- jedes Feld baut inhaltlich auf dem vorherigen auf.\""+
     "\"relevanz\":{\"staerkster_fakt\":\"der eine Fakt, den du als wichtigsten identifiziert hast, mit Zahl/Beleg\",\"warum\":\"1 kurzer Satz warum dieser Fakt die anderen Kandidaten schlaegt (Gewicht/Ueberraschung/Anlagerelevanz) -- falls es die Kursbewegung ist, begruende explizit warum sie hier der staerkste Fakt ist\",\"verworfen\":\"1 kurzes Beispiel eines schwaecheren Fakts, den du bewusst NICHT in head/bullets[0] verwendet hast\"},"+
     "\"head\":\"prägnante Schlagzeile, max 55 Zeichen -- MUSS den staerksten Fakt aus relevanz enthalten, falls er dort noch nicht steht\","+
