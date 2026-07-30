@@ -3420,7 +3420,35 @@ async function orChat(messages, extra){
     const params=new URLSearchParams(); params.set("action","chat"); params.set("model",model); params.set("messages",JSON.stringify(messages));
     params.set("plugins", JSON.stringify(extra.plugins||[]));  // z.B. PDF-OCR (mistral-ocr)
     const r=await fetch(CONFIG.API_BASE,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:params.toString()});
-    const d=await r.json(); if(!d.ok) throw new Error(d.error||"Fehler");
+    /* ANTWORT ERST ALS TEXT LESEN (Bugfix 30.07.2026, von Yuki gemeldet als
+       'Unexpected token A, "Accepted" is not valid JSON').
+       URSACHE: Laeuft das Make-Szenario laenger als das Antwortfenster des Webhooks,
+       bricht Make das Warten ab und liefert stattdessen die DEFAULT-Antwort des
+       Custom-Webhooks: HTTP 200 mit dem Klartext "Accepted". Das Modul 34
+       (Webhook Response mit dem echten JSON) wird dann nie erreicht. Ein direktes
+       r.json() stirbt daran mit einer voellig irrefuehrenden Parser-Meldung.
+       Hier wird der Fall erkannt und als das benannt, was er ist: ein Timeout. */
+    const _raw=await r.text();
+    let d;
+    try{ d=JSON.parse(_raw); }
+    catch(_pe){
+      const _t=(_raw||"").trim();
+      if(/^accepted$/i.test(_t) || /^queue is full$/i.test(_t)){
+        const _to=new Error(
+          /queue/i.test(_t)
+          ? "Make hat den Auftrag abgewiesen: die Warteschlange des Webhooks ist voll. "+
+            "Bitte kurz warten und erneut versuchen."
+          : "Zeitueberschreitung in Make: das Szenario hat laenger gebraucht als das "+
+            "Antwortfenster des Webhooks, deshalb kam nur die Standardantwort \"Accepted\" "+
+            "zurueck statt des Textes. Die Generierung selbst laeuft in Make ggf. noch "+
+            "weiter. Abhilfe: oben rechts einen eigenen API-Key eintragen (dann laeuft es "+
+            "direkt ohne Make und ohne Zeitfenster) oder ein schnelleres Modell waehlen. "+
+            "Details siehe MAKE_TIMEOUT_HINWEIS im Code.");
+        _to.code="MAKE_TIMEOUT"; throw _to;
+      }
+      throw new Error("Unerwartete Antwort von Make (kein JSON): "+_t.slice(0,120));
+    }
+    if(!d.ok) throw new Error(d.error||"Fehler");
     /* Make reicht finish_reason nicht durch — daher hier pruefen, ob das gelieferte JSON
        vollstaendig ist. Ein abgeschnittener Text hat unbalancierte Klammern. */
     if(smLooksTruncated(d.text)){
@@ -3453,9 +3481,54 @@ function smLooksTruncated(s){
   }
   return inStr || depth>0 || !sawClose;
 }
-/* Bequemer Aufruf fuer die QA-Stufen: waehlt Modell + Reasoning anhand der Rolle. */
+/* ============================================================================
+   MAKE_TIMEOUT_HINWEIS (Christian 30.07.2026) — "Accepted" statt Text
+   ----------------------------------------------------------------------------
+   Ein Make-Custom-Webhook haelt die Verbindung nur begrenzt offen. Antwortet das
+   Szenario nicht rechtzeitig, sendet Make seine Default-Antwort: HTTP 200 mit dem
+   Klartext "Accepted" — Modul 34 (Webhook Response) wird nie erreicht. Im Frontend
+   sah das vorher wie ein JSON-Parser-Fehler aus; orChat benennt es jetzt als Timeout.
+
+   WARUM ES AM 30.07.2026 AUFTRAT: Mit dem Umstieg der Urteilsstufen auf Opus 5 MIT
+   reasoning_effort "high" wurden die Stufen 1 und 4 deutlich langsamer — Denk-Token
+   werden erzeugt, bevor das erste Antwort-Token kommt. Im Direct-Pfad (eigener
+   API-Key) ist das unkritisch, im Make-Pfad reisst es das Antwortfenster.
+
+   WICHTIG — WARUM DROSSELN ALLEIN NICHT REICHT (geprueft 30.07.2026):
+   Route 33 baut den Request-Body SELBST und reicht nur "model", "messages" und
+   "plugins" durch. Ein reasoning-Feld aus dem Frontend kommt dort NIE an. Die
+   Drosselung in orChatFor wirkt daher NUR im Direct-Pfad; im Make-Pfad laeuft Opus
+   mit seinem Default-Thinking weiter. Deshalb ist die eigentliche Massnahme:
+   im Make-Pfad fuer die Urteilsstufen das SCHNELLERE MODELL nehmen (Sonnet 5),
+   weil das Modell das Einzige ist, was Make ueberhaupt uebernimmt. Siehe
+   MODELS_FOR_MAKE / modelForRole.
+
+   FOLGE FUER DIE REDAKTEURE: Ohne eigenen API-Key laufen die Urteilsstufen auf
+   Sonnet 5 (schnell, Stand vor dem 30.07.). Mit eigenem Key laufen sie auf Opus 5
+   mit effort "high" — volle Qualitaet, kein Zeitfenster. Der Key ist damit ein
+   echter Qualitaetsschalter, nicht nur Bequemlichkeit.
+
+   SAUBERE LOESUNG (offen, braucht Make-Umbau, bewusst nicht jetzt): Webhook sofort
+   mit einer Job-ID antworten lassen und das Ergebnis asynchron abholen. Dann koennte
+   auch ohne eigenen Key auf Opus gefahren werden. Erfordert Aenderungen am Szenario.
+   ============================================================================ */
+/* Modelle fuer den MAKE-Pfad: hier zaehlt Geschwindigkeit, weil das Antwortfenster des
+   Webhooks begrenzt ist (siehe MAKE_TIMEOUT_HINWEIS). Opus mit Thinking reisst es.
+   Nur Rollen eintragen, die abweichen sollen — alles andere faellt auf MODELS zurueck. */
+const MODELS_FOR_MAKE={
+  plan: "anthropic/claude-sonnet-5",
+  qa:   "anthropic/claude-sonnet-5"
+};
+/* Bequemer Aufruf fuer die QA-Stufen: waehlt Modell + Reasoning anhand der Rolle
+   UND anhand des Pfads (direct = volle Qualitaet, make = schnell genug fuers Zeitfenster). */
 async function orChatFor(role, messages, extra){
-  return orChat(messages, Object.assign({ model:MODELS[role]||TEXT_MODEL, reasoning:MODEL_REASONING[role]||null }, extra||{}));
+  var _make=(genMode()==="make");
+  var _model=(_make && MODELS_FOR_MAKE[role]) || MODELS[role] || TEXT_MODEL;
+  var _reason=MODEL_REASONING[role]||null;
+  /* Im Make-Pfad zusaetzlich drosseln. Wirkt dort zwar nicht (Route 33 reicht reasoning
+     nicht durch), bleibt aber korrekt, falls das Szenario spaeter erweitert wird. */
+  if(_make && _reason==="high") _reason="medium";
+  return orChat(messages, Object.assign({ model:_model, reasoning:_reason }, extra||{}));
 }
 /* ============================================================================
    MAKE_HINWEIS (Christian 28.07.2026, ERLEDIGT-Stand 30.07.2026)
@@ -3878,7 +3951,11 @@ async function extractSM(txt,opts){
   schema["hashtags_instagram"]="Array mit MAXIMAL 5 thematischen Hashtags (nie mehr!), klein geschrieben";
   schema["hashtags_linkedin"]="Array mit MAXIMAL 5 Hashtags (nie mehr!)";
   schema["cashtags"]="Array mit 0-2 Cashtags (z.B. $NVDA), nur wenn Einzeltitel Thema ist";
-  const sys="Du bist Redakteur bei finanzen.net zero (deutscher Neobroker) und schreibst professionelles, korrektes Deutsch mit Umlauten. Lies den Artikel und fülle die Felder für das Social-Template \""+smTpl.name+"\" ("+smTpl.desc+"). "+
+  /* WICHTIG: let, NICHT const (Bugfix 30.07.2026, von Yuki gemeldet als
+     "Assignment to constant variable"). Dieser Prompt wird weiter unten mehrfach per
+     "sys+=" erweitert (Markenwechsel tfam, Redaktions-Plan, Bindestrich-Regel,
+     Zeichenbudget, Few-Shot). Mit const knallt schon die erste Erweiterung. */
+  let sys="Du bist Redakteur bei finanzen.net zero (deutscher Neobroker) und schreibst professionelles, korrektes Deutsch mit Umlauten. Lies den Artikel und fülle die Felder für das Social-Template \""+smTpl.name+"\" ("+smTpl.desc+"). "+
     "ABSOLUT ZWINGEND: Antworte AUSSCHLIESSLICH mit einem einzigen gültigen JSON-Objekt nach dem Schema unten — NIE mit Fließtext, NIE mit einer Rückfrage, NIE mit Erklärungen davor oder danach. Auch wenn die Eingabe KURZ, unvollständig oder bereits vorstrukturiert ist (z.B. Stichpunkte oder Label:Wert-Zeilen): übernimm die vorhandenen Angaben direkt in die passenden Felder und lasse den Rest leer. Stelle NIEMALS Gegenfragen. "+
     "PRIORISIERUNG (Pflicht-Schritt VOR dem Ausfüllen, Redakteurs-Feedback Yuki 15.07.): Identifiziere gedanklich ALLE Einzelfakten des Artikels (Zahlen, Vergleiche, Entscheidungen, Ereignisse, Kursbewegungen) und bewerte jeden nach (a) Größe/strukturellem Gewicht, (b) Überraschungswert, (c) Relevanz für die Anlageentscheidung. Wähle für Headline/Kicker/erstes Feld explizit den Fakt mit dem höchsten Gesamtwert — das ist KEINE Regel gegen Kursbewegungen (bei vielen Artikeln ist die Kursbewegung selbst der stärkste Fakt), sondern gegen automatisches Übernehmen einer nebensächlichen oder austauschbaren Randinfo nur weil sie im Text zuerst steht oder leicht zu formulieren ist. Beispiel für einen Fehler, den es zu vermeiden gilt: eine vage Bewertung wie 'starkes Quartal' ohne Zahl wählen, obwohl der Artikel einen härteren, konkreteren Fakt (z.B. eine prozentuale Kostensenkung oder Kapazitätsverschiebung) enthält. Alle Felder zusammen sollen einen klaren roten Faden ergeben (Ereignis -> Hintergrund -> Konsequenz). KEINE META-REFERENZ AUF DEN ARTIKEL (Pflicht, Redakteurs-Feedback Yuki 15.07.): Schreibe niemals 'wird im Artikel als X bezeichnet', 'laut Artikel', 'weitere Details nennt die Firma nicht' oder ähnliche Verweise auf den Quelltext selbst. Formuliere Fakten direkt (STATT 'X ist im SDAX notiert und wird im Artikel als Technologiekonzern bezeichnet' -> 'X ist ein im SDAX notierter Technologiekonzern'). Fehlt eine Info im Artikel, lasse sie ersatzlos weg statt das Fehlen zu erwähnen. "+
     "Antworte NUR mit reinem JSON, ohne Markdown. Schema (Feldname: Bedeutung): "+JSON.stringify(schema)+". COMPLIANCE ZWINGEND: keine Kauf- oder Verkaufsempfehlung aus persönlicher Sicht, keine Formulierungen wie 'jetzt kaufen', 'lohnt sich', 'Top-Pick'. Erlaubt: neutrale Fakten, Analysten-Bezug mit Quelle, oder Frage-Framing. Nutze NUR Zahlen, die im Text stehen; erfinde keine. Felder, für die der Text nichts hergibt, als leeren String lassen. Zahlen in deutscher Schreibweise (Komma). "+
@@ -4411,8 +4488,13 @@ window.addEventListener("load",loadLogos);
 /* ============================================================
    Version / Footer
    ============================================================ */
+/* PFLICHT-REGEL (Christian 30.07.2026): APP_DATE ist das im Footer sichtbare
+   "Last update" und MUSS bei JEDER Aenderung an dieser Datei auf das tatsaechliche
+   Tagesdatum gesetzt werden (Format TT.MM.JJJJ). Die Redakteure erkennen daran, ob
+   sie den aktuellen Stand im Browser haben oder eine alte Version aus dem Cache.
+   Ein veraltetes Datum ist schlimmer als keins — nicht vergessen. */
 const APP_VERSION="1.2";
-const APP_DATE="13.07.2026";
+const APP_DATE="30.07.2026";
 (function(){
   const f=document.createElement("div");
   f.id="appFooter";
