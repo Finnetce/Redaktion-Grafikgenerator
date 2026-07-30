@@ -3369,14 +3369,27 @@ $("brandHome").addEventListener("click",()=>showView("home"));
    trotzdem KEINE Temperatur — orChat filtert sie zentral heraus, damit beide Modelle
    denselben Pfad nehmen. Determinismus laeuft ueber reasoning_effort + Prompt-Regeln.
    --------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   ZURUECK AUF SONNET 5 (Christian 30.07.2026, Entscheidung nach Laufzeit-Messung)
+   Opus 5 mit effort "high" war fuer die Urteilsstufen qualitativ reizvoll, hat aber die
+   Gesamtdauer pro Post so weit hochgezogen, dass Make in die Zeitueberschreitung lief.
+   Pro Post laufen 4 (zero) bis 7 (finnet) LLM-Aufrufe SEQUENZIELL — die Latenz jeder
+   einzelnen Stufe addiert sich, ein langsames Modell wirkt also mehrfach.
+   Entscheidung: alle Stufen auf Sonnet 5. Die Qualitaet wird NICHT ueber ein teureres
+   Modell geholt, sondern ueber die Prompts (Yuki-Rubrik) und die vier Stufen selbst —
+   die bleiben inhaltlich unangetastet. Opus-Slug siehe unten, falls je wieder gebraucht.
+   --------------------------------------------------------------------------- */
 const MODELS={
   fill:   "anthropic/claude-sonnet-5",   /* Feldbefuellung + Template-/Chart-/Sankey-Extraktion */
-  plan:   "anthropic/claude-opus-5",     /* Stufe 1: Story-Auswahl + Slide-Rollen (Urteil) */
+  plan:   "anthropic/claude-sonnet-5",   /* Stufe 1: Story-Auswahl + Slide-Rollen (Urteil) */
   repair: "anthropic/claude-sonnet-5",   /* Stufe 3: Laengen-/Formulierungs-Reparatur */
-  qa:     "anthropic/claude-opus-5"      /* Stufe 4: Qualitaets- und Sinn-Gate (Urteil) */
+  qa:     "anthropic/claude-sonnet-5"    /* Stufe 4: Qualitaets- und Sinn-Gate (Urteil) */
 };
-/* Reasoning-Aufwand pro Aufgabe: Urteilsstufen hoch, mechanische Reparatur niedrig (Kosten/Latenz). */
-const MODEL_REASONING={ plan:"high", qa:"high", repair:"low", fill:null };
+/* Reasoning-Aufwand pro Aufgabe. Urteilsstufen auf "medium" statt "high": high erzeugt so
+   viele Denk-Token, dass die Stufe sichtbar langsamer wird, ohne dass die Urteile bei dieser
+   klar umrissenen Rubrik-Aufgabe messbar besser wurden. medium ist der Kompromiss aus
+   Urteilstiefe und Zeitfenster; die mechanische Reparatur bleibt auf low. */
+const MODEL_REASONING={ plan:"medium", qa:"medium", repair:"low", fill:null };
 /* KOSTEN pro Beitrag (neu gerechnet 30.07.2026 nach dem Opus-5-Upgrade der Urteilsstufen,
    Artikel ~9.000 Zeichen, alle vier Stufen): rund 0,10 USD wenn das Gate beim ersten
    Versuch besteht, rund 0,17 USD im Worst Case mit zwei Repair-Runden (jede Runde zieht
@@ -3525,12 +3538,12 @@ function smLooksTruncated(s){
    auch ohne eigenen Key auf Opus gefahren werden. Erfordert Aenderungen am Szenario.
    ============================================================================ */
 /* Modelle fuer den MAKE-Pfad: hier zaehlt Geschwindigkeit, weil das Antwortfenster des
-   Webhooks begrenzt ist (siehe MAKE_TIMEOUT_HINWEIS). Opus mit Thinking reisst es.
-   Nur Rollen eintragen, die abweichen sollen — alles andere faellt auf MODELS zurueck. */
-const MODELS_FOR_MAKE={
-  plan: "anthropic/claude-sonnet-5",
-  qa:   "anthropic/claude-sonnet-5"
-};
+   Webhooks begrenzt ist (siehe MAKE_TIMEOUT_HINWEIS). Nur Rollen eintragen, die abweichen
+   sollen — alles andere faellt auf MODELS zurueck.
+   Stand 30.07.2026 LEER, weil MODELS ohnehin komplett auf Sonnet 5 steht. Die Tabelle
+   bleibt als Schalter bestehen: wer testweise ein langsameres/staerkeres Modell in MODELS
+   eintraegt, kann hier gezielt den Make-Pfad davon ausnehmen. */
+const MODELS_FOR_MAKE={};
 /* Bequemer Aufruf fuer die QA-Stufen: waehlt Modell + Reasoning anhand der Rolle
    UND anhand des Pfads (direct = volle Qualitaet, make = schnell genug fuers Zeitfenster). */
 async function orChatFor(role, messages, extra){
@@ -5264,6 +5277,20 @@ async function ensureHeadSub(out, article){
   try{
     var head=out.head||"", sub=out.sub||"";
     if(!head && !sub) return {changed:false};
+    /* VORPRUEFUNG (Latenz-Fix 30.07.2026): Der deterministische Check smHeadSubIssue()
+       findet genau die Faelle, um die es Yuki ging (kontextloses Sub-Fragment, Vergleich
+       ohne Bezugswort, Sub beginnt mit Bindewort) — und zwar in Millisekunden ohne
+       LLM-Aufruf. Nur wenn er anschlaegt ODER ein Feld zu lang ist, lohnt der KI-Aufruf.
+       Vorher lief er IMMER, also auch bei einwandfreien Titelzeilen: ein Aufruf pro Post
+       umsonst. Die Garantie bleibt erhalten, weil die Heuristik strenger ist als das
+       Modell und im Zweifel anschlaegt. */
+    var _issue=""; try{ _issue=smHeadSubIssue(head,sub)||""; }catch(_){ _issue="pruefung_fehlgeschlagen"; }
+    var _zuLang=(head.length>FINNET_LIMITS.head)||(sub.length>FINNET_LIMITS.sub);
+    if(!_issue && !_zuLang){
+      try{ window._smHeadSubSkipped=true; }catch(_){}
+      return {changed:false, skipped:true};
+    }
+    try{ window._smHeadSubSkipped=false; }catch(_){}
     var sys="Du bist Chef vom Dienst bei finanzen.net und pruefst die Titelzeilen einer Social-Grafik. "+
       "Du bekommst HEAD und SUB plus den ARTIKEL. Kriterium: Ein fremder Leser sieht NUR Head und Sub — "+
       "kein Artikel, kein Bild. Versteht er daraus Thema/Akteur UND die Kernaussage? Die Sub darf KEIN "+
@@ -5409,12 +5436,25 @@ async function ensureLength(out){
         "keine Kaufempfehlung. Antworte NUR mit reinem JSON: {\"items\":[{\"k\":\"...\",\"i\":<nur bei bullets>,\"text\":\"...\"}]}.";
       var res=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:items}]));
       if(!(res&&Array.isArray(res.items))) break;
+      /* LEERLAUF-BREMSE (Latenz-Fix 30.07.2026): Zaehlen, ob diese Runde WIRKLICH etwas
+         geaendert hat. Vorher wurde blind "changed=true" gesetzt und weitergeschleift —
+         liefert das Modell ein leeres items-Array oder nur identische Texte (kommt vor,
+         wenn es das Feld fuer gut genug haelt), drehte die Schleife trotzdem alle 4 Runden
+         durch: vier LLM-Aufrufe ohne jede Wirkung, rund 15 Sekunden pro Post verschenkt.
+         Jetzt wird abgebrochen, sobald eine Runde nichts mehr bewegt. */
+      var _wirksam=0;
       res.items.forEach(function(it){ if(!it||typeof it.text!=="string") return; var txt=it.text.trim();
+        if(!txt) return;
         var key=it.k+(it.k==="bullets"&&typeof it.i==="number"?("["+it.i+"]"):"");
+        var _alt=(it.k==="bullets" && typeof it.i==="number" && Array.isArray(out.bullets))
+                 ? (out.bullets[it.i]||"") : (typeof out[it.k]==="string" ? out[it.k] : null);
+        if(_alt===null || txt===_alt) return;          /* unbekanntes Feld oder unveraendert */
         if(logMap[key]){ logMap[key].repaired=txt; }
         if(it.k==="bullets" && typeof it.i==="number" && Array.isArray(out.bullets)) out.bullets[it.i]=txt;
-        else if(typeof out[it.k]==="string") out[it.k]=txt;
+        else out[it.k]=txt;
+        _wirksam++;
       });
+      if(!_wirksam) break;                              /* Runde war wirkungslos -> aufhoeren */
       changed=true;
     }
     /* Finaler Feld-Status (KEIN Trim mehr): pro Feld final + validation eintragen. */
@@ -5806,9 +5846,14 @@ async function smRepairLength(obj, guardResult, opts){
   var todo=marked.slice();
   var kontrolle=false;
   if(!todo.length){
-    /* Kontroll-Pass: nur Felder nah am Limit, nicht alle anfassen. */
+    /* Kontroll-Pass: nur Felder SEHR nah am Limit, nicht alle anfassen.
+       Schwelle 30.07.2026 von 0.9 auf 0.97 angehoben (Latenz-Optimierung): Bei 0.9 lief
+       dieser Zusatz-Aufruf fast immer mit, obwohl die Felder voellig in Ordnung waren —
+       ein Feld mit 91 Prozent Auslastung ist nicht das Problem, das diese Stufe loesen
+       soll. Ueberlaenge selbst wird ohnehin von Stufe 2 hart erkannt und landet in
+       "marked". Der Kontroll-Pass ist nur noch fuer echte Grenzfaelle da. */
     fields.forEach(function(f){
-      if(f.limit && smStripBold(f.text).length>=f.limit*0.9) todo.push({ key:f.key, text:f.text, limit:f.limit, flags:["nah_am_limit"] });
+      if(f.limit && smStripBold(f.text).length>=f.limit*0.97) todo.push({ key:f.key, text:f.text, limit:f.limit, flags:["nah_am_limit"] });
     });
     kontrolle=true;
   }
