@@ -3400,6 +3400,18 @@ async function orChat(messages, extra){
        nicht als unterstuetzt (geprueft 28.07.2026). Ein Durchreichen kann zum Fehler fuehren
        oder still ignoriert werden — beides unerwuenscht, daher hier zentral filtern. */
     delete body.temperature; delete body.top_p; delete body.top_k;
+    /* max_tokens EXPLIZIT setzen (Bugfix 30.07.2026, Ursache fuer "Antwort war zu lang").
+       Vorher stand hier nichts — es galt der Default des jeweiligen Anbieters, und der liegt
+       teils deutlich unter dem Bedarf. Das eigentliche Problem: Sonnet 5 und Opus 5 haben
+       Adaptive Thinking, und DENK-TOKEN GEHEN VOM SELBEN BUDGET AB wie die Antwort. Ein an
+       sich ausreichendes Budget kann also allein durchs Nachdenken aufgebraucht sein — die
+       Antwort bricht dann mitten im JSON ab (finish_reason "length") und der Lean-Retry
+       greift, obwohl der Text voellig normal lang ist.
+       Rechnung: groesstes Template (zero_azf_carousel, 20 Felder) plus Captions ergibt rund
+       6.800 Zeichen, also grob 2.300 Ausgabe-Token. 32.000 lassen daher sehr viel Luft fuer
+       Denk-Token. Berechnet wird nur, was tatsaechlich erzeugt wird — ein hohes Limit kostet
+       nichts, es verhindert nur den Abbruch. Beide Modelle erlauben bis 128.000. */
+    if(body.max_tokens===undefined) body.max_tokens=32000;
     const r=await fetch("https://openrouter.ai/api/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+_orKey},body:JSON.stringify(body)});
     let d={}; try{ d=await r.json(); }catch(e){}
     if(d.error) throw new Error(d.error.message||"Fehler");
@@ -4030,10 +4042,13 @@ async function extractSM(txt,opts){
   const _leanHint=" KURZFASSUNG (Wiederholversuch, weil die vorige Antwort zu lang war): Halte "+
     "alle Texte so knapp wie moeglich, aber vollstaendig. Captions deutlich kuerzer als sonst "+
     "(Instagram max. 700 Zeichen, LinkedIn max. 900). Antworte kompakt, ohne Zeilenumbrueche im JSON.";
+  /* MELDUNGS-TEXTE (praezisiert 30.07.2026): "Antwort war zu lang" wurde von Christian als
+     irrefuehrend beanstandet — es klang wie die normale Laengen-Reparatur (Stufe 3), gemeint
+     ist aber ein TECHNISCHER Abbruch der Modell-Antwort. Jetzt eindeutig benannt. */
   const _fillZ=await smFillWithRetry(function(lean){ return lean?(sys+_leanHint):sys; }, _userMsg,
-    function(){ try{ toast("Antwort war zu lang — zweiter Versuch mit kompakterem Umfang …",5000); }catch(e){} });
+    function(){ try{ toast("Die Antwort des Modells brach technisch ab (Token-Limit) — zweiter Versuch mit kompakterem Schema …",5000); }catch(e){} });
   const out=_fillZ.out;
-  if(_fillZ.lean){ try{ toast("Mit kompakterem Umfang befüllt. Für volle Länge in Make Route 33 max_tokens erhöhen.",7000); }catch(e){} }
+  if(_fillZ.lean){ try{ toast("Achtung: mit reduziertem Schema befüllt — Captions sind kürzer als normal. Bitte Texte prüfen.",8000); }catch(e){} }
   smTpl.fields.forEach(f=>{
     if(out[f.k]===undefined||out[f.k]===null) return;
     let v=""+out[f.k];
@@ -6317,10 +6332,11 @@ extractSocial = async function(txt, xopts){
   };   /* Ende _buildSys */
   /* Befuellung mit automatischem Wiederholversuch bei abgeschnittener Antwort. */
   var _fill=await smFillWithRetry(_buildSys, txt.slice(0,SM_ARTICLE_WINDOW), function(){
-    try{ toast("Antwort war zu lang — zweiter Versuch mit kompakterem Umfang …",5000); }catch(e){}
+    /* Formulierung wie im zero-Pfad: technischer Abbruch, NICHT die Laengen-Reparatur. */
+    try{ toast("Die Antwort des Modells brach technisch ab (Token-Limit) — zweiter Versuch mit kompakterem Schema …",5000); }catch(e){}
   });
   var out=_fill.out;
-  if(_fill.lean){ try{ toast("Mit kompakterem Umfang befüllt. Für volle Länge in Make Route 33 max_tokens erhöhen.",7000); }catch(e){} }
+  if(_fill.lean){ try{ toast("Achtung: mit reduziertem Schema befüllt — Captions sind kürzer als normal. Bitte Texte prüfen.",8000); }catch(e){} }
   if(out.head) $id("fHead").value=out.head;
   if(out.sub) $id("fSub").value=out.sub;
   // Zeichengrenze pro Bullet: nur bei extremer Ueberlaenge greifen und dann SAUBER am letzten
