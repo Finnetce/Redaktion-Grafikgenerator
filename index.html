@@ -8183,38 +8183,54 @@ QN_RENDER.quicknews=function(x, W, H, slide){
   const M=Math.round(W*0.066);
   const ink=dark?"#ffffff":"#0b0b0f";
   const mut=dark?"rgba(255,255,255,0.62)":"rgba(11,11,15,0.55)";
+  /* ===== THEME-FARBEN zentral (Light-Referenz Christian 30.07.2026) =====
+     Kernunterschied: Im LIGHT-Modus stehen die Texte NICHT auf einem pinken Vollkreis,
+     sondern auf hellem Grund. Deshalb pinke Headline, dunkle Body-Texte, dunkle Bullets,
+     heller Ticker mit dunkler Schrift. Der DARK-Modus (Bordeaux + weisse Schrift auf pinkem
+     Kreis) bleibt exakt wie zuvor — jede Farbe haengt an derselben dark-Weiche. */
+  const headCol  = dark?"#ffffff":QN_PINK;                          /* Headline */
+  const deckCol   = dark?"rgba(255,255,255,0.92)":"rgba(11,11,15,0.78)"; /* Subline */
+  const bodyInk   = dark?"#ffffff":"#0b0b0f";                        /* bhead + Bullet-Text + Punkt */
   /* Hintergrund: Dark = einheitliches Bordeaux #4D0825 (Christian 24.07.2026), Light = weiß */
-  if(dark){ x.fillStyle="#4D0825"; x.fillRect(0,0,W,H); }
-  else { x.fillStyle="#ffffff"; x.fillRect(0,0,W,H); }
-  /* großer pinker Kreis (Hauptbühne) — kleiner + tiefer als vorher, Scheitel bei ~22% H
-     (Christian 24.07.2026, Angleichung an Referenz — vorher zu groß, ragte fast bis zum Header). */
-  x.save();
-  x.beginPath(); x.arc(W*0.42, H*0.68, W*0.585, 0, 7); x.fillStyle=QN_PINK; x.fill();
-  x.restore();
-  /* kleiner Deko-Kreis oben rechts (dunkleres Pink) */
-  x.beginPath(); x.arc(W*0.92, H*0.075, W*0.24, 0, 7); x.fillStyle=dark?"rgba(248,28,125,0.55)":"rgba(248,28,125,0.85)"; x.fill();
+  x.fillStyle=dark?"#4D0825":"#ffffff"; x.fillRect(0,0,W,H);
+  if(dark){
+    /* großer pinker Kreis (Hauptbühne) + kleiner Deko-Kreis oben rechts */
+    x.save(); x.beginPath(); x.arc(W*0.42, H*0.68, W*0.585, 0, 7); x.fillStyle=QN_PINK; x.fill(); x.restore();
+    x.beginPath(); x.arc(W*0.92, H*0.075, W*0.24, 0, 7); x.fillStyle="rgba(248,28,125,0.55)"; x.fill();
+  } else {
+    /* Light: KEIN Vollkreis, sondern zarte blassrosa Deko-Formen (Referenz) + dezenter Rand. */
+    x.save();
+    x.beginPath(); x.arc(W*0.88, H*0.72, W*0.50, 0, 7); x.fillStyle="rgba(248,28,125,0.07)"; x.fill();
+    x.beginPath(); x.arc(W*0.92, H*0.085, W*0.30, 0, 7); x.fillStyle="rgba(248,28,125,0.06)"; x.fill();
+    x.restore();
+    var _bw=Math.max(2, W*0.004);
+    x.strokeStyle="rgba(248,28,125,0.55)"; x.lineWidth=_bw;
+    x.strokeRect(_bw/2, _bw/2, W-_bw, H-_bw);
+  }
 
-  /* Header: Glühbirnen-Icon (weißer Kreis, pinke Birne) + Quick News */
+  /* Header: Glühbirnen-Icon. Light = pinker Kreis + weisse Birne (Referenz),
+     Dark = weisser Kreis + pinke Birne (auf Bordeaux). */
   const hy=M+W*0.045, ir=W*0.052;
-  qnHeaderIcon(x, M+ir, hy, ir, "bulb", "#ffffff", QN_PINK);
+  if(dark) qnHeaderIcon(x, M+ir, hy, ir, "bulb", "#ffffff", QN_PINK);
+  else     qnHeaderIcon(x, M+ir, hy, ir, "bulb", QN_PINK, "#ffffff");
   x.textAlign="left"; x.textBaseline="middle";
   x.font="800 "+(W*0.050)+"px "+BRAND.font; x.fillStyle=ink;
   x.fillText("Quick News", M+ir*2+W*0.028, hy);
-  /* zero-Logo oben rechts (weiß auf Kreis) */
-  qnDrawZeroLogo(x, W-M, hy, W*0.20, true);
+  /* zero-Logo oben rechts: Dark = weisse Logo-Variante, Light = dunkle/bunte Variante */
+  qnDrawZeroLogo(x, W-M, hy, W*0.20, dark);
   x.textBaseline="alphabetic";
 
-  /* Headline (weiß, auf dem pinken Kreis) */
+  /* Headline (Dark: weiss auf Kreis / Light: pink auf weiss) */
   let y=H*0.30;
   /* Shrink-to-fit statt Kappen (Christian 28.07.2026) */
   const hlFit=smFitLines(x, d.headline||"Headline", W*0.72, 3, W*0.088, "800");
-  x.font="800 "+hlFit.fs+"px "+BRAND.font; x.fillStyle="#ffffff"; x.textAlign="left";
+  x.font="800 "+hlFit.fs+"px "+BRAND.font; x.fillStyle=headCol; x.textAlign="left";
   hlFit.lines.forEach(ln=>{ x.fillText(ln, M, y); y+=hlFit.fs*1.08; });
 
   /* Deck */
   y+=W*0.02;
   const dkFit=smFitLines(x, d.deck||"", W*0.72, 3, W*0.040, "500");
-  x.font="500 "+dkFit.fs+"px "+BRAND.font; x.fillStyle="rgba(255,255,255,0.92)";
+  x.font="500 "+dkFit.fs+"px "+BRAND.font; x.fillStyle=deckCol;
   dkFit.lines.forEach(ln=>{ x.fillText(ln, M, y); y+=dkFit.fs*1.4; });
 
   /* Ticker-Karte etwas höher/größer und mit Sicherheitsabstand zu den Bullets (Yuki 24.07.2026).
@@ -8226,7 +8242,7 @@ QN_RENDER.quicknews=function(x, W, H, slide){
   /* "Was steckt dahinter?" + Bullets — bricht nicht in die Ticker-Karte (Untergrenze bulletsBottom) */
   if((d.bhead||"").trim() || [d.b1,d.b2,d.b3].some(b=>(b||"").trim())){
     y+=W*0.03;
-    x.font="800 "+(W*0.044)+"px "+BRAND.font; x.fillStyle="#ffffff";
+    x.font="800 "+(W*0.044)+"px "+BRAND.font; x.fillStyle=bodyInk;
     x.fillText(d.bhead||"Was steckt dahinter?", M, y); y+=W*0.058;
     const bl=[d.b1,d.b2,d.b3].filter(b=>(b||"").trim());
     /* KEIN stiller Verlust mehr (Befund 28.07.2026): vorher brach ein "return" die Schleife ab,
@@ -8243,19 +8259,28 @@ QN_RENDER.quicknews=function(x, W, H, slide){
            window._smFitOverflow.push({ text:"qnCover-Bullets", lines:bl.length, max:Math.floor(avail/bStep) }); }catch(e){}
     }
     bl.forEach(b=>{
-      x.beginPath(); x.arc(M+W*0.014, y-bFS*0.32, W*0.010, 0, 7); x.fillStyle="#ffffff"; x.fill();
-      x.font="600 "+bFS+"px "+BRAND.font; x.fillStyle="#ffffff";
+      x.beginPath(); x.arc(M+W*0.014, y-bFS*0.32, W*0.010, 0, 7); x.fillStyle=bodyInk; x.fill();
+      x.font="600 "+bFS+"px "+BRAND.font; x.fillStyle=bodyInk;
       x.fillText(smProtect(b), M+W*0.045, y); y+=bStep;
     });
   }
 
   const rad=cardH*0.30;
-  x.fillStyle="rgba(255,255,255,0.16)"; smRound(x, M, cardY, cardW, cardH, rad); x.fill();
-  qnTickerInner(x, M, cardY, cardW, cardH, d, true, "#ffffff");
+  if(dark){
+    /* Dark: halbtransparente weisse Karte auf dem pinken Kreis, weisse Schrift. */
+    x.fillStyle="rgba(255,255,255,0.16)"; smRound(x, M, cardY, cardW, cardH, rad); x.fill();
+    qnTickerInner(x, M, cardY, cardW, cardH, d, true, "#ffffff");
+  } else {
+    /* Light: zartrosa gefuellte Karte mit dezentem Rand, dunkle Schrift (Referenz). */
+    x.fillStyle="#FCE8F1"; smRound(x, M, cardY, cardW, cardH, rad); x.fill();
+    x.strokeStyle="rgba(248,28,125,0.20)"; x.lineWidth=Math.max(1, W*0.0022);
+    smRound(x, M, cardY, cardW, cardH, rad); x.stroke();
+    qnTickerInner(x, M, cardY, cardW, cardH, d, false, "#0b0b0f");
+  }
   /* Optionale Zusatzzeile unter der Kurszeile (z.B. "Vorbörslich"), Yuki 24.07.2026 */
   if(note){
     x.textAlign="left"; x.textBaseline="alphabetic";
-    x.font="600 "+(W*0.032)+"px "+BRAND.font; x.fillStyle="rgba(255,255,255,0.75)";
+    x.font="600 "+(W*0.032)+"px "+BRAND.font; x.fillStyle=dark?"rgba(255,255,255,0.75)":"rgba(11,11,15,0.6)";
     x.fillText(note, M+W*0.006, cardY+cardH+W*0.055);
   }
 };
@@ -8274,7 +8299,9 @@ function qnTickerInner(x, cardX, cardY, cardW, cardH, d, forceLight, forceInk){
   const nameW=x.measureText(d.tkname||"").width;
   x.font="500 "+nameFS+"px "+BRAND.font; x.fillStyle=mut;
   x.fillText("  |  "+(d.tktime||""), tx+nameW, ty);
-  const up=qnUp(d.tkchange), dirCol=up===false?QN_RED:"#8CF0B8";
+  /* Up-Gruen je nach Untergrund: heller Grund (Light, forceLight=false) braucht das satte
+     QN_GREEN, der dunkle Grund (Dark, forceLight=true) das hellere #8CF0B8 fuer Kontrast. */
+  const up=qnUp(d.tkchange), dirCol=up===false?QN_RED:(forceLight?"#8CF0B8":QN_GREEN);
   x.textAlign="right"; let rx=cardX+cardW-pad;
   /* Sauberer diagonaler Pfeil (Christian 24.07.2026: altes krakeliges Artefakt entfernt).
      Schaft von unten-links nach oben-rechts (up) bzw. oben-links nach unten-rechts (down),
