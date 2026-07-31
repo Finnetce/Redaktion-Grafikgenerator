@@ -3323,79 +3323,80 @@ $("brandHome").addEventListener("click",()=>showView("home"));
    Auto-Befüllung: Text -> Felder (via verbundenes KI-Modell)
    ============================================================ */
 /* ============================================================================
-   MODELL-REGISTRY (Christian 28.07.2026, Social-Paket Yuki)
-   EINE Stelle fuer alle Text-Modelle, damit ein Wechsel trivial bleibt.
+   MODELL-REGISTRY — EINE Stelle fuer alle Text-Modelle.
+   Stand 30.07.2026, gegengeprueft an der OpenRouter-Model-API (GET /api/v1/models):
 
-   GEGENGEPRUEFT gegen die OpenRouter-API am 28.07.2026
-   (GET /api/v1/models/anthropic/claude-sonnet-5/endpoints):
-     - Slug "anthropic/claude-sonnet-5" existiert und ist aktiv (Release 20260630)
-     - Kontext 1.000.000 Token, max. 128.000 Output-Token
-     - Preis 2,00 USD/M Input und 10,00 USD/M Output (Google-Vertex-Europe und
-       Bedrock-us-east-1 liegen 10 Prozent hoeher: 2,20 / 11,00)
-     - Prompt-Caching: 0,20 lesen / 2,50 schreiben je M Token
-     - "reasoning" UND "reasoning_effort" werden von allen Endpunkten unterstuetzt
-     - ACHTUNG: "temperature" steht bei KEINEM Sonnet-5-Endpunkt in den
-       supported_parameters. Deshalb setzen wir keine Temperatur mehr — die
-       Determinismus-Vorgabe der Spec wird ueber reasoning_effort + klare
-       Prompt-Regeln erreicht.
-   STAND 30.07.2026: plan/qa laufen inzwischen auf "anthropic/claude-opus-5" (siehe
-   Begruendung direkt an der MODELS-Registry unten). Der frueher hier dokumentierte
-   Fallback Opus 4.8 ist damit ueberholt — Opus 5 kostet dasselbe und ist neuer.
-   ACHTUNG Schreibweise bei Opus-4.x-Slugs: MIT PUNKT ("anthropic/claude-opus-4.8"),
-   die alte Spec nannte faelschlich "claude-opus-4-8". Opus 5 hat keine Nebenversion.
-   reasoning-Stufen wirken nur im Direct-Pfad (OpenRouter direkt); die Make-Route 33
-   reicht das Modell durch, aber kein reasoning-Feld. Make wird NICHT angefasst.
+   AKTIV: "anthropic/claude-sonnet-4.6" fuer alle Stufen.
+     - 1.000.000 Token Kontext, max. 128.000 Output-Token
+     - 3,00 USD/M Input, 15,00 USD/M Output
+     - "reasoning" und "reasoning_effort" werden unterstuetzt (zwingend fuer plan/qa)
+
+   HISTORIE, damit niemand im Kreis laeuft:
+     - 28.07. Sonnet 5 eingefuehrt. 30.07. mittags plan/qa auf Opus 5 — brachte keine
+       besseren Urteile, aber Make-Zeitueberschreitungen, daher zurueckgenommen.
+     - 30.07. abends: komplette 5er-Generation abgewaehlt (Latenz, Timeouts, verbreitete
+       Stabilitaetsberichte). Seither durchgaengig Sonnet 4.6.
+     - "4.8" existiert NUR als Opus, es gibt kein Sonnet 4.8.
+     - Schreibweise der 4.x-Slugs MIT PUNKT ("claude-opus-4.8"); eine aeltere Spec nannte
+       faelschlich "claude-opus-4-8".
+
+   TEMPERATURE: wird zentral in orChat entfernt und NICHT gesetzt. Sonnet 4.6 wuerde den
+   Parameter unterstuetzen, aber Determinismus laeuft bewusst ueber reasoning_effort plus
+   klare Prompt-Regeln — so bleibt der Pfad fuer alle Modelle identisch.
+   MAKE: Route 33 reicht nur model/messages/plugins durch, KEIN reasoning-Feld. Reasoning
+   wirkt daher nur im Direct-Pfad. Make wird nicht angefasst.
    ============================================================================ */
 /* ---------------------------------------------------------------------------
-   MODELL-UPGRADE 30.07.2026 (Christian), gegengepruefft an der OpenRouter-Model-API:
-   Seit 24.07.2026 gibt es "anthropic/claude-opus-5" (1M Kontext, 128k Output).
-   Preis identisch zum bisherigen Fallback Opus 4.8 (5,00 / 25,00 USD pro M Token) —
-   das Upgrade des Fallbacks ist also gratis. Sonnet 5 (30.06.2026) bleibt der
-   aktuellste Sonnet, hier hat sich nichts geaendert.
+   MODELL-ENTSCHEIDUNG (Christian 30.07.2026): WEG VON DER 5er-GENERATION
+   Vorgabe: keine 5er-Modelle mehr (Latenz, Make-Timeouts, breite Berichte ueber
+   Instabilitaet), KEIN Haiku, und nur dort Opus, wo es wirklich noetig ist.
 
-   AUFTEILUNG NACH AUFGABENTYP (bewusste Entscheidung, nicht "ueberall das Teuerste"):
-   - URTEILSSTUFEN auf Opus 5: Stufe 1 waehlt die Story und den Aufhaenger, Stufe 4 ist
-     das Sinn-Gate. Genau hier setzt Yukis Kritik an (roter Faden, staerkster Fakt statt
-     naheliegendster, ohne Vorwissen verstaendlich) — das ist Urteilsvermoegen, kein
-     Handwerk, und rechtfertigt das staerkere Modell.
-   - MECHANISCHE STUFEN auf Sonnet 5: Befuellung nach klarem Schema und die
-     Laengen-Reparatur (Text + Limit rein, kuerzere Formulierung raus) haben kaum
-     Urteilsspielraum. Opus waere hier das Vierfache an Kosten und mehr Latenz,
-     ohne erkennbaren Gewinn.
-   KOSTEN neu: rund 0,10 USD pro Beitrag statt 0,05 (bei 20 Beitraegen/Arbeitstag also
-   grob 60 statt 30 USD im Monat). Zurueckschalten = plan/qa wieder auf Sonnet 5 setzen,
-   eine Zeile pro Stufe, sonst nichts.
-   HINWEIS temperature: Opus 5 unterstuetzt den Parameter (Sonnet 5 nicht). Wir setzen
-   trotzdem KEINE Temperatur — orChat filtert sie zentral heraus, damit beide Modelle
-   denselben Pfad nehmen. Determinismus laeuft ueber reasoning_effort + Prompt-Regeln.
-   --------------------------------------------------------------------------- */
-/* ---------------------------------------------------------------------------
-   ZURUECK AUF SONNET 5 (Christian 30.07.2026, Entscheidung nach Laufzeit-Messung)
-   Opus 5 mit effort "high" war fuer die Urteilsstufen qualitativ reizvoll, hat aber die
-   Gesamtdauer pro Post so weit hochgezogen, dass Make in die Zeitueberschreitung lief.
-   Pro Post laufen 4 (zero) bis 7 (finnet) LLM-Aufrufe SEQUENZIELL — die Latenz jeder
-   einzelnen Stufe addiert sich, ein langsames Modell wirkt also mehrfach.
-   Entscheidung: alle Stufen auf Sonnet 5. Die Qualitaet wird NICHT ueber ein teureres
-   Modell geholt, sondern ueber die Prompts (Yuki-Rubrik) und die vier Stufen selbst —
-   die bleiben inhaltlich unangetastet. Opus-Slug siehe unten, falls je wieder gebraucht.
+   ERGEBNIS: Sonnet 4.6 fuer ALLE Stufen. Opus wird nirgends gebraucht — Begruendung:
+   Die Qualitaet dieser Pipeline entsteht NICHT aus Modellstaerke, sondern aus der
+   Architektur: vier getrennte Stufen, die Yuki-Rubrik als explizite Checkliste, harte
+   deterministische Guards und ein Repair-Loop. Jede Stufe hat eine klar umrissene,
+   eng gefuehrte Aufgabe mit vorgegebenem JSON-Schema. Genau bei solchen Aufgaben liegt
+   Sonnet praktisch auf Opus-Niveau, ist aber deutlich schneller. Opus lohnt bei offenen,
+   schlecht spezifizierten Problemen — die gibt es hier nicht.
+   Gegenprobe aus der Praxis: Der Opus-5-Versuch am Mittag brachte keine sichtbar besseren
+   Urteile, aber Make-Zeitueberschreitungen.
+
+   WARUM 4.6 UND NICHT 4.8: "4.8" existiert ausschliesslich als OPUS (an der OpenRouter-API
+   geprueft, 30.07.2026) — ein Sonnet 4.8 gibt es nicht. Sonnet 4.6 ist der aktuellste
+   Sonnet der 4er-Reihe, kann reasoning_effort (zwingend fuer plan/qa), 1M Kontext,
+   128k Output, 3/15 USD je Mio Token.
+
+   WARUM KEIN HAIKU (Vorgabe Christian): Haiku kann kein reasoning_effort und ist die
+   schwaechste Klasse. Auch die "mechanischen" Stufen tragen Qualitaet — die
+   Laengen-Reparatur formuliert Yukis Texte um, das Grounding schuetzt vor falschen Zahlen.
+   Dort zu sparen waere am falschen Ende.
+
+   REASONING: plan/qa auf "medium" (Urteilsstufen brauchen Denktiefe, "high" kostet viel
+   Zeit ohne besseres Ergebnis). Alle uebrigen Stufen ohne reasoning — sie fuehren eine
+   klar definierte Anweisung aus, da bringt Nachdenken nur Latenz.
    --------------------------------------------------------------------------- */
 const MODELS={
-  fill:   "anthropic/claude-sonnet-5",   /* Feldbefuellung + Template-/Chart-/Sankey-Extraktion */
-  plan:   "anthropic/claude-sonnet-5",   /* Stufe 1: Story-Auswahl + Slide-Rollen (Urteil) */
-  repair: "anthropic/claude-sonnet-5",   /* Stufe 3: Laengen-/Formulierungs-Reparatur */
-  qa:     "anthropic/claude-sonnet-5"    /* Stufe 4: Qualitaets- und Sinn-Gate (Urteil) */
+  fill:      "anthropic/claude-sonnet-4.6",  /* Feldbefuellung — die eigentliche Textqualitaet */
+  plan:      "anthropic/claude-sonnet-4.6",  /* Stufe 1: Story-Auswahl + Slide-Rollen (Urteil) */
+  qa:        "anthropic/claude-sonnet-4.6",  /* Stufe 4: Qualitaets- und Sinn-Gate (Urteil) */
+  repair:    "anthropic/claude-sonnet-4.6",  /* Stufe 3: Laengen-/Formulierungs-Reparatur */
+  pick:      "anthropic/claude-sonnet-4.6",  /* Template-/Format-Wahl */
+  headsub:   "anthropic/claude-sonnet-4.6",  /* Head+Sub-Garantie (Yuki 16.07.) */
+  grounding: "anthropic/claude-sonnet-4.6"   /* Zahlen-/Namen-Abgleich gegen den Artikel */
 };
-/* Reasoning-Aufwand pro Aufgabe. Urteilsstufen auf "medium" statt "high": high erzeugt so
-   viele Denk-Token, dass die Stufe sichtbar langsamer wird, ohne dass die Urteile bei dieser
-   klar umrissenen Rubrik-Aufgabe messbar besser wurden. medium ist der Kompromiss aus
-   Urteilstiefe und Zeitfenster; die mechanische Reparatur bleibt auf low. */
-const MODEL_REASONING={ plan:"medium", qa:"medium", repair:"low", fill:null };
-/* KOSTEN pro Beitrag (neu gerechnet 30.07.2026 nach dem Opus-5-Upgrade der Urteilsstufen,
-   Artikel ~9.000 Zeichen, alle vier Stufen): rund 0,10 USD wenn das Gate beim ersten
-   Versuch besteht, rund 0,17 USD im Worst Case mit zwei Repair-Runden (jede Runde zieht
-   Stufe 4 auf Opus erneut). Bei 20 Beitraegen pro Arbeitstag entspricht das etwa 44 bis
-   75 USD im Monat. Vorher, mit Sonnet 5 auf allen vier Stufen: 0,05 bis 0,08 USD bzw.
-   22 bis 34 USD im Monat. Wer sparen muss, setzt plan/qa zurueck auf Sonnet 5. */
+/* Reasoning nur bei den Urteilsstufen. Sonnet 4.6 unterstuetzt reasoning_effort (geprueft).
+   Die ausfuehrenden Stufen laufen ohne — das ist der groesste Latenz-Hebel, den es ohne
+   Qualitaetsverlust gibt: sie folgen einer festen Anweisung, nicht einem Urteil. */
+const MODEL_REASONING={
+  plan:"medium", qa:"medium",
+  fill:null, repair:null, pick:null, headsub:null, grounding:null
+};
+/* KOSTEN pro Beitrag (Stand 30.07.2026, Sonnet 4.6 auf allen Stufen, Artikel ~9.000
+   Zeichen): rund 0,07 USD wenn das Gate beim ersten Versuch besteht, rund 0,12 USD im
+   Worst Case mit zwei Repair-Runden. Bei 20 Beitraegen pro Arbeitstag etwa 31 bis 53 USD
+   im Monat. Sonnet 4.6 kostet 3/15 USD je Mio Token, also 50 Prozent mehr als Sonnet 5
+   (2/10) und 40 Prozent weniger als Opus (5/25). Der Aufpreis gegenueber der 5er-Reihe
+   ist der Preis fuer die Stabilitaet — bewusste Entscheidung. */
 const TEXT_MODEL=MODELS.fill;
 /* orChat(messages, extra) — extra.model ueberschreibt das Modell, extra.reasoning die Stufe.
    Beides wird vor dem Request aus dem Body entfernt bzw. korrekt gesetzt, damit OpenRouter
@@ -3524,14 +3525,13 @@ function smLooksTruncated(s){
    "plugins" durch. Ein reasoning-Feld aus dem Frontend kommt dort NIE an. Die
    Drosselung in orChatFor wirkt daher NUR im Direct-Pfad; im Make-Pfad laeuft Opus
    mit seinem Default-Thinking weiter. Deshalb ist die eigentliche Massnahme:
-   im Make-Pfad fuer die Urteilsstufen das SCHNELLERE MODELL nehmen (Sonnet 5),
-   weil das Modell das Einzige ist, was Make ueberhaupt uebernimmt. Siehe
-   MODELS_FOR_MAKE / modelForRole.
+   im Make-Pfad ein schnelleres MODELL zu nehmen, weil das Modell das Einzige ist, was
+   Make ueberhaupt uebernimmt. Siehe MODELS_FOR_MAKE.
 
-   FOLGE FUER DIE REDAKTEURE: Ohne eigenen API-Key laufen die Urteilsstufen auf
-   Sonnet 5 (schnell, Stand vor dem 30.07.). Mit eigenem Key laufen sie auf Opus 5
-   mit effort "high" — volle Qualitaet, kein Zeitfenster. Der Key ist damit ein
-   echter Qualitaetsschalter, nicht nur Bequemlichkeit.
+   STAND 30.07.2026 abends: nicht mehr noetig, weil alle Stufen auf Sonnet 4.6 laufen und
+   die ausfuehrenden Stufen ohne reasoning arbeiten. MODELS_FOR_MAKE ist daher leer.
+   Wer testweise ein langsames Modell in MODELS eintraegt, sollte den Make-Pfad dort
+   gezielt ausnehmen — sonst drohen wieder Zeitueberschreitungen.
 
    SAUBERE LOESUNG (offen, braucht Make-Umbau, bewusst nicht jetzt): Webhook sofort
    mit einer Job-ID antworten lassen und das Ergebnis asynchron abholen. Dann koennte
@@ -3910,7 +3910,8 @@ async function smPickTemplate(txt){
       "Unternehmens mit Kennzahlen (auch Insider-Transaktionen) -> tfam_snapshot. "+
       "Format: 4:5 ist Standard (Feed), 9:16 nur wenn explizit Story gewünscht."
     : "Du bist Social-Media-Redakteur bei finanzen.net zero (deutscher Neobroker). Wähle für den Artikel das am besten passende Grafik-Template und das beste Format. Antworte NUR mit reinem JSON: {\"template_id\":\"...\",\"format\":\"...\",\"begruendung\":\"max 90 Zeichen, deutsch\"}. Verfügbare Templates: "+list+". Regeln: Quartalszahlen/Earnings-Meldung einer Aktie -> zero_qn_earnings. Wochenrückblick mit Top- und Flop-Werten/Ranking -> zero_topperformer. Mehrteilige Story/Analyse-Thema (Karussell) -> zero_azf_carousel. Format: 4:5 ist Standard (Feed), 9:16 nur wenn explizit Story gewünscht.";
-  const out=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:txt.slice(0,6000)}]));
+  /* Rolle "pick": regelbasierte Template-Wahl, braucht kein Urteilsmodell (Latenz-Fix 30.07.). */
+  const out=parseJSON(await orChatFor("pick",[{role:"system",content:sys},{role:"user",content:txt.slice(0,6000)}]));
   return out;
 }
 
@@ -5395,7 +5396,8 @@ async function ensureHeadSub(out, article){
       "Stil und Laenge beibehalten, keine Kaufempfehlung. Antworte NUR mit reinem JSON: "+
       "{\"ok\":true/false,\"head\":\"...\",\"sub\":\"...\",\"grund\":\"kurz, falls geaendert\"}";
     var user="ARTIKEL:\n"+(""+(article||"")).slice(0,6000)+"\n\nHEAD: "+head+"\nSUB: "+sub;
-    var res=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:user}]));
+    /* Rolle "headsub": Pruefung gegen eine klar formulierte Checkliste, kein Urteil (30.07.). */
+    var res=parseJSON(await orChatFor("headsub",[{role:"system",content:sys},{role:"user",content:user}]));
     if(res && res.ok===false && (res.head||res.sub)){
       if(res.head) out.head=res.head;
       if(res.sub) out.sub=res.sub;
@@ -5529,7 +5531,8 @@ async function ensureLength(out){
         "NIEMALS mit einem Binde-/Funktionswort (zu, und, oder, der, mit, nicht, konnte ...) oder Komma enden. "+
         "Lieber ein Detail weglassen als unvollstaendig werden. Kernaussage/Fakten erhalten, Umlaute korrekt, "+
         "keine Kaufempfehlung. Antworte NUR mit reinem JSON: {\"items\":[{\"k\":\"...\",\"i\":<nur bei bullets>,\"text\":\"...\"}]}.";
-      var res=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:items}]));
+      /* Rolle "repair": Feld auf Zeichenlimit neu formulieren, rein mechanisch (30.07.). */
+      var res=parseJSON(await orChatFor("repair",[{role:"system",content:sys},{role:"user",content:items}]));
       if(!(res&&Array.isArray(res.items))) break;
       /* LEERLAUF-BREMSE (Latenz-Fix 30.07.2026): Zaehlen, ob diese Runde WIRKLICH etwas
          geaendert hat. Vorher wurde blind "changed=true" gesetzt und weitergeschleift —
@@ -5570,7 +5573,8 @@ async function groundingVerify(out, article){
   const fields={head:out.head||"",sub:out.sub||"",bullets:out.bullets||[],close:out.close||"",closeHead:out.closeHead||"",infoHead:out.infoHead||"",intro:out.intro||"",infoBullet:out.infoBullet||"",box:out.box||""};
   const sys="Du bist ein strenger Fakten-Pruefer. Du bekommst einen ARTIKEL und generierte FELDER. Deine EINZIGE Aufgabe: pruefe jede Behauptung, Zahl, jeden Namen und Vergleich in den Feldern gegen den Artikel. Nutze KEIN eigenes Wissen — nur den Artikel. Ist etwas nicht woertlich oder sinngemaess durch den Artikel gedeckt (z.B. ein Vergleich mit einer Firma, die im Artikel nicht vorkommt), korrigiere das Feld: streiche die ungedeckte Aussage ersatzlos oder ersetze sie durch einen belegten Fakt aus dem Artikel. Behalte Stil und Laenge bei. Antworte NUR mit reinem JSON: {\"changed\":true/false,\"fields\":{...alle Felder in gleicher Struktur zurueck...},\"korrekturen\":[\"kurze Notiz je Korrektur\"]}";
   const user="ARTIKEL:\n"+article.slice(0,8000)+"\n\nFELDER:\n"+JSON.stringify(fields);
-  const res=parseJSON(await orChat([{role:"system",content:sys},{role:"user",content:user}]));
+  /* Rolle "grounding": Zahlen/Namen gegen den Artikel abgleichen — Vergleichsarbeit (30.07.). */
+  const res=parseJSON(await orChatFor("grounding",[{role:"system",content:sys},{role:"user",content:user}]));
   if(res && res.changed && res.fields){
     ["head","sub","close","closeHead","infoHead","intro","infoBullet","box"].forEach(k=>{ if(typeof res.fields[k]==="string") out[k]=res.fields[k]; });
     if(Array.isArray(res.fields.bullets)) out.bullets=res.fields.bullets;
